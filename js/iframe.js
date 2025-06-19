@@ -250,8 +250,8 @@ const getEmbedded = async () => {
       ...jsonDataItem,
     }));
 
-    console.error("jsonData", jsonData);
-    console.error("formatItems", formatItems);
+    // console.error("jsonData", jsonData);
+    // console.error("formatItems", formatItems);
 
     const formatData = {
       Item: formatItems,
@@ -544,11 +544,11 @@ const fetchCoupon = async () => {
     options
   );
   const responseData = await response.json();
-  console.log('responseData', responseData)
+  // console.log('responseData', responseData)
   const currentData = responseData.find(item => item.Module === 'Personalized_Landing_Widget');
-  console.log('currentData', currentData)
+  // console.log('currentData', currentData)
   const data = currentData?.ConfigData?.Discount_Info;
-  console.log('data-----',data);
+  // console.log('data-----',data);
   if (data && data.length > 0) {
     $("#intro-coupon-modal__content-coupons").html(
       data
