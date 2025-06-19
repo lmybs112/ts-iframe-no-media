@@ -1169,11 +1169,6 @@ const fetchData = async () => {
                                     <p>${Route_in_frame[target][rr].Name.S}</p>
                                 </div>
                             </div>
-                          <div class="axd_selection axd_tag">
-                                <div class="axd_tag_inner c-${target} tagId-${Route_in_frame[target][rr].Tag.S}">
-                                    <p>${Route_in_frame[target][rr].Name.S}</p>
-                                </div>
-                            </div>
                         `);
         }
         bind();
