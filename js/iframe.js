@@ -899,11 +899,14 @@ function startTypewriterEffect(containerRoute) {
           
           const tagGroupElements = document.querySelector(`#container-${targetRoute} .swiper-slide`);
           const bigSize = window.matchMedia("(min-width: 480px)");
-          if(bigSize.matches){
-            tagGroupElements.style.maxHeight = `calc(480px - 87px - 87px - ${totalHeight}px)`;
-          }else{
-            tagGroupElements.style.maxHeight = `calc(350px - 57px - 57px - ${totalHeight}px)`;
+          if(tagGroupElements){
+            if(bigSize.matches){
+              tagGroupElements.style.maxHeight = `calc(480px - 87px - 87px - ${totalHeight}px)`;
+            }else{
+              tagGroupElements.style.maxHeight = `calc(350px - 57px - 57px - ${totalHeight}px)`;
+            }
           }
+ 
           
           // 然後讓標籤按順序依序淡入
           const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
