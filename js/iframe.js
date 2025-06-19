@@ -943,11 +943,13 @@ const fetchData = async () => {
       );
       $(`#container-${r.replaceAll(" ","")}`).find(`.swiper-container-${r.replaceAll(" ","")}`).prepend(`
           <p class="tag-desc-container typewriter typewriter-${r.replaceAll(" ", "")}" data-content="${
-                              formatTagGroupMap?.[r] ??
-                              (Array.isArray(Route_in_frame?.[r]) &&
-                              Route_in_frame[r].length > 0
-                                ? Route_in_frame[r][0]?.Description?.S ?? ""
-                                : "")
+            formatTagGroupMap?.[r] && formatTagGroupMap[r] !== ""
+            ? formatTagGroupMap[r]
+            : (
+                Array.isArray(Route_in_frame?.[r]) && Route_in_frame[r].length > 0
+                  ? (Route_in_frame[r][0]?.Description?.S?.trim() ? Route_in_frame[r][0].Description.S : r)
+                  : ""
+              )
      }"></p>`)
 
       //first route hide type_backarrow
