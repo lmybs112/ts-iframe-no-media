@@ -3,6 +3,7 @@ var Route = "";
 var Brand = "";
 var SpecifyTags = [];
 var SpecifyKeywords = [];
+var themeBackgroundImages = [];
 var tags_chosen = {};
 let startX, endX;
 let current_route_path;
@@ -992,6 +993,24 @@ const fetchData = async () => {
     all_Route = obj.Product["TagGroups_order"] || [];
     SpecifyTags = obj.Product["SpecifyTags"] || [];
     SpecifyKeywords = obj.Product["SpecifyKeywords"] || [];
+    themeBackgroundImages = ['https://images.unsplash.com/photo-1743630738181-b0e26c76c74c?q=80&w=760&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D','https://images.unsplash.com/photo-1606335567422-09b986cc47bb?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D','https://plus.unsplash.com/premium_photo-1664301332055-8792841f3dc7?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 'https://images.unsplash.com/photo-1630945386735-372fbe731e3f?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 'https://images.unsplash.com/photo-1593504197189-c0dafb6f2e92?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?q=80&w=1548&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D']
+
+    const themeBackgroundImagesMap = (() => {
+      const product = obj?.Product;
+      const order = Array.isArray(product?.TagGroups_order)
+        ? product.TagGroups_order
+        : [];
+      const backgroundImages = Array.isArray(themeBackgroundImages)
+        ? themeBackgroundImages
+        : [];
+      return order.reduce((map, key, index) => {
+        if (backgroundImages[index] != null) {
+          // 排除 undefined 或 null
+          map[key] = backgroundImages[index];
+        }
+        return map;
+      }, {});
+    })();
     const formatTagGroupMap = (() => {
       const product = obj?.Product;
       const order = Array.isArray(product?.TagGroups_order)
@@ -1125,7 +1144,7 @@ const fetchData = async () => {
                   : ""
               )
      }"></p>`)
-
+     $(`#container-${r.replaceAll(" ","")}`).css({backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${themeBackgroundImagesMap[r]})`});
       //first route hide type_backarrow
       if (r === all_Route[0]) {
         // document.getElementById(
