@@ -774,28 +774,202 @@ function startTypewriterEffect(containerRoute) {
       }
     }
     
+    // 按順序淡入標籤的函數
+    function fadeInTagsSequentially(tagElements, delay = 200) {
+      return new Promise((resolve) => {
+        if (tagElements.length === 0) {
+          resolve();
+          return;
+        }
+        
+        // 獲取選項容器
+        const optionsContainer = document.querySelector(`#container-${targetRoute} .axd_selections.selection`);
+        
+        let index = 0;
+        function fadeInNext() {
+          if (index < tagElements.length) {
+            const currentTag = tagElements[index];
+            currentTag.classList.add('tag-fade-in');
+            
+            // 自動滾動到當前標籤
+            if (optionsContainer && currentTag) {
+              // 等待標籤完全顯示後再滾動
+              setTimeout(() => {
+                // 計算當前標籤在容器中的位置
+                const tagRect = currentTag.getBoundingClientRect();
+                const containerRect = optionsContainer.getBoundingClientRect();
+                
+                // 檢查標籤是否在可視區域內
+                const isTagVisible = (
+                  tagRect.top >= containerRect.top &&
+                  tagRect.bottom <= containerRect.bottom
+                );
+                
+                if (!isTagVisible) {
+                  // 滾動到標籤位置
+                  const tagOffsetTop = currentTag.offsetTop;
+                  const containerHeight = optionsContainer.clientHeight;
+                  const tagHeight = currentTag.offsetHeight;
+                  
+                  // 計算滾動位置，確保標籤在可視區域內
+                  let scrollPosition;
+                  
+                  if (tagRect.bottom > containerRect.bottom) {
+                    // 標籤在下方，向下滾動
+                    scrollPosition = tagOffsetTop - containerHeight + tagHeight + 10; // 留10px邊距
+                  } else if (tagRect.top < containerRect.top) {
+                    // 標籤在上方，向上滾動
+                    scrollPosition = tagOffsetTop - 10; // 留10px邊距
+                  }
+                  
+                  if (scrollPosition !== undefined) {
+                    optionsContainer.scrollTo({
+                      top: Math.max(0, scrollPosition),
+                      behavior: 'smooth'
+                    });
+                  }
+                }
+              }, 100); // 等待100ms讓標籤完全顯示
+            }
+            
+            index++;
+            setTimeout(fadeInNext, delay);
+          } else {
+            resolve();
+          }
+        }
+        fadeInNext();
+      });
+    }
+    
+    // 檢查是否需要滾動的函數
+    function checkAndScrollIfNeeded() {
+      if (typewriterContainer.scrollHeight > typewriterContainer.clientHeight) {
+        // 如果內容超出容器高度，滾動到底部
+        typewriterContainer.scrollTop = typewriterContainer.scrollHeight - typewriterContainer.clientHeight;
+      }
+    }
+    
     // 確保有內容才啟動打字效果
     if (content && content.trim() !== '' && content !== 'undefined') {
+      // 重置所有標籤狀態
+      const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
+      const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
+      
+      swiperSlides.forEach(slide => {
+        slide.classList.remove('typewriter-complete');
+      });
+      
+      tagElements.forEach(tag => {
+        tag.classList.remove('tag-fade-in');
+      });
+      
       // 創建打字機實例
       const typewriter = new Typewriter(typewriterContainer, {
         delay: 95,
         cursor: '',  // 不顯示游標
-        loop: false
+        loop: false,
+        // 自定義回調函數在每次字符輸入後檢查滾動
+        onPause: checkAndScrollIfNeeded,
+        onType: checkAndScrollIfNeeded
       });
       
-      // 開始打字效果
+      // 開始打字效果，並在完成後顯示 swiper-slide 元素和標籤依序淡入
       typewriter
         .typeString(content.trim())
-        .pauseFor(30000)
+        .pauseFor(500)
+        .callFunction(() => {
+          // 最終滾動檢查
+          checkAndScrollIfNeeded();
+          
+          // 打字效果完成後，先顯示容器
+          const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
+          swiperSlides.forEach(slide => {
+            slide.classList.add('typewriter-complete');
+          });
+          
+          // 取得 .typewriter-complete 高度
+          const typewriterCompleteElements = document.querySelectorAll(`#container-${targetRoute} .typewriter`);
+          let totalHeight = 0;
+          typewriterCompleteElements.forEach((element, index) => {
+            const elementHeight = element.offsetHeight;
+            totalHeight += elementHeight;
+          });
+          
+          const tagGroupElements = document.querySelector(`#container-${targetRoute} .swiper-slide`);
+          const bigSize = window.matchMedia("(min-width: 480px)");
+          if(bigSize.matches){
+            tagGroupElements.style.maxHeight = `calc(480px - 87px - 87px - ${totalHeight}px)`;
+          }else{
+            tagGroupElements.style.maxHeight = `calc(350px - 57px - 57px - ${totalHeight}px)`;
+          }
+          
+          // 然後讓標籤按順序依序淡入
+          const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
+          fadeInTagsSequentially(tagElements, 200); // 每個標籤間隔 200ms
+        })
         .start();
+        
+      // 監聽打字過程中的滾動事件
+      const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+          if (mutation.type === 'childList' || mutation.type === 'characterData') {
+            checkAndScrollIfNeeded();
+          }
+        });
+      });
+      
+      // 開始觀察
+      observer.observe(typewriterContainer, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+      
+      // 打字完成後停止觀察
+      setTimeout(() => {
+        observer.disconnect();
+      }, content.length * 95 + 1000); // 根據打字速度估算完成時間
+      
     } else {
-      // 如果沒有內容，直接顯示空內容
+      // 如果沒有內容，直接顯示空內容並顯示 swiper-slide 元素和標籤
       typewriterContainer.innerHTML = '';
+      const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
+      const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
+      
+      swiperSlides.forEach(slide => {
+        slide.classList.add('typewriter-complete');
+      });
+      
+      // 標籤按順序依序淡入
+      fadeInTagsSequentially(tagElements, 200);
     }
   }
 }
 
 const fetchData = async () => {
+  // 背景圖片懶加載
+  function lazyLoadBackgroundImage() {
+    const bgImage = new Image();
+    bgImage.src = 'https://images.unsplash.com/photo-1533750204176-3b0d38e9ac1e?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=4800';
+    
+    bgImage.onload = function() {
+      // 圖片加載完成後，為所有 animX 容器添加 bg-loaded 類別
+      const animXContainers = document.querySelectorAll('.container.mbinfo.animX');
+      animXContainers.forEach(container => {
+        container.classList.add('bg-loaded');
+      });
+    };
+    
+    bgImage.onerror = function() {
+      // 圖片加載失敗時的處理（可選）
+      console.warn('Background image failed to load');
+    };
+  }
+  
+  // 延遲一點時間再開始加載背景圖片，確保不影響初始加載速度
+  setTimeout(lazyLoadBackgroundImage, 500);
+  
   const options = { method: "GET", headers: { accept: "application/json" } };
   try {
     var obj;
@@ -994,9 +1168,12 @@ const fetchData = async () => {
                                 <div class="axd_tag_inner c-${target} tagId-${Route_in_frame[target][rr].Tag.S}">
                                     <p>${Route_in_frame[target][rr].Name.S}</p>
                                 </div>
-                                
                             </div>
-                        
+                          <div class="axd_selection axd_tag">
+                                <div class="axd_tag_inner c-${target} tagId-${Route_in_frame[target][rr].Tag.S}">
+                                    <p>${Route_in_frame[target][rr].Name.S}</p>
+                                </div>
+                            </div>
                         `);
         }
         bind();

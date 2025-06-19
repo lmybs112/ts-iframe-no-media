@@ -711,7 +711,7 @@
         /* transform: scale(0.9); */
         /* margin: 0 auto; */
       }
-      .update_delete .selection_scroll {
+      .update_delete .selection_scroll:has(.tag-desc-container) {
         margin: 0 auto;
         display: flex;
         flex-direction: column;
@@ -720,7 +720,7 @@
       .update_delete .selection_scroll:has(.tag-desc-container){
         top: 0 !important;
         @media screen and (min-width: 480px) {
-          top: 20px !important;
+          top: 0 !important;
         }
       }
       .update_delete .selection_scroll .tag-desc-container{
@@ -734,24 +734,66 @@
         max-width: 270px;
         margin: 0 auto;
         text-align: left;
-        max-height: 90px;
-        overflow-y: scroll;
+        /* 限制最多顯示3行 */
+        max-height: 90px; /* 30px line-height * 3 行 = 90px */
+        overflow-y: auto;
+        /* 隱藏滾動條但保持可滾動 */
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* Internet Explorer 10+ */
+        /* 平滑滾動 */
+        scroll-behavior: smooth;
+        /* 確保文字不會被截斷 */
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        
         @media screen and (min-width: 480px) {
           max-width: 340px;
         }
       }
-        .update_delete .selection_scroll .swiper-wrapper .swiper-slide{
+      /* 隱藏 Webkit 瀏覽器的滾動條 */
+      .update_delete .selection_scroll .tag-desc-container::-webkit-scrollbar {
+        display: none;
+      }
+      .update_delete .selection_scroll .swiper-wrapper .swiper-slide{
         max-width: 270px;
         margin: 0 auto;
-        max-height: 120px;
-        overflow: scroll;
+        /* max-height: 120px; */
+        overflow-y: auto;
+        /* 隱藏滾動條但保持可滾動 */
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* Internet Explorer 10+ */
+        /* 平滑滾動 */
+        scroll-behavior: smooth;
+        /* 初始隱藏，等待打字效果完成 */
+        opacity: 0;
+        transition: opacity 0.3s ease-in-out;
         @media screen and (min-width: 480px) {
           max-width: 340px;
-          max-height: 140px;
+          /* max-height: 140px; */
         }
+      }
+      /* 隱藏 Webkit 瀏覽器的滾動條 */
+      .update_delete .selection_scroll .swiper-wrapper .swiper-slide::-webkit-scrollbar {
+        display: none;
+      }
+      /* 打字效果完成後顯示 */
+      .update_delete .selection_scroll .swiper-wrapper .swiper-slide.typewriter-complete {
+        opacity: 1;
       }
       .update_delete .selection_scroll .swiper-wrapper .swiper-slide .axd_selections.selection{
         gap: 8px !important;
+        /* 確保選項容器可以彈性高度並能滾動 */
+        max-height: inherit;
+        overflow-y: auto;
+        /* 隱藏滾動條但保持可滾動 */
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* Internet Explorer 10+ */
+        /* 平滑滾動 */
+        scroll-behavior: smooth;
+      }
+      /* 隱藏選項容器的 Webkit 滾動條 */
+      .update_delete .selection_scroll .swiper-wrapper .swiper-slide .axd_selections.selection::-webkit-scrollbar {
+        display: none;
       }
       .update_delete .selection_scroll .axd_selection.axd_tag {
         box-sizing: border-box;
@@ -766,8 +808,10 @@
         padding: 11px 15px !important;
         box-sizing: border-box;
         border-radius: 100px;
+      }
+      .update_delete .selection_scroll .axd_selection.axd_tag .axd_tag_inner:not(.tag-selected){
         background: #FCFCF8 !important;
-
+        color: var(--color-black-solid, #000);
       }
       .update_delete .selection_scroll .axd_selection.axd_tag p{
         font-family: "Noto Sans TC";
@@ -775,13 +819,13 @@
         font-style: normal;
         font-weight: 700;
         line-height: 18px; /* 150% */
-        color: var(--color-black-solid, #000);
         cursor: pointer !important;
+        color: #000;
       }
       .update_delete .selection_scroll .axd_selection.axd_tag:has(.tag-selected){
         background:#1D1B20 !important;
       }
-        .update_delete .selection_scroll .axd_selection.axd_tag:has(.tag-selected) p{
+      .update_delete .selection_scroll .axd_selection.axd_tag:has(.tag-selected) p{
         color: #fff !important;
       }
 
@@ -945,6 +989,16 @@
 
       .flipped-image:hover {
         transform: scaleX(-1.1) scaleY(1.1);
+      }
+
+      /* 標籤逐個淡入效果 */
+      .update_delete .selection_scroll .axd_selection.axd_tag {
+        opacity: 0;
+        transition: opacity 0.8s ease;
+      }
+      
+      .update_delete .selection_scroll .axd_selection.axd_tag.tag-fade-in {
+        opacity: 1;
       }
     </style>
   </body>

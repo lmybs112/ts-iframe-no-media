@@ -566,12 +566,16 @@ body {
 
 .container.mbinfo.animX {
   box-shadow: none !important;
-  background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("https://images.unsplash.com/photo-1533750204176-3b0d38e9ac1e?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=4800") !important;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)) !important;
   background-position: 50% !important;
   background-size: cover !important;
   background-repeat: no-repeat !important;
   background-color: #000 !important;
   /* 預防圖片載入失敗時的底色 */
+}
+
+.container.mbinfo.animX.bg-loaded {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("https://images.unsplash.com/photo-1533750204176-3b0d38e9ac1e?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=4800") !important;
 }
 
 .animFadeIn {
