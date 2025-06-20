@@ -350,10 +350,10 @@
 } */
       .selection_scroll {
         /* width:auto; */
-        margin: auto;
+        /* margin: auto; */
         /* overflow: hidden ; */
         overflow-y: visible;
-        display: flex;
+        /* display: flex; */
         /* align-items: center; */
       }
 
@@ -682,6 +682,7 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
     <script src="https://unpkg.com/typewriter-effect@latest/dist/core.js"></script>
     <script src="js/iframe.js"></script>
+    <script src="js/scroll-control.js"></script>
 
     <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
     <script src="js/embedded.js"></script>
@@ -716,12 +717,17 @@
         display: flex;
         flex-direction: column;
         gap: 20px 0;
-      }
-      .update_delete .selection_scroll:has(.tag-desc-container){
-        top: 0 !important;
+        height: fit-content;
+        justify-content: center;
+        align-items: center;
+        position: absolute;
+        top: 50% !important;
+        left:50%;
+        transform: translate(-50%, -50%);
+        /* top: 0 !important;
         @media screen and (min-width: 480px) {
           top: 0 !important;
-        }
+        } */
       }
       .update_delete .selection_scroll .tag-desc-container{
         color: var(--White-Primary, #FFF);
@@ -735,6 +741,7 @@
         margin: 0 auto;
         text-align: left;
         /* 限制最多顯示3行 */
+        min-height: fit-content;
         max-height: 90px; /* 30px line-height * 3 行 = 90px */
         overflow-y: auto;
         /* 隱藏滾動條但保持可滾動 */
@@ -745,10 +752,14 @@
         /* 確保文字不會被截斷 */
         word-wrap: break-word;
         overflow-wrap: break-word;
+        width: 100%;
         
         @media screen and (min-width: 480px) {
           max-width: 340px;
         }
+      }
+      .update_delete .selection_scroll .tag-desc-container span{
+        font-weight: 400;
       }
       /* 隱藏 Webkit 瀏覽器的滾動條 */
       .update_delete .selection_scroll .tag-desc-container::-webkit-scrollbar {
@@ -757,7 +768,7 @@
       .update_delete .selection_scroll .swiper-wrapper .swiper-slide{
         max-width: 270px;
         margin: 0 auto;
-        /* max-height: 120px; */
+        max-height: 136px;
         overflow-y: auto;
         /* 隱藏滾動條但保持可滾動 */
         scrollbar-width: none; /* Firefox */
@@ -769,7 +780,7 @@
         transition: opacity 0.3s ease-in-out;
         @media screen and (min-width: 480px) {
           max-width: 340px;
-          /* max-height: 140px; */
+          max-height: 140px;
         }
       }
       /* 隱藏 Webkit 瀏覽器的滾動條 */
@@ -805,7 +816,11 @@
         max-width: fit-content;
         width: 100%;
         height: 100%;
-        padding: 11px 15px !important;
+        padding: 0 15px !important;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         box-sizing: border-box;
         border-radius: 100px;
       }
@@ -817,7 +832,7 @@
         font-family: "Noto Sans TC";
         font-size: 12px;
         font-style: normal;
-        font-weight: 700;
+        font-weight: 500;
         line-height: 18px; /* 150% */
         cursor: pointer !important;
         color: #000;
@@ -961,9 +976,16 @@
 
       /* try */
       .c_header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
         display: flex;
         align-items: center;
         justify-content: center;
+      }
+      .c_header#container-container-recom-header{
+        position: relative;
       }
 
       .header-text {

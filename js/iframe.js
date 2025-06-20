@@ -897,15 +897,15 @@ function startTypewriterEffect(containerRoute) {
             totalHeight += elementHeight;
           });
           
-          const tagGroupElements = document.querySelector(`#container-${targetRoute} .swiper-slide`);
-          const bigSize = window.matchMedia("(min-width: 480px)");
-          if(tagGroupElements){
-            if(bigSize.matches){
-              tagGroupElements.style.maxHeight = `calc(480px - 87px - 87px - ${totalHeight}px)`;
-            }else{
-              tagGroupElements.style.maxHeight = `calc(350px - 57px - 57px - ${totalHeight}px)`;
-            }
-          }
+          // const contentElements = document.querySelector(`.swiper-container-${targetRoute}`);
+          // const bigSize = window.matchMedia("(min-width: 480px)");
+          // if(contentElements){
+          //   if(bigSize.matches){
+          //     contentElements.style.maxHeight = `calc(480px - 87px - 87px - ${totalHeight}px)`;
+          //   }else{
+          //     contentElements.style.maxHeight = `calc(350px - 57px - 20px - ${totalHeight}px)`;
+          //   }
+          // }
  
           
           // 然後讓標籤按順序依序淡入
@@ -1090,7 +1090,7 @@ const fetchData = async () => {
       // console.log("TagGroup : " + r);
       document.getElementById("pback").insertAdjacentHTML(
         "beforebegin",
-        `<div class='container mbinfo animX update_delete' id="container-${r.replaceAll(
+        `<div class='container mbinfo animX animFadeIn update_delete' id="container-${r.replaceAll(
           " ",
           ""
         )}">
@@ -1118,7 +1118,7 @@ const fetchData = async () => {
                         height="100%" >
                     </div>
 
-                        <div class="selection_scroll slide swiper-container-${r.replaceAll(
+                        <div style="margin: auto" class="selection_scroll slide swiper-container-${r.replaceAll(
                           " ",
                           ""
                         )}">
@@ -1292,6 +1292,7 @@ const fetchData = async () => {
               });
               
               if (fs === firstIncompleteIndex) {
+                console.log("firstIncompleteIndex", firstIncompleteIndex);
                 $("#intro-page").hide();
                 $("#container-" + currentRoute).show();
                 startTypewriterEffect(all_Route[fs]);

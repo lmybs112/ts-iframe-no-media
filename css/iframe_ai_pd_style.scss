@@ -1439,6 +1439,48 @@ a.update_delete {
       opacity: 0;
     }
   }
+
+  @keyframes animTheaterFadeIn {
+    0% {
+      opacity: 0.5;
+    }
+    
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes animTheaterFadeOut {
+    0% {
+      opacity: 1;
+      transform: scale(1);
+      filter: blur(0px);
+    }
+    
+    20% {
+      opacity: 0.9;
+      transform: scale(1.005);
+      filter: blur(2px);
+    }
+    
+    50% {
+      opacity: 0.6;
+      transform: scale(1.01);
+      filter: blur(6px);
+    }
+    
+    80% {
+      opacity: 0.1;
+      transform: scale(1.02);
+      filter: blur(12px);
+    }
+
+    100% {
+      opacity: 0;
+      transform: scale(1);
+      filter: blur(16px);
+    }
+  }
 }
 
 
@@ -1990,4 +2032,9 @@ a.update_delete {
     /* 137.5% */
     letter-spacing: 0.32px;
   }
+}
+
+.container.animX.animFadeIn{
+  animation: animTheaterFadeIn 0.8s ease-out;
+  animation-fill-mode: both;
 }

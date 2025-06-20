@@ -1216,6 +1216,96 @@ a.update_delete .discount-content .item-price--original {
     opacity: 0;
   }
 }
+@-webkit-keyframes animTheaterFadeIn {
+  0% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes animTheaterFadeIn {
+  0% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@-webkit-keyframes animTheaterFadeOut {
+  0% {
+    opacity: 1;
+    -webkit-transform: scale(1);
+            transform: scale(1);
+    -webkit-filter: blur(0px);
+            filter: blur(0px);
+  }
+  20% {
+    opacity: 0.9;
+    -webkit-transform: scale(1.005);
+            transform: scale(1.005);
+    -webkit-filter: blur(2px);
+            filter: blur(2px);
+  }
+  50% {
+    opacity: 0.6;
+    -webkit-transform: scale(1.01);
+            transform: scale(1.01);
+    -webkit-filter: blur(6px);
+            filter: blur(6px);
+  }
+  80% {
+    opacity: 0.1;
+    -webkit-transform: scale(1.02);
+            transform: scale(1.02);
+    -webkit-filter: blur(12px);
+            filter: blur(12px);
+  }
+  100% {
+    opacity: 0;
+    -webkit-transform: scale(1);
+            transform: scale(1);
+    -webkit-filter: blur(16px);
+            filter: blur(16px);
+  }
+}
+@keyframes animTheaterFadeOut {
+  0% {
+    opacity: 1;
+    -webkit-transform: scale(1);
+            transform: scale(1);
+    -webkit-filter: blur(0px);
+            filter: blur(0px);
+  }
+  20% {
+    opacity: 0.9;
+    -webkit-transform: scale(1.005);
+            transform: scale(1.005);
+    -webkit-filter: blur(2px);
+            filter: blur(2px);
+  }
+  50% {
+    opacity: 0.6;
+    -webkit-transform: scale(1.01);
+            transform: scale(1.01);
+    -webkit-filter: blur(6px);
+            filter: blur(6px);
+  }
+  80% {
+    opacity: 0.1;
+    -webkit-transform: scale(1.02);
+            transform: scale(1.02);
+    -webkit-filter: blur(12px);
+            filter: blur(12px);
+  }
+  100% {
+    opacity: 0;
+    -webkit-transform: scale(1);
+            transform: scale(1);
+    -webkit-filter: blur(16px);
+            filter: blur(16px);
+  }
+}
 
 .intro-coupon-modal__header {
   display: -ms-flexbox;
@@ -1812,4 +1902,10 @@ a.update_delete .discount-content .item-price--original {
     /* 137.5% */
     letter-spacing: 0.32px;
   }
+}
+.container.animX.animFadeIn {
+  -webkit-animation: animTheaterFadeIn 0.8s ease-out;
+          animation: animTheaterFadeIn 0.8s ease-out;
+  -webkit-animation-fill-mode: both;
+          animation-fill-mode: both;
 }/*# sourceMappingURL=iframe_ai_pd_style.css.map */
