@@ -175,41 +175,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 計算理想的對齊位置
                         let alignedScroll = Math.round(currentScroll / scrollStep) * scrollStep;
                         
-                        // 頂部邊界檢查：確保不會滾動到負值
-                        if (alignedScroll < 0) {
-                            alignedScroll = 0;
-                            console.log(`頂部邊界調整: 設置為 0`);
-                        }
-                        
-                        // 底部邊界檢查：確保最後一行完整顯示
-                        if (alignedScroll > maxScroll) {
-                            // 計算能完整顯示的最後一個位置
-                            alignedScroll = Math.floor(maxScroll / scrollStep) * scrollStep;
-                            console.log(`底部邊界調整: 設置為 ${alignedScroll}, 最大可滾動: ${maxScroll}`);
-                        } else {
-                            // 檢查是否會導致底部內容顯示不完整
-                            const remainingHeight = maxScroll - alignedScroll;
-                            
-                            // 如果剩餘高度不足70%的行高，調整到前一個位置
-                            if (remainingHeight > 0 && remainingHeight < scrollStep * 0.7) {
-                                const previousAligned = Math.max(0, alignedScroll - scrollStep);
-                                // 只有當調整後仍在合理範圍內才進行調整
-                                if (previousAligned >= 0) {
-                                    alignedScroll = previousAligned;
-                                    console.log(`底部內容不完整，向上調整: ${alignedScroll}, 剩餘高度: ${remainingHeight}`);
-                                }
-                            }
-                        }
-                        
-                        // 最終邊界檢查
+                        // 確保不超出範圍
                         alignedScroll = Math.max(0, Math.min(maxScroll, alignedScroll));
                         
+                        // 檢查剩餘滾動距離，如果不足一個scrollStep就不要對齊到更下面
+                        const remainingScrollDown = maxScroll - currentScroll;
+                        if (alignedScroll > currentScroll && remainingScrollDown <= scrollStep) {
+                            // 如果要向下對齊但剩餘距離不足，保持當前位置
+                            alignedScroll = currentScroll;
+                            console.log(`對齊取消: 剩餘滾動距離不足 ${remainingScrollDown}px <= ${scrollStep}px`);
+                            return;
+                        }
+                        
                         // 調整吸附閾值，只有偏差較大時才吸附
-                        const threshold = isGentle ? scrollStep * 0.3 : 1; // 溫和模式使用30%閾值
+                        const threshold = isGentle ? scrollStep * 0.3 : 1;
                         const distance = Math.abs(currentScroll - alignedScroll);
                         
                         if (distance > threshold) {
-                            console.log(`對齊滾動: 當前=${currentScroll}, 對齊=${alignedScroll}, 距離=${distance}, 最大=${maxScroll}`);
+                            console.log(`對齊滾動: 當前=${currentScroll}, 對齊=${alignedScroll}, 距離=${distance}, 剩餘=${remainingScrollDown}`);
                             
                             element.scrollTo({
                                 top: alignedScroll,
@@ -240,46 +223,20 @@ document.addEventListener('DOMContentLoaded', () => {
                             return;
                         }
                         
-                        // 邊界檢查：底部邊界
-                        if (scrollDirection > 0 && currentScroll >= maxScroll) {
-                            console.log('已在底部，無法向下滾動');
-                            return;
-                        }
-
-                        const scrollAmount = scrollStep * scrollDirection; // 計算滾動距離
-                        let targetScroll = Math.round((currentScroll + scrollAmount) / scrollStep) * scrollStep;
-                        
-                        // 頂部邊界處理
-                        if (targetScroll < 0) {
-                            targetScroll = 0;
-                            console.log(`滾輪向上: 調整到頂部位置 0`);
-                        }
-                        
-                        // 底部邊界處理
-                        if (targetScroll > maxScroll) {
-                            // 計算能完整顯示的最後一個位置
-                            targetScroll = Math.floor(maxScroll / scrollStep) * scrollStep;
-                            console.log(`滾輪向下: 調整到底部位置 ${targetScroll}, 最大可滾動: ${maxScroll}`);
-                        } else if (scrollDirection > 0) {
-                            // 向下滾動時，檢查是否會導致底部內容顯示不完整
-                            const remainingHeight = maxScroll - targetScroll;
-                            
-                            // 如果剩餘高度不足70%的行高，不要滾動到那個位置
-                            if (remainingHeight > 0 && remainingHeight < scrollStep * 0.7) {
-                                const previousTarget = Math.max(0, targetScroll - scrollStep);
-                                // 檢查是否已經在這個位置了
-                                if (Math.abs(currentScroll - previousTarget) > 1) {
-                                    targetScroll = previousTarget;
-                                    console.log(`滾輪向下: 底部內容不完整，調整目標位置: ${targetScroll}, 剩餘高度: ${remainingHeight}`);
-                                } else {
-                                    // 如果已經在這個位置，就不滾動了
-                                    console.log('已經在最佳位置，不再滾動');
-                                    return;
-                                }
+                        // 邊界檢查：底部邊界 - 檢查剩餘滾動距離
+                        const remainingScrollDown = maxScroll - currentScroll;
+                        if (scrollDirection > 0) {
+                            if (remainingScrollDown <= scrollStep) {
+                                console.log(`剩餘滾動距離不足: ${remainingScrollDown}px <= ${scrollStep}px，不滾動`);
+                                return;
                             }
                         }
                         
-                        // 最終邊界檢查
+                        // 計算目標滾動位置
+                        const scrollAmount = scrollStep * scrollDirection;
+                        let targetScroll = Math.round((currentScroll + scrollAmount) / scrollStep) * scrollStep;
+                        
+                        // 確保不超出範圍
                         targetScroll = Math.max(0, Math.min(maxScroll, targetScroll));
                         
                         // 檢查是否真的需要滾動
@@ -288,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             return;
                         }
                         
-                        console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${targetScroll}, 最大=${maxScroll}`);
+                        console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${targetScroll}, 剩餘=${remainingScrollDown}`);
 
                         // 執行平滑滾動
                         selection.scrollTo({
