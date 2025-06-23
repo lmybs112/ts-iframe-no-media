@@ -3,6 +3,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const gap = 8; // 標籤間距
     const scrollStep = rowHeight + gap; // 每次滾動距離（48px）
     
+    // 檢查是否有彈窗打開
+    function isModalOpen() {
+        // 檢查各種可能的彈窗狀態
+        const modalSelectors = [
+            '.modal:not([style*="display: none"])',
+            '.popup:not([style*="display: none"])',
+            '.overlay:not([style*="display: none"])',
+            '.dialog:not([style*="display: none"])',
+            '[class*="modal"]:not([style*="display: none"])',
+            '[class*="popup"]:not([style*="display: none"])',
+            '#intro-page:not([style*="display: none"])', // 介紹頁面
+            '.intro-coupon-modal:not([style*="display: none"])', // 優惠券彈窗
+        ];
+        
+        for (const selector of modalSelectors) {
+            const elements = document.querySelectorAll(selector);
+            if (elements.length > 0) {
+                // 檢查元素是否真的可見
+                for (const element of elements) {
+                    const style = window.getComputedStyle(element);
+                    if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+                        console.log('檢測到彈窗開啟:', selector, element);
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        // 檢查 body 是否有禁止滾動的類
+        if (document.body.classList.contains('modal-open') || 
+            document.body.classList.contains('no-scroll') ||
+            document.body.style.overflow === 'hidden') {
+            console.log('檢測到 body 滾動被禁用');
+            return true;
+        }
+        
+        return false;
+    }
+    
     // 初始化滾動控制
     function initScrollControl() {
         // 查找當前顯示的容器
@@ -62,18 +101,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // 對齊滾動位置的函數
                     function alignScrollPosition(element, isGentle = true) {
+                        // 檢查彈窗狀態，如果有彈窗打開就不進行滾動對齊
+                        if (isModalOpen()) {
+                            console.log('彈窗開啟中，跳過滾動對齊');
+                            return;
+                        }
+                        
                         const currentScroll = element.scrollTop;
                         const maxScroll = element.scrollHeight - element.clientHeight;
-                        const alignedScroll = Math.max(0, Math.min(maxScroll, 
-                            Math.round(currentScroll / scrollStep) * scrollStep
-                        ));
+                        
+                        // 計算理想的對齊位置
+                        let alignedScroll = Math.round(currentScroll / scrollStep) * scrollStep;
+                        
+                        // 檢查是否會導致底部內容顯示不完整
+                        const remainingHeight = maxScroll - alignedScroll;
+                        
+                        // 如果剩餘高度不足一個完整的行高，則向上調整到前一個對齊點
+                        if (remainingHeight > 0 && remainingHeight < scrollStep * 0.7) {
+                            alignedScroll = Math.max(0, alignedScroll - scrollStep);
+                            console.log(`底部高度不足，調整對齊位置: ${alignedScroll}, 剩餘高度: ${remainingHeight}`);
+                        }
+                        
+                        // 確保不超出滾動範圍
+                        alignedScroll = Math.max(0, Math.min(maxScroll, alignedScroll));
                         
                         // 調整吸附閾值，只有偏差較大時才吸附
                         const threshold = isGentle ? scrollStep * 0.3 : 1; // 溫和模式使用30%閾值
                         const distance = Math.abs(currentScroll - alignedScroll);
                         
                         if (distance > threshold) {
-                            console.log(`對齊滾動: 當前=${currentScroll}, 對齊=${alignedScroll}, 距離=${distance}`);
+                            console.log(`對齊滾動: 當前=${currentScroll}, 對齊=${alignedScroll}, 距離=${distance}, 最大=${maxScroll}`);
                             
                             // 根據距離調整動畫時長，距離越小動畫越快
                             const animationDuration = Math.min(300, Math.max(100, distance * 3));
@@ -87,6 +144,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // 滾輪事件（電腦版）
                     selection.addEventListener('wheel', (event) => {
+                        // 檢查彈窗狀態，如果有彈窗打開就不處理滾輪事件
+                        if (isModalOpen()) {
+                            console.log('彈窗開啟中，忽略滾輪事件');
+                            return;
+                        }
+                        
                         event.preventDefault(); // 阻止默認滾動行為
                         console.log('滾輪事件觸發在元素:', selection.className);
 
@@ -97,9 +160,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 計算目標滾動位置（對齊到最近的行）
                         const currentScroll = selection.scrollTop;
                         const maxScroll = selection.scrollHeight - selection.clientHeight;
-                        const targetScroll = Math.max(0, Math.min(maxScroll, 
-                            Math.round((currentScroll + scrollAmount) / scrollStep) * scrollStep
-                        ));
+                        let targetScroll = Math.round((currentScroll + scrollAmount) / scrollStep) * scrollStep;
+                        
+                        // 向下滾動時，檢查是否會導致底部內容顯示不完整
+                        if (scrollDirection > 0) {
+                            const remainingHeight = maxScroll - targetScroll;
+                            
+                            // 如果剩餘高度不足一個完整的行高，則不滾動到那個位置
+                            if (remainingHeight > 0 && remainingHeight < scrollStep * 0.7) {
+                                targetScroll = Math.max(0, targetScroll - scrollStep);
+                                console.log(`滾輪向下: 底部高度不足，調整目標位置: ${targetScroll}, 剩餘高度: ${remainingHeight}`);
+                            }
+                        }
+                        
+                        // 確保不超出滾動範圍
+                        targetScroll = Math.max(0, Math.min(maxScroll, targetScroll));
                         
                         console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${targetScroll}, 最大=${maxScroll}`);
 
@@ -122,6 +197,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // 觸摸開始
                     selection.addEventListener('touchstart', (event) => {
+                        // 檢查彈窗狀態
+                        if (isModalOpen()) {
+                            console.log('彈窗開啟中，忽略觸摸事件');
+                            return;
+                        }
+                        
                         touchStartY = event.touches[0].clientY;
                         touchStartTime = Date.now();
                         touchStartScroll = selection.scrollTop;
@@ -138,6 +219,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // 觸摸移動
                     selection.addEventListener('touchmove', (event) => {
+                        // 檢查彈窗狀態
+                        if (isModalOpen()) {
+                            return;
+                        }
+                        
                         isScrolling = true;
                         
                         // 計算滾動速度
@@ -156,6 +242,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // 觸摸結束
                     selection.addEventListener('touchend', (event) => {
+                        // 檢查彈窗狀態
+                        if (isModalOpen()) {
+                            return;
+                        }
+                        
                         if (isScrolling) {
                             // 根據滾動速度調整延遲時間
                             // 高速滾動：延遲更長，讓慣性滾動完成
@@ -181,6 +272,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     let lastScrollPosition = 0;
                     
                     selection.addEventListener('scroll', () => {
+                        // 檢查彈窗狀態
+                        if (isModalOpen()) {
+                            return;
+                        }
+                        
                         // 清除之前的計時器
                         if (scrollEndTimeout) {
                             clearTimeout(scrollEndTimeout);
