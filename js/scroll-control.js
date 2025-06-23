@@ -2,11 +2,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const rowHeight = 40; // 每行標籤高度
     const gap = 8; // 標籤間距
     const scrollStep = rowHeight + gap; // 每次滾動距離（48px）
-    
+
     // 背景滾動鎖定功能
     let isModalOpen = false;
     let bodyScrollPosition = 0;
-    
+
     function lockBodyScroll() {
         if (!isModalOpen) {
             bodyScrollPosition = window.pageYOffset || document.documentElement.scrollTop;
@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('背景滾動已鎖定');
         }
     }
-    
+
     function unlockBodyScroll() {
         if (isModalOpen) {
             document.body.style.position = '';
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('背景滾動已解鎖');
         }
     }
-    
+
     // 監聽彈窗的顯示/隱藏
     function observeModalChanges() {
         const pbackElement = document.getElementById('pback');
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
                         const isVisible = window.getComputedStyle(pbackElement).display !== 'none';
                         const hasVisibleContainers = document.querySelectorAll('[id^="container-"]:not([style*="display: none"])').length > 0;
-                        
+
                         if (isVisible || hasVisibleContainers) {
                             lockBodyScroll();
                         } else {
@@ -49,22 +49,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             });
-            
+
             observer.observe(pbackElement, {
                 attributes: true,
                 attributeFilter: ['style']
             });
-            
+
             // 初始檢查
             const isVisible = window.getComputedStyle(pbackElement).display !== 'none';
             const hasVisibleContainers = document.querySelectorAll('[id^="container-"]:not([style*="display: none"])').length > 0;
-            
+
             if (isVisible || hasVisibleContainers) {
                 lockBodyScroll();
             }
         }
-    }
-    
     // 阻止背景區域的滾動事件
     function preventBackgroundScroll() {
         document.addEventListener('wheel', (event) => {
@@ -169,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         // 如果內容不需要滾動，直接返回
                         if (maxScroll <= 0) {
+                            console.log('內容高度不足，無需滾動');
                             return;
                         }
                         
@@ -178,21 +177,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 確保不超出範圍
                         alignedScroll = Math.max(0, Math.min(maxScroll, alignedScroll));
                         
-                        // 檢查剩餘滾動距離，如果不足一個scrollStep就不要對齊到更下面
-                        const remainingScrollDown = maxScroll - currentScroll;
-                        if (alignedScroll > currentScroll && remainingScrollDown <= scrollStep) {
-                            // 如果要向下對齊但剩餘距離不足，保持當前位置
-                            alignedScroll = currentScroll;
-                            console.log(`對齊取消: 剩餘滾動距離不足 ${remainingScrollDown}px <= ${scrollStep}px`);
-                            return;
-                        }
-                        
                         // 調整吸附閾值，只有偏差較大時才吸附
                         const threshold = isGentle ? scrollStep * 0.3 : 1;
                         const distance = Math.abs(currentScroll - alignedScroll);
                         
                         if (distance > threshold) {
-                            console.log(`對齊滾動: 當前=${currentScroll}, 對齊=${alignedScroll}, 距離=${distance}, 剩餘=${remainingScrollDown}`);
+                            console.log(`對齊滾動: 當前=${currentScroll}, 對齊=${alignedScroll}, 距離=${distance}, 最大=${maxScroll}`);
                             
                             element.scrollTo({
                                 top: alignedScroll,
@@ -217,19 +207,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             return;
                         }
                         
-                        // 邊界檢查：頂部邊界
+                        // 修正1：頂部邊界檢查 - 已在第一行，不允許向上滾動
                         if (scrollDirection < 0 && currentScroll <= 0) {
-                            console.log('已在頂部，無法向上滾動');
+                            console.log('已在第一行，阻止向上滾動');
                             return;
                         }
                         
-                        // 邊界檢查：底部邊界 - 檢查剩餘滾動距離
+                        // 修正2：底部邊界檢查 - 最後一行顯示時，不允許向下滾動
                         const remainingScrollDown = maxScroll - currentScroll;
-                        if (scrollDirection > 0) {
-                            if (remainingScrollDown <= scrollStep) {
-                                console.log(`剩餘滾動距離不足: ${remainingScrollDown}px <= ${scrollStep}px，不滾動`);
-                                return;
-                            }
+                        if (scrollDirection > 0 && remainingScrollDown <= 0) {
+                            console.log('已在最後一行，阻止向下滾動');
+                            return;
                         }
                         
                         // 計算目標滾動位置
@@ -245,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             return;
                         }
                         
-                        console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${targetScroll}, 剩餘=${remainingScrollDown}`);
+                        console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${targetScroll}, 最大=${maxScroll}`);
 
                         // 執行平滑滾動
                         selection.scrollTo({
@@ -302,8 +290,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     selection.addEventListener('touchend', (event) => {
                         if (isScrolling) {
                             // 根據滾動速度調整延遲時間
-                            // 高速滾動：延遲更長，讓慣性滾動完成
-                            // 低速滾動：延遲較短，快速吸附
                             const baseDelay = 50;
                             const velocityDelay = Math.min(400, scrollVelocity * 300);
                             const totalDelay = baseDelay + velocityDelay;
@@ -342,7 +328,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         lastScrollPosition = currentScroll;
                         
                         // 設置新的計時器，在滾動停止後對齊
-                        // 如果連續3次檢查都沒有明顯移動，認為滾動已停止
                         const checkDelay = scrollCheckCount >= 3 ? 50 : 200;
                         
                         scrollEndTimeout = setTimeout(() => {
@@ -399,4 +384,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     console.log('滾動控制初始化完成，正在監聽容器變化...');
-})
+}})
