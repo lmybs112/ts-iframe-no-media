@@ -126,26 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 計算理想的對齊位置
                         let alignedScroll = Math.round(currentScroll / scrollStep) * scrollStep;
                         
-                        // 計算總行數
-                        const totalRows = Math.ceil(element.scrollHeight / scrollStep);
-                        const visibleRows = Math.ceil(element.clientHeight / scrollStep);
-                        const currentRow = Math.round(alignedScroll / scrollStep);
-                        
-                        // 頂部邊界限制：不能滾動到前3排
-                        const topBoundary = Math.max(0, 3 * scrollStep);
-                        
-                        // 底部邊界限制：不能滾動到最後3排
-                        const bottomBoundary = Math.max(0, maxScroll - (3 * scrollStep));
-                        
-                        // 應用邊界限制
-                        if (alignedScroll < topBoundary && currentScroll < topBoundary) {
-                            alignedScroll = 0; // 如果已經在頂部區域，直接回到頂部
-                            console.log(`頂部邊界限制: 當前行=${currentRow}, 設置為頂部`);
-                        } else if (alignedScroll > bottomBoundary && currentScroll > bottomBoundary) {
-                            alignedScroll = maxScroll; // 如果已經在底部區域，直接到底部
-                            console.log(`底部邊界限制: 當前行=${currentRow}, 設置為底部`);
-                        }
-                        
                         // 檢查是否會導致底部內容顯示不完整（原有邏輯）
                         const remainingHeight = maxScroll - alignedScroll;
                         if (remainingHeight > 0 && remainingHeight < scrollStep * 0.7) {
@@ -187,24 +167,34 @@ document.addEventListener('DOMContentLoaded', () => {
                         const maxScroll = selection.scrollHeight - selection.clientHeight;
                         let targetScroll = Math.round((currentScroll + scrollAmount) / scrollStep) * scrollStep;
                         
-                        // 計算邊界限制
-                        const topBoundary = Math.max(0, 3 * scrollStep);
-                        const bottomBoundary = Math.max(0, maxScroll - (3 * scrollStep));
+                        // 計算可見行數和總行數
+                        const visibleRows = Math.floor(selection.clientHeight / scrollStep);
+                        const totalContentRows = Math.ceil(selection.scrollHeight / scrollStep);
                         
-                        // 向上滾動邊界檢查
+                        // 重新計算邊界：確保至少顯示3排
+                        // 頂部邊界：不能滾動到只顯示少於3排的位置
+                        const minVisibleFromTop = Math.min(3, visibleRows); // 至少要顯示的行數
+                        const maxScrollFromTop = Math.max(0, (totalContentRows - minVisibleFromTop) * scrollStep);
+                        
+                        // 底部邊界：不能滾動到底部少於3排的位置  
+                        const minVisibleFromBottom = Math.min(3, visibleRows);
+                        const minScrollFromBottom = Math.max(0, minVisibleFromBottom * scrollStep);
+                        
+                        console.log(`滾動邊界檢查: 可見行=${visibleRows}, 總行=${totalContentRows}, 當前=${currentScroll}, 目標=${targetScroll}`);
+                        console.log(`邊界限制: 最小滾動=${minScrollFromBottom}, 最大滾動=${maxScrollFromTop}, 實際最大=${maxScroll}`);
+                        
+                        // 向上滾動邊界檢查：確保不會滾動到頂部只剩少於3排
                         if (scrollDirection < 0) {
-                            if (currentScroll <= topBoundary) {
-                                console.log(`滾輪向上: 已到達頂部邊界，停止滾動。當前位置=${currentScroll}, 邊界=${topBoundary}`);
+                            if (targetScroll < minScrollFromBottom) {
+                                console.log(`滾輪向上: 會導致頂部顯示不足，停止滾動。目標=${targetScroll}, 最小=${minScrollFromBottom}`);
                                 return; // 不執行滾動
                             }
-                            // 確保不會滾動超過頂部邊界
-                            targetScroll = Math.max(0, targetScroll);
                         }
                         
-                        // 向下滾動邊界檢查
+                        // 向下滾動邊界檢查：確保不會滾動到底部只剩少於3排
                         if (scrollDirection > 0) {
-                            if (currentScroll >= bottomBoundary) {
-                                console.log(`滾輪向下: 已到達底部邊界，停止滾動。當前位置=${currentScroll}, 邊界=${bottomBoundary}`);
+                            if (targetScroll > maxScrollFromTop && maxScrollFromTop < maxScroll) {
+                                console.log(`滾輪向下: 會導致底部顯示不足，停止滾動。目標=${targetScroll}, 最大=${maxScrollFromTop}`);
                                 return; // 不執行滾動
                             }
                             
@@ -219,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 確保不超出滾動範圍
                         targetScroll = Math.max(0, Math.min(maxScroll, targetScroll));
                         
-                        console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${targetScroll}, 最大=${maxScroll}, 頂部邊界=${topBoundary}, 底部邊界=${bottomBoundary}`);
+                        console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${targetScroll}, 最大=${maxScroll}`);
 
                         // 執行平滑滾動
                         selection.scrollTo({
@@ -278,24 +268,34 @@ document.addEventListener('DOMContentLoaded', () => {
                             const currentScroll = selection.scrollTop;
                             const maxScroll = selection.scrollHeight - selection.clientHeight;
                             
-                            // 計算邊界限制
-                            const topBoundary = Math.max(0, 3 * scrollStep);
-                            const bottomBoundary = Math.max(0, maxScroll - (3 * scrollStep));
+                            // 計算可見行數和總行數（與滾輪事件保持一致）
+                            const visibleRows = Math.floor(selection.clientHeight / scrollStep);
+                            const totalContentRows = Math.ceil(selection.scrollHeight / scrollStep);
+                            
+                            // 重新計算邊界：確保至少顯示3排
+                            const minVisibleFromTop = Math.min(3, visibleRows);
+                            const maxScrollFromTop = Math.max(0, (totalContentRows - minVisibleFromTop) * scrollStep);
+                            
+                            const minVisibleFromBottom = Math.min(3, visibleRows);
+                            const minScrollFromBottom = Math.max(0, minVisibleFromBottom * scrollStep);
+                            
+                            console.log(`觸摸結束邊界檢查: 可見行=${visibleRows}, 總行=${totalContentRows}, 當前=${currentScroll}`);
+                            console.log(`邊界限制: 最小滾動=${minScrollFromBottom}, 最大滾動=${maxScrollFromTop}, 實際最大=${maxScroll}`);
                             
                             // 檢查是否在邊界區域，如果是則快速對齊到邊界
-                            if (currentScroll <= topBoundary) {
-                                console.log(`觸摸結束: 在頂部邊界區域，直接對齊到頂部。當前位置=${currentScroll}, 邊界=${topBoundary}`);
+                            if (currentScroll < minScrollFromBottom) {
+                                console.log(`觸摸結束: 在頂部邊界區域，對齊到最小滾動位置。當前位置=${currentScroll}, 最小=${minScrollFromBottom}`);
                                 selection.scrollTo({
-                                    top: 0,
+                                    top: minScrollFromBottom,
                                     behavior: 'smooth'
                                 });
                                 return;
                             }
                             
-                            if (currentScroll >= bottomBoundary) {
-                                console.log(`觸摸結束: 在底部邊界區域，直接對齊到底部。當前位置=${currentScroll}, 邊界=${bottomBoundary}`);
+                            if (currentScroll > maxScrollFromTop && maxScrollFromTop < maxScroll) {
+                                console.log(`觸摸結束: 在底部邊界區域，對齊到最大滾動位置。當前位置=${currentScroll}, 最大=${maxScrollFromTop}`);
                                 selection.scrollTo({
-                                    top: maxScroll,
+                                    top: maxScrollFromTop,
                                     behavior: 'smooth'
                                 });
                                 return;
