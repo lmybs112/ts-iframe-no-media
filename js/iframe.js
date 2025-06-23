@@ -897,15 +897,15 @@ function startTypewriterEffect(containerRoute) {
             totalHeight += elementHeight;
           });
           
-          const contentElements = document.querySelector(`.swiper-container-${targetRoute}`);
-          const bigSize = window.matchMedia("(min-width: 480px)");
-          if(contentElements){
-            if(bigSize.matches){
-              contentElements.style.maxHeight = `calc(480px - 87px - 87px - ${totalHeight}px)`;
-            }else{
-              contentElements.style.maxHeight = `calc(350px - 57px - 20px - ${totalHeight}px)`;
-            }
-          }
+          // const contentElements = document.querySelector(`.swiper-container-${targetRoute}`);
+          // const bigSize = window.matchMedia("(min-width: 480px)");
+          // if(contentElements){
+          //   if(bigSize.matches){
+          //     contentElements.style.maxHeight = `calc(480px - 87px - 87px - ${totalHeight}px)`;
+          //   }else{
+          //     contentElements.style.maxHeight = `calc(350px - 57px - 20px - ${totalHeight}px)`;
+          //   }
+          // }
  
           
           // 然後讓標籤按順序依序淡入
