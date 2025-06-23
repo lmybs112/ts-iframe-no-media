@@ -1026,10 +1026,27 @@
       .update_delete .selection_scroll .axd_selection.axd_tag {
         opacity: 0;
         transition: opacity 0.8s ease;
+        pointer-events: none; /* 禁用點擊 */
+        cursor: default; /* 顯示默認游標 */
       }
       
       .update_delete .selection_scroll .axd_selection.axd_tag.tag-fade-in {
         opacity: 1;
+        pointer-events: auto; /* 啟用點擊 */
+        cursor: pointer; /* 顯示指針游標 */
+      }
+      
+      /* 確保標籤內的元素也遵循父元素的點擊狀態 */
+      .update_delete .selection_scroll .axd_selection.axd_tag:not(.tag-fade-in) .axd_tag_inner,
+      .update_delete .selection_scroll .axd_selection.axd_tag:not(.tag-fade-in) p {
+        pointer-events: none;
+        cursor: default;
+      }
+      
+      .update_delete .selection_scroll .axd_selection.axd_tag.tag-fade-in .axd_tag_inner,
+      .update_delete .selection_scroll .axd_selection.axd_tag.tag-fade-in p {
+        pointer-events: auto;
+        cursor: pointer;
       }
     </style>
   </body>
