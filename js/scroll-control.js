@@ -60,9 +60,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         canScroll: selection.scrollHeight > selection.clientHeight
                     });
                     
+                    // 對齊滾動位置的函數
+                    function alignScrollPosition(element) {
+                        const currentScroll = element.scrollTop;
+                        const maxScroll = element.scrollHeight - element.clientHeight;
+                        const alignedScroll = Math.max(0, Math.min(maxScroll, 
+                            Math.round(currentScroll / scrollStep) * scrollStep
+                        ));
+                        
+                        if (Math.abs(currentScroll - alignedScroll) > 1) {
+                            console.log(`對齊滾動: 當前=${currentScroll}, 對齊=${alignedScroll}`);
+                            element.scrollTo({
+                                top: alignedScroll,
+                                behavior: 'smooth'
+                            });
+                        }
+                    }
+                    
+                    // 滾輪事件（電腦版）
                     selection.addEventListener('wheel', (event) => {
                         event.preventDefault(); // 阻止默認滾動行為
-                        console.log('滾動事件觸發在元素:', selection.className);
+                        console.log('滾輪事件觸發在元素:', selection.className);
 
                         const delta = event.deltaY; // 獲取滾動方向
                         const scrollDirection = delta > 0 ? 1 : -1; // 正數向下，負數向上
@@ -75,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             Math.round((currentScroll + scrollAmount) / scrollStep) * scrollStep
                         ));
                         
-                        console.log(`滾動: 當前=${currentScroll}, 目標=${targetScroll}, 最大=${maxScroll}`);
+                        console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${targetScroll}, 最大=${maxScroll}`);
 
                         // 執行平滑滾動
                         selection.scrollTo({
@@ -83,6 +101,53 @@ document.addEventListener('DOMContentLoaded', () => {
                             behavior: 'smooth'
                         });
                     });
+                    
+                    // 手機觸摸滾動支持
+                    let touchStartY = 0;
+                    let touchStartTime = 0;
+                    let isScrolling = false;
+                    let scrollTimeout = null;
+                    
+                    // 觸摸開始
+                    selection.addEventListener('touchstart', (event) => {
+                        touchStartY = event.touches[0].clientY;
+                        touchStartTime = Date.now();
+                        isScrolling = false;
+                        
+                        // 清除之前的對齊計時器
+                        if (scrollTimeout) {
+                            clearTimeout(scrollTimeout);
+                        }
+                    }, { passive: true });
+                    
+                    // 觸摸移動
+                    selection.addEventListener('touchmove', (event) => {
+                        isScrolling = true;
+                    }, { passive: true });
+                    
+                    // 觸摸結束
+                    selection.addEventListener('touchend', (event) => {
+                        if (isScrolling) {
+                            // 延遲對齊，等待慣性滾動結束
+                            scrollTimeout = setTimeout(() => {
+                                alignScrollPosition(selection);
+                            }, 150);
+                        }
+                    }, { passive: true });
+                    
+                    // 監聽滾動事件，處理慣性滾動結束後的對齊
+                    let scrollEndTimeout = null;
+                    selection.addEventListener('scroll', () => {
+                        // 清除之前的計時器
+                        if (scrollEndTimeout) {
+                            clearTimeout(scrollEndTimeout);
+                        }
+                        
+                        // 設置新的計時器，在滾動停止後對齊
+                        scrollEndTimeout = setTimeout(() => {
+                            alignScrollPosition(selection);
+                        }, 100);
+                    }, { passive: true });
                     
                     // 標記已初始化
                     selection.setAttribute('data-scroll-initialized', 'true');
