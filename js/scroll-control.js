@@ -12,18 +12,57 @@ document.addEventListener('DOMContentLoaded', () => {
         visibleContainers.forEach(container => {
             console.log('檢查容器:', container.id);
             
-            // 在當前容器中查找selection元素
-            const selections = container.querySelectorAll('.swiper-wrapper .selection, .selection');
-            console.log(`在 ${container.id} 中找到 ${selections.length} 個selection元素:`, selections);
+            // 多種選擇器策略，適應不同的結構
+            const selectionSelectors = [
+                '.swiper-wrapper .swiper-slide .axd_selections.selection',  // 手機版 swiper 結構
+                '.swiper-wrapper .selection',  // 原始結構
+                '.selection_scroll .swiper-slide .selection',  // 另一種可能結構
+                '.selection',  // 直接查找 selection
+                '.axd_selections.selection'  // 具體的 selection 類
+            ];
+            
+            let selections = [];
+            
+            // 嘗試每種選擇器
+            for (const selector of selectionSelectors) {
+                const elements = container.querySelectorAll(selector);
+                if (elements.length > 0) {
+                    selections = Array.from(elements);
+                    console.log(`在 ${container.id} 中使用選擇器 "${selector}" 找到 ${selections.length} 個selection元素:`, selections);
+                    break;
+                }
+            }
+            
+            // 如果還是沒找到，嘗試查找所有可滾動元素
+            if (selections.length === 0) {
+                const scrollableElements = Array.from(container.querySelectorAll('*')).filter(el => {
+                    const style = window.getComputedStyle(el);
+                    return el.scrollHeight > el.clientHeight && 
+                           (style.overflow === 'auto' || style.overflow === 'scroll' || 
+                            style.overflowY === 'auto' || style.overflowY === 'scroll');
+                });
+                
+                if (scrollableElements.length > 0) {
+                    selections = scrollableElements;
+                    console.log(`在 ${container.id} 中找到 ${selections.length} 個可滾動元素:`, selections);
+                }
+            }
             
             // 對每個selection元素添加滾動監聽器
             selections.forEach((selection, index) => {
                 // 檢查是否已經添加過監聽器（避免重複添加）
                 if (!selection.hasAttribute('data-scroll-initialized')) {
                     console.log(`為 ${container.id} 中第${index + 1}個selection元素添加滾動監聽器:`, selection);
+                    console.log('元素類名:', selection.className);
+                    console.log('元素滾動信息:', {
+                        scrollHeight: selection.scrollHeight,
+                        clientHeight: selection.clientHeight,
+                        canScroll: selection.scrollHeight > selection.clientHeight
+                    });
                     
                     selection.addEventListener('wheel', (event) => {
                         event.preventDefault(); // 阻止默認滾動行為
+                        console.log('滾動事件觸發在元素:', selection.className);
 
                         const delta = event.deltaY; // 獲取滾動方向
                         const scrollDirection = delta > 0 ? 1 : -1; // 正數向下，負數向上
@@ -31,7 +70,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         // 計算目標滾動位置（對齊到最近的行）
                         const currentScroll = selection.scrollTop;
-                        const targetScroll = Math.round((currentScroll + scrollAmount) / scrollStep) * scrollStep;
+                        const maxScroll = selection.scrollHeight - selection.clientHeight;
+                        const targetScroll = Math.max(0, Math.min(maxScroll, 
+                            Math.round((currentScroll + scrollAmount) / scrollStep) * scrollStep
+                        ));
+                        
+                        console.log(`滾動: 當前=${currentScroll}, 目標=${targetScroll}, 最大=${maxScroll}`);
 
                         // 執行平滑滾動
                         selection.scrollTo({
@@ -44,6 +88,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     selection.setAttribute('data-scroll-initialized', 'true');
                 }
             });
+            
+            if (selections.length === 0) {
+                console.warn(`在容器 ${container.id} 中沒有找到任何可滾動的selection元素`);
+            }
         });
     }
     
