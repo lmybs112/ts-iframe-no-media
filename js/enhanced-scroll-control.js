@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const arrowContainer = document.createElement('div');
         arrowContainer.className = 'scroll-down-hint';
         arrowContainer.innerHTML = `
-            <div class="scroll-triple-arrows" style="border:1px solid red;">
+            <div class="scroll-triple-arrows">
                 <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
                     <path d="M7 2L12 7L17 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
@@ -47,8 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             .scroll-triple-arrows svg {
-                color: rgba(0, 0, 0, 0.6);
-                filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+                color: rgba(255, 255, 255, 0.7);
+                filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
                 transition: all 0.3s ease;
             }
             
