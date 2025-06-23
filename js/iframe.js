@@ -895,6 +895,7 @@ function startTypewriterEffect(containerRoute) {
           typewriterCompleteElements.forEach((element, index) => {
             const elementHeight = element.offsetHeight;
             totalHeight += elementHeight;
+            console.log('totalHeight', totalHeight);  
           });
           
           // const contentElements = document.querySelector(`.swiper-container-${targetRoute}`);
