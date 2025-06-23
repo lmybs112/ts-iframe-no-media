@@ -1166,7 +1166,7 @@ const fetchData = async () => {
                   ? (Route_in_frame[r][0]?.Description?.S?.trim() ? Route_in_frame[r][0].Description.S : r)
                   : ""
               )
-     }qweqwoeq qweiqwpoe qwei qwp oeq wei qw poe iqwpoei qpowei opqw ieqo peqwe qweqw eqweqw eq qeqwew qwepqowe wqe iqwpoei pqwe eioqpwe"></p>`)
+     }"></p>`)
      $(`#container-${r.replaceAll(" ","")}`).css({backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${themeBackgroundImagesMap[r]})`});
       //first route hide type_backarrow
       if (r === all_Route[0]) {
