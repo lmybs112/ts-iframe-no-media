@@ -126,10 +126,28 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 計算理想的對齊位置
                         let alignedScroll = Math.round(currentScroll / scrollStep) * scrollStep;
                         
-                        // 檢查是否會導致底部內容顯示不完整
-                        const remainingHeight = maxScroll - alignedScroll;
+                        // 計算總行數
+                        const totalRows = Math.ceil(element.scrollHeight / scrollStep);
+                        const visibleRows = Math.ceil(element.clientHeight / scrollStep);
+                        const currentRow = Math.round(alignedScroll / scrollStep);
                         
-                        // 如果剩餘高度不足一個完整的行高，則向上調整到前一個對齊點
+                        // 頂部邊界限制：不能滾動到前3排
+                        const topBoundary = Math.max(0, 3 * scrollStep);
+                        
+                        // 底部邊界限制：不能滾動到最後3排
+                        const bottomBoundary = Math.max(0, maxScroll - (3 * scrollStep));
+                        
+                        // 應用邊界限制
+                        if (alignedScroll < topBoundary && currentScroll < topBoundary) {
+                            alignedScroll = 0; // 如果已經在頂部區域，直接回到頂部
+                            console.log(`頂部邊界限制: 當前行=${currentRow}, 設置為頂部`);
+                        } else if (alignedScroll > bottomBoundary && currentScroll > bottomBoundary) {
+                            alignedScroll = maxScroll; // 如果已經在底部區域，直接到底部
+                            console.log(`底部邊界限制: 當前行=${currentRow}, 設置為底部`);
+                        }
+                        
+                        // 檢查是否會導致底部內容顯示不完整（原有邏輯）
+                        const remainingHeight = maxScroll - alignedScroll;
                         if (remainingHeight > 0 && remainingHeight < scrollStep * 0.7) {
                             alignedScroll = Math.max(0, alignedScroll - scrollStep);
                             console.log(`底部高度不足，調整對齊位置: ${alignedScroll}, 剩餘高度: ${remainingHeight}`);
@@ -169,11 +187,29 @@ document.addEventListener('DOMContentLoaded', () => {
                         const maxScroll = selection.scrollHeight - selection.clientHeight;
                         let targetScroll = Math.round((currentScroll + scrollAmount) / scrollStep) * scrollStep;
                         
-                        // 向下滾動時，檢查是否會導致底部內容顯示不完整
+                        // 計算邊界限制
+                        const topBoundary = Math.max(0, 3 * scrollStep);
+                        const bottomBoundary = Math.max(0, maxScroll - (3 * scrollStep));
+                        
+                        // 向上滾動邊界檢查
+                        if (scrollDirection < 0) {
+                            if (currentScroll <= topBoundary) {
+                                console.log(`滾輪向上: 已到達頂部邊界，停止滾動。當前位置=${currentScroll}, 邊界=${topBoundary}`);
+                                return; // 不執行滾動
+                            }
+                            // 確保不會滾動超過頂部邊界
+                            targetScroll = Math.max(0, targetScroll);
+                        }
+                        
+                        // 向下滾動邊界檢查
                         if (scrollDirection > 0) {
-                            const remainingHeight = maxScroll - targetScroll;
+                            if (currentScroll >= bottomBoundary) {
+                                console.log(`滾輪向下: 已到達底部邊界，停止滾動。當前位置=${currentScroll}, 邊界=${bottomBoundary}`);
+                                return; // 不執行滾動
+                            }
                             
-                            // 如果剩餘高度不足一個完整的行高，則不滾動到那個位置
+                            // 檢查是否會導致底部內容顯示不完整（原有邏輯）
+                            const remainingHeight = maxScroll - targetScroll;
                             if (remainingHeight > 0 && remainingHeight < scrollStep * 0.7) {
                                 targetScroll = Math.max(0, targetScroll - scrollStep);
                                 console.log(`滾輪向下: 底部高度不足，調整目標位置: ${targetScroll}, 剩餘高度: ${remainingHeight}`);
@@ -183,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 確保不超出滾動範圍
                         targetScroll = Math.max(0, Math.min(maxScroll, targetScroll));
                         
-                        console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${targetScroll}, 最大=${maxScroll}`);
+                        console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${targetScroll}, 最大=${maxScroll}, 頂部邊界=${topBoundary}, 底部邊界=${bottomBoundary}`);
 
                         // 執行平滑滾動
                         selection.scrollTo({
@@ -239,6 +275,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     // 觸摸結束
                     selection.addEventListener('touchend', (event) => {
                         if (isScrolling) {
+                            const currentScroll = selection.scrollTop;
+                            const maxScroll = selection.scrollHeight - selection.clientHeight;
+                            
+                            // 計算邊界限制
+                            const topBoundary = Math.max(0, 3 * scrollStep);
+                            const bottomBoundary = Math.max(0, maxScroll - (3 * scrollStep));
+                            
+                            // 檢查是否在邊界區域，如果是則快速對齊到邊界
+                            if (currentScroll <= topBoundary) {
+                                console.log(`觸摸結束: 在頂部邊界區域，直接對齊到頂部。當前位置=${currentScroll}, 邊界=${topBoundary}`);
+                                selection.scrollTo({
+                                    top: 0,
+                                    behavior: 'smooth'
+                                });
+                                return;
+                            }
+                            
+                            if (currentScroll >= bottomBoundary) {
+                                console.log(`觸摸結束: 在底部邊界區域，直接對齊到底部。當前位置=${currentScroll}, 邊界=${bottomBoundary}`);
+                                selection.scrollTo({
+                                    top: maxScroll,
+                                    behavior: 'smooth'
+                                });
+                                return;
+                            }
+                            
                             // 根據滾動速度調整延遲時間
                             // 高速滾動：延遲更長，讓慣性滾動完成
                             // 低速滾動：延遲較短，快速吸附
