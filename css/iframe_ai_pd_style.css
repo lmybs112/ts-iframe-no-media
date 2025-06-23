@@ -1913,8 +1913,6 @@ a.update_delete .discount-content .item-price--original {
 .container.update_delete.animFadeIn {
   /* 標籤滾動增強樣式 */
   /* 每個標籤行的snap點 */
-  /* 標籤內容容器 */
-  /* 標籤文字樣式 */
   /* 淡入動畫 */
   /* 響應式設計 */
   /* 滾動指示器（可選） */
@@ -1954,42 +1952,6 @@ a.update_delete .discount-content .item-price--original {
       align-items: center;
   -ms-flex-pack: center;
       justify-content: center;
-}
-.container.update_delete.animFadeIn .axd_tag_inner {
-  width: 100%;
-  height: 100%;
-  display: -ms-flexbox;
-  display: flex;
-  -ms-flex-align: center;
-      align-items: center;
-  -ms-flex-pack: center;
-      justify-content: center;
-  padding: 8px 12px;
-  border-radius: 20px;
-  background-color: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-.container.update_delete.animFadeIn .axd_tag_inner:hover {
-  background-color: #e8f4fd;
-  border-color: #1976d2;
-  -webkit-transform: scale(1.02);
-          transform: scale(1.02);
-}
-.container.update_delete.animFadeIn .axd_tag_inner.active {
-  background-color: #1976d2;
-  color: white;
-  border-color: #1976d2;
-}
-.container.update_delete.animFadeIn .axd_tag_inner p {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.2;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .container.update_delete.animFadeIn .tag-fade-in {
   -webkit-animation: tagFadeIn 0.3s ease-in-out;
