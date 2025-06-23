@@ -1,6 +1,273 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('增強滾動控制啟動...');
 
+    // 創建和管理滾動提示箭頭
+    let scrollDownArrow = null;
+    
+    function createScrollDownArrow() {
+        if (scrollDownArrow) return scrollDownArrow;
+        
+        // 創建三箭頭容器
+        const arrowContainer = document.createElement('div');
+        arrowContainer.className = 'scroll-down-hint';
+        arrowContainer.innerHTML = `
+            <div class="scroll-triple-arrows">
+                <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
+                    <path d="M7 2L12 7L17 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
+                    <path d="M7 2L12 7L17 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
+                    <path d="M7 2L12 7L17 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        `;
+        
+        // 添加質感樣式
+        const style = document.createElement('style');
+        style.textContent = `
+            .scroll-down-hint {
+                position: fixed;
+                bottom: 500px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 9999;
+                pointer-events: none;
+                opacity: 0;
+                animation: scrollHintFadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            }
+            
+            .scroll-triple-arrows {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: -2px;
+                animation: scrollHintFloat 2s ease-in-out infinite;
+            }
+            
+            .scroll-triple-arrows svg {
+                color: rgba(0, 0, 0, 0.6);
+                filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+                transition: all 0.3s ease;
+            }
+            
+            .scroll-triple-arrows svg:nth-child(1) {
+                animation: scrollArrow1 2s ease-in-out infinite;
+            }
+            
+            .scroll-triple-arrows svg:nth-child(2) {
+                animation: scrollArrow2 2s ease-in-out infinite;
+                animation-delay: 0.2s;
+            }
+            
+            .scroll-triple-arrows svg:nth-child(3) {
+                animation: scrollArrow3 2s ease-in-out infinite;
+                animation-delay: 0.4s;
+            }
+            
+            @keyframes scrollHintFadeIn {
+                0% {
+                    opacity: 0;
+                    transform: translateX(-50%) translateY(20px);
+                }
+                100% {
+                    opacity: 1;
+                    transform: translateX(-50%) translateY(0);
+                }
+            }
+            
+            @keyframes scrollHintFadeOut {
+                0% {
+                    opacity: 1;
+                    transform: translateX(-50%) translateY(0) scale(1);
+                }
+                100% {
+                    opacity: 0;
+                    transform: translateX(-50%) translateY(-10px) scale(0.9);
+                }
+            }
+            
+            @keyframes scrollHintFloat {
+                0%, 100% {
+                    transform: translateY(0);
+                }
+                50% {
+                    transform: translateY(-3px);
+                }
+            }
+            
+            @keyframes scrollArrow1 {
+                0%, 60%, 100% {
+                    opacity: 0.3;
+                    transform: translateY(0);
+                }
+                20% {
+                    opacity: 1;
+                    transform: translateY(-2px);
+                }
+            }
+            
+            @keyframes scrollArrow2 {
+                0%, 60%, 100% {
+                    opacity: 0.3;
+                    transform: translateY(0);
+                }
+                20% {
+                    opacity: 1;
+                    transform: translateY(-2px);
+                }
+            }
+            
+            @keyframes scrollArrow3 {
+                0%, 60%, 100% {
+                    opacity: 0.3;
+                    transform: translateY(0);
+                }
+                20% {
+                    opacity: 1;
+                    transform: translateY(-2px);
+                }
+            }
+            
+            /* 響應式設計 */
+            @media (max-width: 768px) {
+                .scroll-down-hint {
+                    bottom: 24px;
+                }
+                
+                .scroll-triple-arrows svg {
+                    width: 20px;
+                    height: 10px;
+                }
+            }
+            
+            /* 暗色主題適配 */
+            @media (prefers-color-scheme: dark) {
+                .scroll-triple-arrows svg {
+                    color: rgba(255, 255, 255, 0.7);
+                    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+                }
+            }
+        `;
+        
+        document.head.appendChild(style);
+        scrollDownArrow = arrowContainer;
+        return arrowContainer;
+    }
+    
+    function showScrollDownArrow() {
+        console.log('🎯 顯示向下滾動箭頭提示');
+        
+        const arrow = createScrollDownArrow();
+        
+        // update_delete containet
+        const currentContainer = document.querySelector('.container.mbinfo.animX.animFadeIn.update_delete .swiper-wrapper');
+        if (currentContainer) {
+            // 將箭頭添加到頁面
+            if (!currentContainer.contains(arrow)) {
+                currentContainer.appendChild(arrow);
+                console.log('✨ 箭頭提示已添加到頁面');
+                
+                // 設置隱藏邏輯
+                setupArrowHideLogic(arrow, currentContainer);
+            }
+        } else {
+            console.warn('⚠️ 未找到.swiper-wrapper元素');
+        }
+    }
+
+    // 設置箭頭隱藏邏輯
+    function setupArrowHideLogic(arrowElement, containerElement) {
+        let hideTimeout = null;
+        let isHiding = false;
+        let hasHidden = false;
+        
+        // 隱藏箭頭的函數
+        function hideArrow(reason = '未知') {
+            if (isHiding || hasHidden) return;
+            isHiding = true;
+            hasHidden = true;
+            
+            console.log(`🫥 隱藏箭頭提示 - 原因: ${reason}`);
+            
+            // 清除定時器
+            if (hideTimeout) {
+                clearTimeout(hideTimeout);
+                hideTimeout = null;
+            }
+            
+            // 添加淡出動畫
+            arrowElement.style.animation = 'scrollHintFadeOut 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards';
+            
+            // 動畫完成後移除元素
+            setTimeout(() => {
+                if (arrowElement && arrowElement.parentNode) {
+                    arrowElement.parentNode.removeChild(arrowElement);
+                    console.log('🗑️ 箭頭提示已從DOM移除');
+                }
+                // 重置全局變數以便下次顯示
+                scrollDownArrow = null;
+            }, 400);
+        }
+        
+        // 1. 自動隱藏定時器 (10秒，給用戶更多時間)
+        hideTimeout = setTimeout(() => {
+            hideArrow('10秒自動隱藏');
+        }, 10000);
+        
+        // 2. 檢測真實有效的滾動行為
+        const selectionElements = containerElement.querySelectorAll('.axd_selections.selection, .selection, [class*="selection"]');
+        
+        selectionElements.forEach(element => {
+            let initialScrollTop = element.scrollTop;
+            
+            const checkMeaningfulScroll = () => {
+                const currentScroll = element.scrollTop;
+                const scrollDistance = Math.abs(currentScroll - initialScrollTop);
+                const maxScroll = element.scrollHeight - element.clientHeight;
+                
+                // 只有滾動距離超過一行的高度才算有意義的滾動
+                const rowHeight = calculateRowHeight(element) || 40;
+                const meaningfulDistance = rowHeight * 0.8; // 80%的一行高度
+                
+                if (scrollDistance > meaningfulDistance) {
+                    console.log(`✅ 有意義的滾動: ${scrollDistance}px (超過${meaningfulDistance}px)`);
+                    hideArrow('用戶確實滾動了內容');
+                    return;
+                }
+                
+                // 滾動到底部也隱藏
+                if (currentScroll >= maxScroll - 5) {
+                    hideArrow('滾動到底部');
+                    return;
+                }
+                
+                console.log(`📏 滾動檢測: 移動${scrollDistance}px (需要>${meaningfulDistance}px才隱藏)`);
+            };
+            
+            element.addEventListener('scroll', checkMeaningfulScroll, { passive: true });
+        });
+        
+        // 3. 頁面失去焦點時隱藏
+        const hideOnBlur = () => {
+            if (!hasHidden) {
+                hideArrow('頁面失去焦點');
+            }
+        };
+        window.addEventListener('blur', hideOnBlur, { once: true, passive: true });
+        
+        // 4. 頁面隱藏時隱藏
+        const hideOnVisibilityChange = () => {
+            if (document.hidden && !hasHidden) {
+                hideArrow('頁面隱藏');
+            }
+        };
+        document.addEventListener('visibilitychange', hideOnVisibilityChange, { once: true, passive: true });
+        
+        console.log('🎭 合理的箭頭隱藏邏輯設置完成 (10秒自動隱藏，需要有意義的滾動才隱藏)');
+    }
+
     // 動態計算每行標籤的實際高度
     function calculateRowHeight(selectionElement) {
         const tags = selectionElement.querySelectorAll('.axd_selection');
@@ -73,6 +340,97 @@ document.addEventListener('DOMContentLoaded', () => {
         // 用於清理事件監聽器的函數集合
         const eventCleanupFunctions = [];
         
+        // 查找外部容器並設置滾動代理
+        function setupScrollProxy() {
+            const outerContainer = document.querySelector('.container.mbinfo.animX.animFadeIn.update_delete.bg-loaded');
+            
+            if (outerContainer) {
+                console.log('🔗 找到外部容器，設置滾動代理');
+                
+                // 外部容器滾輪事件代理
+                const outerWheelHandler = (event) => {
+                    // 檢查事件目標是否不在標籤區域內
+                    if (!selectionElement.contains(event.target)) {
+                        console.log('🔄 外部容器滾動，代理到標籤區域');
+                        
+                        // 阻止外部容器的默認滾動
+                        event.preventDefault();
+                        event.stopPropagation();
+                        
+                        // 創建新的滾輪事件，觸發標籤區域滾動
+                        const proxyEvent = new WheelEvent('wheel', {
+                            deltaY: event.deltaY,
+                            deltaX: event.deltaX,
+                            deltaZ: event.deltaZ,
+                            deltaMode: event.deltaMode,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        
+                        // 直接觸發標籤區域的滾輪處理
+                        selectionElement.dispatchEvent(proxyEvent);
+                    }
+                };
+                
+                outerContainer.addEventListener('wheel', outerWheelHandler, { passive: false });
+                eventCleanupFunctions.push(() => {
+                    outerContainer.removeEventListener('wheel', outerWheelHandler);
+                });
+                
+                // 外部容器觸摸事件代理
+                let outerTouchStartY = 0;
+                
+                const outerTouchStartHandler = (event) => {
+                    if (!selectionElement.contains(event.target)) {
+                        outerTouchStartY = event.touches[0].clientY;
+                        console.log('👆 外部容器觸摸開始');
+                    }
+                };
+                
+                const outerTouchMoveHandler = (event) => {
+                    if (!selectionElement.contains(event.target) && outerTouchStartY) {
+                        const touchY = event.touches[0].clientY;
+                        const deltaY = outerTouchStartY - touchY;
+                        
+                        // 阻止外部滾動
+                        event.preventDefault();
+                        
+                        // 模擬標籤區域滾動
+                        const currentScroll = selectionElement.scrollTop;
+                        const maxScroll = selectionElement.scrollHeight - selectionElement.clientHeight;
+                        const newScroll = Math.max(0, Math.min(maxScroll, currentScroll + deltaY * 2));
+                        
+                        selectionElement.scrollTop = newScroll;
+                        outerTouchStartY = touchY; // 更新觸摸位置
+                        
+                        console.log(`📱 外部觸摸滾動代理: ${deltaY}px -> 標籤區域: ${newScroll}px`);
+                    }
+                };
+                
+                const outerTouchEndHandler = () => {
+                    outerTouchStartY = 0;
+                    console.log('👆 外部容器觸摸結束');
+                };
+                
+                outerContainer.addEventListener('touchstart', outerTouchStartHandler, { passive: true });
+                outerContainer.addEventListener('touchmove', outerTouchMoveHandler, { passive: false });
+                outerContainer.addEventListener('touchend', outerTouchEndHandler, { passive: true });
+                
+                eventCleanupFunctions.push(() => {
+                    outerContainer.removeEventListener('touchstart', outerTouchStartHandler);
+                    outerContainer.removeEventListener('touchmove', outerTouchMoveHandler);
+                    outerContainer.removeEventListener('touchend', outerTouchEndHandler);
+                });
+                
+                console.log('✅ 外部容器滾動代理設置完成');
+            } else {
+                console.warn('⚠️ 未找到外部容器 .container.mbinfo.animX.animFadeIn.update_delete.bg-loaded');
+            }
+        }
+        
+        // 設置滾動代理
+        setupScrollProxy();
+        
         // 滾輪事件處理
         const wheelHandler = (event) => {
             const maxScroll = selectionElement.scrollHeight - selectionElement.clientHeight;
@@ -97,6 +455,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetScroll = getTargetScrollPosition(targetRowIndex, rowHeight, maxScroll);
             
             console.log(`滾輪滾動: 當前行=${currentRowIndex}, 目標行=${targetRowIndex}, 滾動至=${targetScroll}px`);
+            
+            // 檢測是否在頂部，顯示向下滾動箭頭提示
+            if (currentRowIndex === 0 && targetRowIndex === 0 && targetScroll === 0) {
+                showScrollDownArrow();
+            }
             
             selectionElement.scrollTo({
                 top: targetScroll,
