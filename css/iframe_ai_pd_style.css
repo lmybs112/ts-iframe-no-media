@@ -1913,7 +1913,9 @@ a.update_delete .discount-content .item-price--original {
 .container.update_delete.animFadeIn {
   /* 標籤滾動增強樣式 */
   /* 每個標籤行的snap點 */
+  /* 標籤淡入效果和點擊控制 */
   /* 淡入動畫 */
+  /* 確保標籤內的元素也遵循父元素的點擊狀態 */
   /* 響應式設計 */
   /* 滾動指示器（可選） */
 }
@@ -1953,33 +1955,48 @@ a.update_delete .discount-content .item-price--original {
   -ms-flex-pack: center;
       justify-content: center;
 }
+.container.update_delete.animFadeIn .axd_selection.axd_tag {
+  opacity: 0;
+  pointer-events: none; /* 禁用點擊 */
+  cursor: default; /* 顯示默認游標 */
+  /* 移除transition避免與animation衝突 */
+}
+.container.update_delete.animFadeIn .axd_selection.axd_tag.tag-fade-in {
+  /* 使用animation來控制淡入效果 */
+  -webkit-animation: tagFadeInSmooth 0.4s ease-out forwards;
+          animation: tagFadeInSmooth 0.4s ease-out forwards;
+  pointer-events: auto; /* 啟用點擊 */
+  cursor: pointer; /* 顯示指針游標 */
+}
 .container.update_delete.animFadeIn .tag-fade-in {
-  -webkit-animation: tagFadeIn 0.3s ease-in-out;
-          animation: tagFadeIn 0.3s ease-in-out;
+  -webkit-animation: tagFadeInSmooth 0.4s ease-out forwards;
+          animation: tagFadeInSmooth 0.4s ease-out forwards;
 }
-@-webkit-keyframes tagFadeIn {
+@-webkit-keyframes tagFadeInSmooth {
   from {
     opacity: 0;
-    -webkit-transform: translateY(10px);
-            transform: translateY(10px);
   }
   to {
     opacity: 1;
-    -webkit-transform: translateY(0);
-            transform: translateY(0);
   }
 }
-@keyframes tagFadeIn {
+@keyframes tagFadeInSmooth {
   from {
     opacity: 0;
-    -webkit-transform: translateY(10px);
-            transform: translateY(10px);
   }
   to {
     opacity: 1;
-    -webkit-transform: translateY(0);
-            transform: translateY(0);
   }
+}
+.container.update_delete.animFadeIn .axd_selection.axd_tag:not(.tag-fade-in) .axd_tag_inner,
+.container.update_delete.animFadeIn .axd_selection.axd_tag:not(.tag-fade-in) p {
+  pointer-events: none;
+  cursor: default;
+}
+.container.update_delete.animFadeIn .axd_selection.axd_tag.tag-fade-in .axd_tag_inner,
+.container.update_delete.animFadeIn .axd_selection.axd_tag.tag-fade-in p {
+  pointer-events: auto;
+  cursor: pointer;
 }
 @media (max-width: 768px) {
   .container.update_delete.animFadeIn .axd_selection {

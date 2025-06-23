@@ -28,8 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const style = document.createElement('style');
         style.textContent = `
             .scroll-down-hint {
-                position: fixed;
-                bottom: 500px;
+                position: absolute;
+                bottom: 30px;
                 left: 50%;
                 transform: translateX(-50%);
                 z-index: 9999;
@@ -131,9 +131,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             /* 響應式設計 */
-            @media (max-width: 768px) {
+            @media (max-width: 400px) {
                 .scroll-down-hint {
-                    bottom: 24px;
+                    bottom: 8px;
                 }
                 
                 .scroll-triple-arrows svg {
@@ -161,25 +161,74 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const arrow = createScrollDownArrow();
         
-        // update_delete containet
-        const currentContainer = document.querySelector('.container.mbinfo.animX.animFadeIn.update_delete');
+        // 動態尋找當前顯示的容器
+        // 嘗試多種方式找到當前活躍的容器
+        let currentContainer = null;
+        
+        // 方法1: 尋找所有可能的容器ID模式，找到當前顯示的那個
+        const containerSelectors = [
+            '[id^="container-"]:not([style*="display: none"]):not([style*="display:none"])',
+            '.container.mbinfo.animX.animFadeIn.update_delete:not([style*="display: none"])',
+            '.container.mbinfo.animX.animFadeIn.update_delete[style*="display: block"]',
+            '.container.mbinfo.animX.animFadeIn.update_delete'
+        ];
+        
+        for (const selector of containerSelectors) {
+            const containers = document.querySelectorAll(selector);
+            
+            // 找到當前顯示的容器（沒有 display: none）
+            for (const container of containers) {
+                const computedStyle = window.getComputedStyle(container);
+                const isVisible = computedStyle.display !== 'none' && 
+                                 computedStyle.visibility !== 'hidden' &&
+                                 container.offsetParent !== null;
+                
+                if (isVisible) {
+                    console.log(`✅ 找到當前顯示的容器: ${container.id || container.className}`);
+                    currentContainer = container;
+                    break;
+                }
+            }
+            
+            if (currentContainer) break;
+        }
+        
+        // 方法2: 如果上面沒找到，嘗試通過全域變數或其他方式獲取當前路由
+        if (!currentContainer) {
+            // 檢查是否有全域的 fs 和 all_Route 變數（從 iframe.js）
+            if (typeof window.fs !== 'undefined' && typeof window.all_Route !== 'undefined') {
+                const currentRoute = window.all_Route[window.fs]?.replaceAll(" ", "");
+                if (currentRoute) {
+                    currentContainer = document.querySelector(`#container-${currentRoute}`);
+                    console.log(`📍 通過全域變數找到容器: #container-${currentRoute}`);
+                }
+            }
+        }
+        
+        // 方法3: 如果還是沒找到，使用原來的備用方案
+        if (!currentContainer) {
+            currentContainer = document.querySelector('.container.mbinfo.animX.animFadeIn.update_delete');
+            console.log('⚠️ 使用備用容器選擇器');
+        }
+        
         if (currentContainer) {
-            // 將箭頭添加到頁面
+            // 將箭頭添加到當前容器
             if (!currentContainer.contains(arrow)) {
                 currentContainer.appendChild(arrow);
-                console.log('✨ 箭頭提示已添加到頁面');
+                console.log(`✨ 箭頭提示已添加到容器: ${currentContainer.id || currentContainer.className}`);
                 
                 // 設置隱藏邏輯
                 setupArrowHideLogic(arrow, currentContainer);
+            } else {
+                console.log('箭頭已存在於當前容器中');
             }
         } else {
-            console.warn('⚠️ 未找到.swiper-wrapper元素');
+            console.warn('⚠️ 未找到任何適合的容器元素');
         }
     }
 
     // 設置箭頭隱藏邏輯
     function setupArrowHideLogic(arrowElement, containerElement) {
-        let hideTimeout = null;
         let isHiding = false;
         let hasHidden = false;
         
@@ -190,12 +239,6 @@ document.addEventListener('DOMContentLoaded', () => {
             hasHidden = true;
             
             console.log(`🫥 隱藏箭頭提示 - 原因: ${reason}`);
-            
-            // 清除定時器
-            if (hideTimeout) {
-                clearTimeout(hideTimeout);
-                hideTimeout = null;
-            }
             
             // 添加淡出動畫
             arrowElement.style.animation = 'scrollHintFadeOut 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards';
@@ -211,12 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 400);
         }
         
-        // 1. 自動隱藏定時器 (10秒，給用戶更多時間)
-        hideTimeout = setTimeout(() => {
-            hideArrow('10秒自動隱藏');
-        }, 10000);
-        
-        // 2. 檢測真實有效的滾動行為
+        // 檢測真實有效的滾動行為
         const selectionElements = containerElement.querySelectorAll('.axd_selections.selection, .selection, [class*="selection"]');
         
         selectionElements.forEach(element => {
@@ -249,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
             element.addEventListener('scroll', checkMeaningfulScroll, { passive: true });
         });
         
-        // 3. 頁面失去焦點時隱藏
+        // 頁面失去焦點時隱藏
         const hideOnBlur = () => {
             if (!hasHidden) {
                 hideArrow('頁面失去焦點');
@@ -257,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         window.addEventListener('blur', hideOnBlur, { once: true, passive: true });
         
-        // 4. 頁面隱藏時隱藏
+        // 頁面隱藏時隱藏
         const hideOnVisibilityChange = () => {
             if (document.hidden && !hasHidden) {
                 hideArrow('頁面隱藏');
@@ -265,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         document.addEventListener('visibilitychange', hideOnVisibilityChange, { once: true, passive: true });
         
-        console.log('🎭 合理的箭頭隱藏邏輯設置完成 (10秒自動隱藏，需要有意義的滾動才隱藏)');
+        console.log('🎭 箭頭隱藏邏輯設置完成 (移除10秒自動隱藏，需要有意義的滾動才隱藏)');
     }
 
     // 動態計算每行標籤的實際高度
@@ -342,15 +380,82 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 查找外部容器並設置滾動代理
         function setupScrollProxy() {
-            const outerContainer = document.querySelector('.container.mbinfo.animX.animFadeIn.update_delete.bg-loaded');
+            // 動態尋找當前顯示的外部容器
+            let outerContainer = null;
+            
+            // 優先尋找當前顯示的 container-${route} 容器
+            const containerSelectors = [
+                '[id^="container-"]:not([style*="display: none"]):not([style*="display:none"])',
+                '.container.mbinfo.animX.animFadeIn.update_delete:not([style*="display: none"])',
+                '.container.mbinfo.animX.animFadeIn.update_delete.bg-loaded',
+                '.container.mbinfo.animX.animFadeIn.update_delete'
+            ];
+            
+            for (const selector of containerSelectors) {
+                const containers = document.querySelectorAll(selector);
+                
+                // 找到當前顯示的容器
+                for (const container of containers) {
+                    const computedStyle = window.getComputedStyle(container);
+                    const isVisible = computedStyle.display !== 'none' && 
+                                     computedStyle.visibility !== 'hidden' &&
+                                     container.offsetParent !== null;
+                    
+                    // 確保這個容器包含當前的 selectionElement
+                    if (isVisible && container.contains(selectionElement)) {
+                        console.log(`🔗 找到包含當前滾動元素的外部容器: ${container.id || container.className}`);
+                        outerContainer = container;
+                        break;
+                    }
+                }
+                
+                if (outerContainer) break;
+            }
+            
+            // 如果通過全域變數也找不到，使用備用方案
+            if (!outerContainer) {
+                outerContainer = document.querySelector('.container.mbinfo.animX.animFadeIn.update_delete.bg-loaded') ||
+                               document.querySelector('.container.mbinfo.animX.animFadeIn.update_delete');
+                if (outerContainer) {
+                    console.log('⚠️ 使用備用外部容器選擇器');
+                }
+            }
             
             if (outerContainer) {
-                console.log('🔗 找到外部容器，設置滾動代理');
+                console.log(`🔗 設置滾動代理，外部容器: ${outerContainer.id || outerContainer.className}`);
                 
                 // 外部容器滾輪事件代理
                 const outerWheelHandler = (event) => {
+                    // 檢查是否在可滾動元素內
+                    const targetElement = event.target;
+                    
+                    // 尋找最近的可滾動父元素
+                    const scrollableParent = targetElement.closest('.tag-desc-container, .typewriter, [class*="typewriter"]');
+                    
+                    if (scrollableParent) {
+                        // 檢查該元素是否確實需要滾動
+                        const needsScroll = scrollableParent.scrollHeight > scrollableParent.clientHeight;
+                        
+                        if (needsScroll) {
+                            console.log(`📜 在可滾動元素內 (${scrollableParent.className})，允許原生滾動`);
+                            // 完全不攔截，讓瀏覽器處理原生滾動
+                            return;
+                        }
+                    }
+                    
                     // 檢查事件目標是否不在標籤區域內
                     if (!selectionElement.contains(event.target)) {
+                        // 檢查是否有標籤還在進行淡入動畫
+                        const animatingTags = selectionElement.querySelectorAll('.axd_selection.axd_tag:not(.tag-fade-in)');
+                        const hasAnimatingTags = animatingTags.length > 0;
+                        
+                        if (hasAnimatingTags) {
+                            console.log(`🚫 標籤淡入動畫進行中，禁止外部滾動代理 (還有 ${animatingTags.length} 個標籤未完成動畫)`);
+                            event.preventDefault();
+                            event.stopPropagation();
+                            return;
+                        }
+                        
                         console.log('🔄 外部容器滾動，代理到標籤區域');
                         
                         // 阻止外部容器的默認滾動
@@ -372,15 +477,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 };
                 
-                outerContainer.addEventListener('wheel', outerWheelHandler, { passive: false });
+                outerContainer.addEventListener('wheel', outerWheelHandler, { passive: false, capture: true });
                 eventCleanupFunctions.push(() => {
-                    outerContainer.removeEventListener('wheel', outerWheelHandler);
+                    outerContainer.removeEventListener('wheel', outerWheelHandler, { capture: true });
                 });
                 
                 // 外部容器觸摸事件代理
                 let outerTouchStartY = 0;
                 
                 const outerTouchStartHandler = (event) => {
+                    // 檢查是否在可滾動元素內
+                    const targetElement = event.target;
+                    const scrollableParent = targetElement.closest('.tag-desc-container, .typewriter, [class*="typewriter"]');
+                    
+                    if (scrollableParent) {
+                        const needsScroll = scrollableParent.scrollHeight > scrollableParent.clientHeight;
+                        if (needsScroll) {
+                            console.log(`📜 在可滾動元素內 (${scrollableParent.className})，允許原生觸摸滾動`);
+                            return;
+                        }
+                    }
+                    
                     if (!selectionElement.contains(event.target)) {
                         outerTouchStartY = event.touches[0].clientY;
                         console.log('👆 外部容器觸摸開始');
@@ -388,7 +505,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 
                 const outerTouchMoveHandler = (event) => {
+                    // 檢查是否在可滾動元素內
+                    const targetElement = event.target;
+                    const scrollableParent = targetElement.closest('.tag-desc-container, .typewriter, [class*="typewriter"]');
+                    
+                    if (scrollableParent) {
+                        const needsScroll = scrollableParent.scrollHeight > scrollableParent.clientHeight;
+                        if (needsScroll) {
+                            // 完全不攔截，讓瀏覽器處理原生觸摸滾動
+                            return;
+                        }
+                    }
+                    
                     if (!selectionElement.contains(event.target) && outerTouchStartY) {
+                        // 檢查是否有標籤還在進行淡入動畫
+                        const animatingTags = selectionElement.querySelectorAll('.axd_selection.axd_tag:not(.tag-fade-in)');
+                        const hasAnimatingTags = animatingTags.length > 0;
+                        
+                        if (hasAnimatingTags) {
+                            console.log(`🚫 標籤淡入動畫進行中，禁止外部觸摸移動 (還有 ${animatingTags.length} 個標籤未完成動畫)`);
+                            event.preventDefault();
+                            event.stopPropagation();
+                            return;
+                        }
+                        
                         const touchY = event.touches[0].clientY;
                         const deltaY = outerTouchStartY - touchY;
                         
@@ -404,6 +544,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         outerTouchStartY = touchY; // 更新觸摸位置
                         
                         console.log(`📱 外部觸摸滾動代理: ${deltaY}px -> 標籤區域: ${newScroll}px`);
+                        
+                        // 如果滾動到頂部附近，顯示箭頭提示
+                        if (newScroll <= 5 && maxScroll > 0) {
+                            const currentRowIndex = getCurrentRowIndex(newScroll, rowHeight);
+                            if (currentRowIndex === 0) {
+                                console.log('📱 外部觸摸代理檢測：滾動到頂部，顯示箭頭提示');
+                                setTimeout(() => showScrollDownArrow(), 100); // 稍微延遲
+                            }
+                        }
                     }
                 };
                 
@@ -412,14 +561,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log('👆 外部容器觸摸結束');
                 };
                 
-                outerContainer.addEventListener('touchstart', outerTouchStartHandler, { passive: true });
-                outerContainer.addEventListener('touchmove', outerTouchMoveHandler, { passive: false });
-                outerContainer.addEventListener('touchend', outerTouchEndHandler, { passive: true });
+                outerContainer.addEventListener('touchstart', outerTouchStartHandler, { passive: true, capture: true });
+                outerContainer.addEventListener('touchmove', outerTouchMoveHandler, { passive: false, capture: true });
+                outerContainer.addEventListener('touchend', outerTouchEndHandler, { passive: true, capture: true });
                 
                 eventCleanupFunctions.push(() => {
-                    outerContainer.removeEventListener('touchstart', outerTouchStartHandler);
-                    outerContainer.removeEventListener('touchmove', outerTouchMoveHandler);
-                    outerContainer.removeEventListener('touchend', outerTouchEndHandler);
+                    outerContainer.removeEventListener('touchstart', outerTouchStartHandler, { capture: true });
+                    outerContainer.removeEventListener('touchmove', outerTouchMoveHandler, { capture: true });
+                    outerContainer.removeEventListener('touchend', outerTouchEndHandler, { capture: true });
                 });
                 
                 console.log('✅ 外部容器滾動代理設置完成');
@@ -433,6 +582,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 滾輪事件處理
         const wheelHandler = (event) => {
+            // 檢查是否有標籤還在進行淡入動畫
+            const animatingTags = selectionElement.querySelectorAll('.axd_selection.axd_tag:not(.tag-fade-in)');
+            const hasAnimatingTags = animatingTags.length > 0;
+            
+            if (hasAnimatingTags) {
+                console.log(`🚫 標籤淡入動畫進行中，禁止滾動 (還有 ${animatingTags.length} 個標籤未完成動畫)`);
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+            
             const maxScroll = selectionElement.scrollHeight - selectionElement.clientHeight;
             
             if (maxScroll <= 0) {
@@ -479,6 +639,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 觸摸開始
         const touchStartHandler = (event) => {
+            // 檢查是否有標籤還在進行淡入動畫
+            const animatingTags = selectionElement.querySelectorAll('.axd_selection.axd_tag:not(.tag-fade-in)');
+            const hasAnimatingTags = animatingTags.length > 0;
+            
+            if (hasAnimatingTags) {
+                console.log(`🚫 標籤淡入動畫進行中，禁止觸摸滾動 (還有 ${animatingTags.length} 個標籤未完成動畫)`);
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+            
             touchStartY = event.touches[0].clientY;
             isTouchScrolling = true;
             isUserScrolling = true;
@@ -502,6 +673,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 觸摸移動時的滾動處理
         const touchMoveHandler = (event) => {
+            // 檢查是否有標籤還在進行淡入動畫
+            const animatingTags = selectionElement.querySelectorAll('.axd_selection.axd_tag:not(.tag-fade-in)');
+            const hasAnimatingTags = animatingTags.length > 0;
+            
+            if (hasAnimatingTags) {
+                console.log(`🚫 標籤淡入動畫進行中，禁止觸摸移動滾動`);
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+            
             if (!isTouchScrolling) return;
             
             const touchY = event.touches[0].clientY;
@@ -526,6 +708,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 isUserScrolling = false;
                 // 啟動速度追蹤來檢測慣性滾動
                 startVelocityTracking();
+                
+                // 檢查是否需要顯示箭頭提示（手機版特別需要）
+                const maxScroll = selectionElement.scrollHeight - selectionElement.clientHeight;
+                const currentScroll = selectionElement.scrollTop;
+                const currentRowIndex = getCurrentRowIndex(currentScroll, rowHeight);
+                
+                if (maxScroll > 0 && currentRowIndex === 0 && currentScroll <= 5) { // 允許小誤差
+                    console.log('📱 手機版觸摸結束檢測：回到頂部，顯示箭頭提示');
+                    showScrollDownArrow();
+                }
             }, 50);
         };
         eventCleanupFunctions.push(() => {
@@ -557,13 +749,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // 如果當前位置與目標位置差距較大，則進行對齊
                 if (Math.abs(currentScroll - targetScroll) > 3) {
-                    console.log(`📱 滾動對齊: 從${currentScroll}px 對齊到行${currentRowIndex} (${targetScroll}px)`);
+                    console.log(`✨ 執行對齊: 從${currentScroll}px 對齊到行${currentRowIndex} (${targetScroll}px)`);
                     selectionElement.scrollTo({
                         top: targetScroll,
                         behavior: 'smooth'
                     });
+                    
+                    // 等待動畫完成
+                    setTimeout(() => {
+                        isAligning = false;
+                    }, 300);
                 } else {
-                    console.log(`📱 滾動位置已對齊: 行${currentRowIndex} (${currentScroll}px)`);
+                    isAligning = false;
+                    console.log(`✅ 位置已對齊: 行${currentRowIndex} (${currentScroll}px)`);
                 }
             }, 100); // 減少延遲時間
         };
@@ -627,10 +825,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 等待動畫完成
                 setTimeout(() => {
                     isAligning = false;
+                    
+                    // 對齊完成後檢查是否需要顯示箭頭提示
+                    if (currentRowIndex === 0 && targetScroll <= 5) {
+                        console.log('📱 對齊完成檢測：位於頂部，顯示箭頭提示');
+                        showScrollDownArrow();
+                    }
                 }, 300);
             } else {
                 isAligning = false;
                 console.log(`✅ 位置已對齊: 行${currentRowIndex} (${scrollTop}px)`);
+                
+                // 檢查是否需要顯示箭頭提示
+                if (currentRowIndex === 0 && scrollTop <= 5) {
+                    console.log('📱 位置對齊檢測：位於頂部，顯示箭頭提示');
+                    showScrollDownArrow();
+                }
             }
         }
         
@@ -649,6 +859,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 滾動已穩定，進行對齊
                         performAlignment(currentScrollTop);
                         
+                        // 額外檢查：如果滾動停在頂部附近，顯示箭頭提示
+                        const maxScroll = selectionElement.scrollHeight - selectionElement.clientHeight;
+                        const currentRowIndex = getCurrentRowIndex(currentScrollTop, rowHeight);
+                        
+                        if (maxScroll > 0 && currentRowIndex === 0 && currentScrollTop <= 5) {
+                            console.log('📱 滾動監控檢測：停在頂部，顯示箭頭提示');
+                            showScrollDownArrow();
+                        }
+                        
                         clearInterval(scrollMonitorInterval);
                         scrollMonitorInterval = null;
                     }
@@ -662,6 +881,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 鍵盤事件處理（可選）
         const keydownHandler = (event) => {
+            // 檢查是否有標籤還在進行淡入動畫
+            const animatingTags = selectionElement.querySelectorAll('.axd_selection.axd_tag:not(.tag-fade-in)');
+            const hasAnimatingTags = animatingTags.length > 0;
+            
+            if (hasAnimatingTags) {
+                console.log(`🚫 標籤淡入動畫進行中，禁止鍵盤滾動 (還有 ${animatingTags.length} 個標籤未完成動畫)`);
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+            
             if (!selectionElement.contains(document.activeElement)) {
                 return;
             }
@@ -736,6 +966,23 @@ document.addEventListener('DOMContentLoaded', () => {
         
         console.log(`✅ 已為元素 ${selectionElement.className} 設置增強滾動控制 (總行數: ${totalRows}, 可見行數: ${visibleRows})`);
 
+        // 初始化完成後，檢查是否需要顯示箭頭提示
+        setTimeout(() => {
+            const maxScroll = selectionElement.scrollHeight - selectionElement.clientHeight;
+            const currentScroll = selectionElement.scrollTop;
+            const currentRowIndex = getCurrentRowIndex(currentScroll, rowHeight);
+            
+            console.log(`🔍 初始化箭頭檢查: maxScroll=${maxScroll}, currentScroll=${currentScroll}, currentRowIndex=${currentRowIndex}`);
+            
+            // 如果有內容需要滾動且當前在頂部，顯示箭頭提示
+            if (maxScroll > 0 && currentRowIndex === 0 && currentScroll <= 5) { // 允許小誤差
+                console.log('🎯 初始化時檢測到可滾動內容在頂部，顯示箭頭提示');
+                showScrollDownArrow();
+            } else {
+                console.log(`❌ 初始化箭頭檢查未通過: 需要滾動=${maxScroll > 0}, 在頂部=${currentRowIndex === 0}, 滾動位置=${currentScroll}`);
+            }
+        }, 800); // 增加等待時間，確保所有動畫和佈局都完成
+
         // 清理事件監聽器
         selectionElement._scrollCleanup = () => {
             eventCleanupFunctions.forEach(fn => fn());
@@ -783,6 +1030,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (foundElements === 0) {
             console.warn('⚠️  沒有找到任何包含標籤的滾動容器');
+        } else {
+            // 如果找到了新的滾動區域，延遲一點時間後檢查是否需要顯示箭頭
+            setTimeout(() => {
+                console.log('🔍 檢查新初始化的滾動區域是否需要顯示箭頭提示');
+                // 不直接調用 showScrollDownArrow()，因為它會在 enhanceScrollControl 中處理
+            }, 600);
         }
     }
 
@@ -821,6 +1074,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => {
                     console.log('🔄 檢測到新的滾動區域，重新初始化...');
                     initializeAllScrollAreas();
+                    
+                    // 在重新初始化後，檢查是否有新的容器需要顯示箭頭
+                    setTimeout(() => {
+                        console.log('🎯 動態初始化完成，檢查箭頭顯示需求');
+                        // 箭頭顯示邏輯會在各個 enhanceScrollControl 中處理
+                    }, 700);
                 }, 100);
             }
         });
@@ -922,4 +1181,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     console.log('✅ 增強滾動控制初始化完成');
-}); 
+});

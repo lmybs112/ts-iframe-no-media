@@ -756,9 +756,6 @@ function startTypewriterEffect(containerRoute) {
   const typewriterContainer = document.querySelector(`.typewriter-${targetRoute}`);
   
   if (typewriterContainer && typeof Typewriter !== 'undefined') {
-    // 清空容器內容，準備重新打字
-    typewriterContainer.innerHTML = '';
-    
     // 獲取要顯示的內容
     let content = typewriterContainer.getAttribute('data-content');
     
@@ -774,7 +771,30 @@ function startTypewriterEffect(containerRoute) {
         content = descContainer.textContent || descContainer.innerText || '';
       }
     }
+
+    // 檢查標籤是否已經完成了動畫
+    const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
+    const allTagsHaveFadeIn = Array.from(tagElements).every(tag => tag.classList.contains('tag-fade-in'));
     
+    // 如果所有標籤都已經有 tag-fade-in 類，說明動畫已經完成，不需要重新播放
+    if (allTagsHaveFadeIn && tagElements.length > 0) {
+      console.log(`🎭 容器 ${targetRoute} 的標籤動畫已完成，跳過重新播放`);
+      
+      // 確保打字效果容器也是完成狀態
+      const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
+      swiperSlides.forEach(slide => {
+        slide.classList.add('typewriter-complete');
+      });
+      
+      // 直接顯示內容，不重新打字
+      if (content && content.trim() !== '' && content !== 'undefined') {
+        typewriterContainer.innerHTML = content.trim();
+      } else {
+        typewriterContainer.innerHTML = '';
+      }
+      return;
+    }
+
     // 按順序淡入標籤的函數
     function fadeInTagsSequentially(tagElements, delay = 200) {
       return new Promise((resolve) => {
@@ -792,9 +812,9 @@ function startTypewriterEffect(containerRoute) {
             const currentTag = tagElements[index];
             currentTag.classList.add('tag-fade-in');
             
-            // 自動滾動到當前標籤
-            if (optionsContainer && currentTag) {
-              // 等待標籤完全顯示後再滾動
+            // 自動滾動到當前標籤（只在必要時進行）
+            if (optionsContainer && currentTag && index >= 2) { // 只從第3個標籤開始檢查滾動
+              // 等待標籤動畫完成後再滾動
               setTimeout(() => {
                 // 計算當前標籤在容器中的位置
                 const tagRect = currentTag.getBoundingClientRect();
@@ -830,7 +850,7 @@ function startTypewriterEffect(containerRoute) {
                     });
                   }
                 }
-              }, 100); // 等待100ms讓標籤完全顯示
+              }, 400); // 等待動畫完全完成(0.4s)
             }
             
             index++;
@@ -853,9 +873,14 @@ function startTypewriterEffect(containerRoute) {
     
     // 確保有內容才啟動打字效果
     if (content && content.trim() !== '' && content !== 'undefined') {
+      // 只有在動畫未完成時才重置狀態
+      console.log(`🎭 開始容器 ${targetRoute} 的動畫序列`);
+      
+      // 清空容器內容，準備重新打字
+      typewriterContainer.innerHTML = '';
+      
       // 重置所有標籤狀態
       const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
-      const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
       
       swiperSlides.forEach(slide => {
         slide.classList.remove('typewriter-complete');
@@ -867,7 +892,7 @@ function startTypewriterEffect(containerRoute) {
       
       // 創建打字機實例
       const typewriter = new Typewriter(typewriterContainer, {
-        delay: 95,
+        delay: 75,
         cursor: '',  // 不顯示游標
         loop: false,
         // 自定義回調函數在每次字符輸入後檢查滾動
@@ -888,26 +913,6 @@ function startTypewriterEffect(containerRoute) {
           swiperSlides.forEach(slide => {
             slide.classList.add('typewriter-complete');
           });
-          
-          // 取得 .typewriter-complete 高度
-          const typewriterCompleteElements = document.querySelectorAll(`#container-${targetRoute} .typewriter`);
-          let totalHeight = 0;
-          typewriterCompleteElements.forEach((element, index) => {
-            const elementHeight = element.offsetHeight;
-            totalHeight += elementHeight;
-            console.log('totalHeight', totalHeight);  
-          });
-          
-          // const contentElements = document.querySelector(`.swiper-container-${targetRoute}`);
-          // const bigSize = window.matchMedia("(min-width: 480px)");
-          // if(contentElements){
-          //   if(bigSize.matches){
-          //     contentElements.style.maxHeight = `calc(480px - 87px - 87px - ${totalHeight}px)`;
-          //   }else{
-          //     contentElements.style.maxHeight = `calc(350px - 57px - 20px - ${totalHeight}px)`;
-          //   }
-          // }
- 
           
           // 然後讓標籤按順序依序淡入
           const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
@@ -937,11 +942,25 @@ function startTypewriterEffect(containerRoute) {
       }, content.length * 95 + 1000); // 根據打字速度估算完成時間
       
     } else {
-      // 如果沒有內容，直接顯示空內容並顯示 swiper-slide 元素和標籤
-      typewriterContainer.innerHTML = '';
-      const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
-      const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
+      // 如果沒有內容，檢查標籤是否已經完成了動畫
+      if (allTagsHaveFadeIn && tagElements.length > 0) {
+        console.log(`🎭 容器 ${targetRoute} 的標籤動畫已完成，跳過重新播放（無內容情況）`);
+        
+        // 確保容器狀態正確
+        const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
+        swiperSlides.forEach(slide => {
+          slide.classList.add('typewriter-complete');
+        });
+        
+        typewriterContainer.innerHTML = '';
+        return;
+      }
       
+      // 如果動畫未完成，直接顯示空內容並顯示 swiper-slide 元素和標籤
+      console.log(`🎭 開始容器 ${targetRoute} 的動畫序列（無內容情況）`);
+      typewriterContainer.innerHTML = '';
+      
+      const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
       swiperSlides.forEach(slide => {
         slide.classList.add('typewriter-complete');
       });
@@ -1147,7 +1166,7 @@ const fetchData = async () => {
                   ? (Route_in_frame[r][0]?.Description?.S?.trim() ? Route_in_frame[r][0].Description.S : r)
                   : ""
               )
-     }"></p>`)
+     }qweqwoeq qweiqwpoe qwei qwp oeq wei qw poe iqwpoei qpowei opqw ieqo peqwe qweqw eqweqw eq qeqwew qwepqowe wqe iqwpoei pqwe eioqpwe"></p>`)
      $(`#container-${r.replaceAll(" ","")}`).css({backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${themeBackgroundImagesMap[r]})`});
       //first route hide type_backarrow
       if (r === all_Route[0]) {

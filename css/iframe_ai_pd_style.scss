@@ -2077,21 +2077,47 @@ a.update_delete {
       justify-content: center;
   }
 
-  /* 淡入動畫 */
-  .tag-fade-in {
-      animation: tagFadeIn 0.3s ease-in-out;
+  /* 標籤淡入效果和點擊控制 */
+  .axd_selection.axd_tag {
+      opacity: 0;
+      pointer-events: none; /* 禁用點擊 */
+      cursor: default; /* 顯示默認游標 */
+      /* 移除transition避免與animation衝突 */
   }
 
-  @keyframes tagFadeIn {
+  .axd_selection.axd_tag.tag-fade-in {
+      /* 使用animation來控制淡入效果 */
+      animation: tagFadeInSmooth 0.4s ease-out forwards;
+      pointer-events: auto; /* 啟用點擊 */
+      cursor: pointer; /* 顯示指針游標 */
+  }
+
+  /* 淡入動畫 */
+  .tag-fade-in {
+      animation: tagFadeInSmooth 0.4s ease-out forwards;
+  }
+
+  @keyframes tagFadeInSmooth {
       from {
           opacity: 0;
-          transform: translateY(10px);
       }
 
       to {
           opacity: 1;
-          transform: translateY(0);
       }
+  }
+
+  /* 確保標籤內的元素也遵循父元素的點擊狀態 */
+  .axd_selection.axd_tag:not(.tag-fade-in) .axd_tag_inner,
+  .axd_selection.axd_tag:not(.tag-fade-in) p {
+      pointer-events: none;
+      cursor: default;
+  }
+
+  .axd_selection.axd_tag.tag-fade-in .axd_tag_inner,
+  .axd_selection.axd_tag.tag-fade-in p {
+      pointer-events: auto;
+      cursor: pointer;
   }
 
   /* 響應式設計 */

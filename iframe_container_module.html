@@ -731,7 +731,7 @@
       }
       .update_delete .selection_scroll .tag-desc-container{
         color: var(--White-Primary, #FFF);
-        font-family: "Noto Sans TC";
+        font-family: "Noto Sans TC", "Figtree", sans-serif;
         font-size: 18px;
         font-style: normal;
         font-weight: 400;
@@ -741,7 +741,7 @@
         margin: 0 auto;
         text-align: left;
         /* 限制最多顯示3行 */
-        min-height: fit-content;
+        height: fit-content;
         max-height: 90px; /* 30px line-height * 3 行 = 90px */
         overflow-y: auto;
         /* 隱藏滾動條但保持可滾動 */
@@ -1025,15 +1025,26 @@
       /* 標籤逐個淡入效果 */
       .update_delete .selection_scroll .axd_selection.axd_tag {
         opacity: 0;
-        transition: opacity 0.8s ease;
         pointer-events: none; /* 禁用點擊 */
         cursor: default; /* 顯示默認游標 */
+        /* 移除transition避免與animation衝突 */
       }
       
       .update_delete .selection_scroll .axd_selection.axd_tag.tag-fade-in {
-        opacity: 1;
+        /* 使用animation來控制淡入效果 */
+        animation: tagFadeInSmooth 0.4s ease-out forwards;
         pointer-events: auto; /* 啟用點擊 */
         cursor: pointer; /* 顯示指針游標 */
+      }
+      
+      /* 自定義平滑的淡入動畫，避免transform導致的佈局跳動 */
+      @keyframes tagFadeInSmooth {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
       }
       
       /* 確保標籤內的元素也遵循父元素的點擊狀態 */
