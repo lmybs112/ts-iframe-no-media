@@ -5,6 +5,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const maxRowsBeforeScroll = 3; // 超過 3 行才啟用逐行滾動
     const minScrollHeight = maxRowsBeforeScroll * scrollStep; // 最小滾動高度（144px）
 
+    // 動態計算實際行高和最小滾動高度
+    function calculateActualScrollParams(selectionElement) {
+        const tags = selectionElement.querySelectorAll('.axd_selection');
+        if (tags.length === 0) {
+            return { 
+                actualRowHeight: scrollStep, 
+                actualMinScrollHeight: minScrollHeight,
+                actualRowCount: 0
+            };
+        }
+
+        // 計算第一個標籤的實際高度
+        const firstTag = tags[0];
+        const style = window.getComputedStyle(firstTag);
+        const actualHeight = firstTag.offsetHeight || parseInt(style.height) || rowHeight;
+        const actualMargin = parseInt(style.marginBottom) || gap;
+        const actualRowHeight = actualHeight + actualMargin;
+
+        // 計算實際行數
+        const containerHeight = selectionElement.clientHeight;
+        const contentHeight = selectionElement.scrollHeight;
+        const actualRowCount = Math.ceil(contentHeight / actualRowHeight);
+
+        console.log(`動態計算結果: 
+            標籤總數=${tags.length}, 
+            實際行高=${actualRowHeight}px, 
+            容器高度=${containerHeight}px,
+            內容高度=${contentHeight}px,
+            估算行數=${actualRowCount}`);
+
+        return {
+            actualRowHeight,
+            actualMinScrollHeight: maxRowsBeforeScroll * actualRowHeight,
+            actualRowCount
+        };
+    }
+
     // 背景滾動鎖定功能
     let isModalOpen = false;
     let bodyScrollPosition = 0;
@@ -148,18 +185,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!selection.hasAttribute('data-scroll-initialized')) {
                     console.log(`為 ${container.id} 中第${index + 1}個selection元素添加滾動監聽器:`, selection);
                     console.log('元素類名:', selection.className);
+                    
+                    // 使用動態計算的參數
+                    const scrollParams = calculateActualScrollParams(selection);
+                    const { actualRowHeight, actualMinScrollHeight, actualRowCount } = scrollParams;
+                    
                     console.log('元素滾動信息:', {
                         scrollHeight: selection.scrollHeight,
                         clientHeight: selection.clientHeight,
                         canScroll: selection.scrollHeight > selection.clientHeight,
-                        needsScrollControl: selection.scrollHeight > minScrollHeight
+                        actualRowCount: actualRowCount,
+                        needsScrollControl: actualRowCount > maxRowsBeforeScroll,
+                        actualMinScrollHeight: actualMinScrollHeight
                     });
 
-                    const shouldApplyScrollControl = selection.scrollHeight > minScrollHeight;
+                    // 修改判斷邏輯：基於實際行數而不是固定高度
+                    const shouldApplyScrollControl = actualRowCount > maxRowsBeforeScroll && 
+                                                   selection.scrollHeight > selection.clientHeight;
 
                     selection.addEventListener('wheel', (event) => {
                         if (!shouldApplyScrollControl) {
-                            console.log('內容未超過 3 行，允許自由滾動');
+                            console.log(`內容只有 ${actualRowCount} 行，未超過 ${maxRowsBeforeScroll} 行，允許自由滾動`);
                             return;
                         }
 
@@ -181,32 +227,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             return;
                         }
 
-                        // 計算目標滾動位置
-                        let targetScroll = currentScroll + (scrollStep * scrollDirection);
-                        
-                        // 向下滾動時，檢查是否會導致標籤只顯示一半
-                        if (scrollDirection > 0) {
-                            const remainingHeight = maxScroll - targetScroll;
-                            
-                            // 如果滾動後剩餘高度不足一個完整行高，調整到能完整顯示的位置
-                            if (remainingHeight > 0 && remainingHeight < scrollStep * 0.8) {
-                                // 計算能完整顯示標籤的最大滾動位置
-                                const maxCompleteScroll = Math.floor(maxScroll / scrollStep) * scrollStep;
-                                targetScroll = Math.min(targetScroll, maxCompleteScroll);
-                                console.log(`調整目標位置避免標籤被切: 原目標=${currentScroll + scrollStep}, 調整後=${targetScroll}, 剩餘=${maxScroll - targetScroll}`);
-                            }
-                        }
-                        
-                        // 確保不超出範圍
-                        const clampedScroll = Math.max(0, Math.min(maxScroll, targetScroll));
-                        
-                        // 檢查是否真的需要滾動
-                        if (Math.abs(currentScroll - clampedScroll) < 1) {
-                            console.log('滾動距離太小或已在邊界，跳過滾動');
+                        const remainingScrollDown = maxScroll - currentScroll;
+                        if (scrollDirection > 0 && remainingScrollDown <= 0) {
+                            console.log('已在最後一行，阻止向下滾動');
                             return;
                         }
 
-                        console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${clampedScroll}, 最大=${maxScroll}`);
+                        // 使用實際行高計算滾動距離
+                        const targetScroll = currentScroll + (actualRowHeight * scrollDirection);
+                        const clampedScroll = Math.max(0, Math.min(maxScroll, targetScroll));
+
+                        console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${clampedScroll}, 最大=${maxScroll}, 行高=${actualRowHeight}`);
 
                         selection.scrollTo({
                             top: clampedScroll,
@@ -215,8 +246,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
 
                     // 觸控滾動依賴 CSS scroll-snap，無需額外對齊
-                    let scrollTimeout = null;
-                    
                     selection.addEventListener('touchstart', () => {
                         if (scrollTimeout) {
                             clearTimeout(scrollTimeout);
@@ -225,41 +254,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     selection.addEventListener('touchend', () => {
                         if (!shouldApplyScrollControl) {
-                            console.log('內容未超過 3 行，跳過觸控對齊');
+                            console.log(`內容只有 ${actualRowCount} 行，跳過觸控對齊`);
                             return;
                         }
 
-                        // 延遲對齊，等待慣性滾動結束
-                        scrollTimeout = setTimeout(() => {
-                            const currentScroll = selection.scrollTop;
-                            const maxScroll = selection.scrollHeight - selection.clientHeight;
-                            
-                            if (maxScroll <= 0) return;
-                            
-                            // 計算最接近的行對齊位置
-                            let alignedScroll = Math.round(currentScroll / scrollStep) * scrollStep;
-                            
-                            // 檢查是否會導致標籤只顯示一半
-                            const remainingHeight = maxScroll - alignedScroll;
-                            if (remainingHeight > 0 && remainingHeight < scrollStep * 0.8) {
-                                // 調整到能完整顯示標籤的位置
-                                alignedScroll = Math.floor(maxScroll / scrollStep) * scrollStep;
-                                console.log(`觸摸對齊: 調整避免標籤被切, 對齊到=${alignedScroll}, 剩餘=${maxScroll - alignedScroll}`);
-                            }
-                            
-                            // 確保不超出範圍
-                            alignedScroll = Math.max(0, Math.min(maxScroll, alignedScroll));
-                            
-                            // 只有偏差較大時才對齊
-                            const distance = Math.abs(currentScroll - alignedScroll);
-                            if (distance > 5) {
-                                console.log(`觸摸對齊: 當前=${currentScroll}, 對齊=${alignedScroll}, 距離=${distance}`);
-                                selection.scrollTo({
-                                    top: alignedScroll,
-                                    behavior: 'smooth'
-                                });
-                            }
-                        }, 150);
+                        console.log('觸摸結束，CSS scroll-snap 將自動對齊');
                     }, { passive: true });
 
                     selection.setAttribute('data-scroll-initialized', 'true');

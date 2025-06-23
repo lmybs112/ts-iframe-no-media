@@ -772,7 +772,7 @@
         height: fit-content;
         max-width: 270px;
         margin: 0 auto;
-        max-height: 136px;
+        max-height: 155px;
         overflow-y: auto;
         /* 隱藏滾動條但保持可滾動 */
         scrollbar-width: none; /* Firefox */
@@ -780,11 +780,12 @@
         /* 平滑滾動 */
         scroll-behavior: smooth;
         /* 初始隱藏，等待打字效果完成 */
+        scroll-snap-type: y mandatory;
         opacity: 0;
         transition: opacity 0.3s ease-in-out;
         @media screen and (min-width: 480px) {
           max-width: 340px;
-          max-height: 140px;
+          max-height: 155px;
         }
       }
       /* 隱藏 Webkit 瀏覽器的滾動條 */
@@ -796,7 +797,10 @@
         opacity: 1;
       }
       .update_delete .selection_scroll .swiper-wrapper .swiper-slide .axd_selections.selection{
-        gap: 8px !important;
+        margin: 8px 0 !important;
+      }
+      .update_delete .selection_scroll .swiper-wrapper .swiper-slide .axd_selections.selection{
+        gap: 0 8px !important;
         /* 確保選項容器可以彈性高度並能滾動 */
         max-height: inherit;
         overflow-y: auto;
@@ -805,6 +809,7 @@
         -ms-overflow-style: none; /* Internet Explorer 10+ */
         /* 平滑滾動 */
         scroll-behavior: smooth;
+        scroll-snap-align: start;
       }
       /* 隱藏選項容器的 Webkit 滾動條 */
       .update_delete .selection_scroll .swiper-wrapper .swiper-slide .axd_selections.selection::-webkit-scrollbar {
