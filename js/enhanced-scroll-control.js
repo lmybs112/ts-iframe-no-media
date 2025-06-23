@@ -141,14 +141,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     height: 10px;
                 }
             }
-            
-            /* 暗色主題適配 */
-            @media (prefers-color-scheme: dark) {
-                .scroll-triple-arrows svg {
-                    color: rgba(255, 255, 255, 0.7);
-                    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-                }
-            }
         `;
         
         document.head.appendChild(style);
