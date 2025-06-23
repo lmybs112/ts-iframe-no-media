@@ -94,28 +94,183 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }, { passive: false });
 
-        // 觸摸滾動結束後的對齊處理
+        // 觸摸滾動增強處理
         let touchScrollTimeout = null;
+        let isUserScrolling = false;
+        let lastScrollTime = 0;
+        let touchStartY = 0;
+        let isTouchScrolling = false;
         
-        selectionElement.addEventListener('scroll', () => {
+        // 觸摸開始
+        selectionElement.addEventListener('touchstart', (event) => {
+            touchStartY = event.touches[0].clientY;
+            isTouchScrolling = true;
+            isUserScrolling = true;
             clearTimeout(touchScrollTimeout);
             
+            // 停止所有監控
+            if (velocityCheckInterval) {
+                clearInterval(velocityCheckInterval);
+                velocityCheckInterval = null;
+            }
+            if (scrollMonitorInterval) {
+                clearInterval(scrollMonitorInterval);
+                scrollMonitorInterval = null;
+            }
+            
+            console.log('👆 觸摸開始');
+        }, { passive: true });
+        
+        // 觸摸移動時的滾動處理
+        selectionElement.addEventListener('touchmove', (event) => {
+            if (!isTouchScrolling) return;
+            
+            const touchY = event.touches[0].clientY;
+            const touchDelta = touchStartY - touchY;
+            
+            // 更新最後滾動時間
+            lastScrollTime = Date.now();
+            
+            console.log(`👆 觸摸移動: ${touchDelta}px`);
+        }, { passive: true });
+        
+        // 觸摸結束
+        selectionElement.addEventListener('touchend', () => {
+            console.log('👆 觸摸結束');
+            isTouchScrolling = false;
+            
+            // 延遲一點時間來確保滾動停止
+            setTimeout(() => {
+                isUserScrolling = false;
+                // 啟動速度追蹤來檢測慣性滾動
+                startVelocityTracking();
+            }, 50);
+        }, { passive: true });
+
+        // 改進的滾動事件處理
+        selectionElement.addEventListener('scroll', () => {
+            lastScrollTime = Date.now();
+            clearTimeout(touchScrollTimeout);
+            
+            // 使用更短的延遲來提高響應性
             touchScrollTimeout = setTimeout(() => {
+                // 檢查是否真的停止滾動了
+                const timeSinceLastScroll = Date.now() - lastScrollTime;
+                if (timeSinceLastScroll < 50) {
+                    // 還在滾動，重新設置定時器
+                    clearTimeout(touchScrollTimeout);
+                    setTimeout(arguments.callee, 50);
+                    return;
+                }
+                
+                const maxScroll = selectionElement.scrollHeight - selectionElement.clientHeight;
+                if (maxScroll <= 0) return;
+                
                 const currentScroll = selectionElement.scrollTop;
                 const currentRowIndex = getCurrentRowIndex(currentScroll, rowHeight);
-                const targetScroll = getTargetScrollPosition(currentRowIndex, rowHeight, 
-                    selectionElement.scrollHeight - selectionElement.clientHeight);
+                const targetScroll = getTargetScrollPosition(currentRowIndex, rowHeight, maxScroll);
                 
                 // 如果當前位置與目標位置差距較大，則進行對齊
-                if (Math.abs(currentScroll - targetScroll) > 5) {
-                    console.log(`觸摸滾動對齊: 從${currentScroll}px 對齊到行${currentRowIndex} (${targetScroll}px)`);
+                if (Math.abs(currentScroll - targetScroll) > 3) {
+                    console.log(`📱 滾動對齊: 從${currentScroll}px 對齊到行${currentRowIndex} (${targetScroll}px)`);
                     selectionElement.scrollTo({
                         top: targetScroll,
                         behavior: 'smooth'
                     });
+                } else {
+                    console.log(`📱 滾動位置已對齊: 行${currentRowIndex} (${currentScroll}px)`);
                 }
-            }, 150); // 等待滾動停止後再對齊
+            }, 100); // 減少延遲時間
         }, { passive: true });
+        
+        // 添加滾動狀態監控
+        let scrollMonitorInterval = null;
+        
+        // 防抖動處理 - 避免快速重複執行對齊
+        let isAligning = false;
+        
+        // 慣性滾動檢測
+        let lastScrollTop = selectionElement.scrollTop;
+        let scrollVelocity = 0;
+        let velocityCheckInterval = null;
+        
+        function startVelocityTracking() {
+            if (velocityCheckInterval) clearInterval(velocityCheckInterval);
+            
+            velocityCheckInterval = setInterval(() => {
+                const currentScrollTop = selectionElement.scrollTop;
+                scrollVelocity = Math.abs(currentScrollTop - lastScrollTop);
+                lastScrollTop = currentScrollTop;
+                
+                // 如果速度很低，說明滾動即將停止
+                if (scrollVelocity < 2 && !isAligning) {
+                    clearInterval(velocityCheckInterval);
+                    velocityCheckInterval = null;
+                    
+                    // 延遲一點時間確保完全停止
+                    setTimeout(() => {
+                        if (scrollVelocity < 1) {
+                            startScrollMonitoring();
+                        }
+                    }, 50);
+                }
+            }, 16); // 約60fps
+        }
+        
+        // 改進對齊函數
+        function performAlignment(scrollTop) {
+            if (isAligning) return;
+            
+            const maxScroll = selectionElement.scrollHeight - selectionElement.clientHeight;
+            if (maxScroll <= 0) return;
+            
+            isAligning = true;
+            
+            const currentRowIndex = getCurrentRowIndex(scrollTop, rowHeight);
+            const targetScroll = getTargetScrollPosition(currentRowIndex, rowHeight, maxScroll);
+            
+            if (Math.abs(scrollTop - targetScroll) > 3) {
+                console.log(`✨ 執行對齊: 從${scrollTop}px 對齊到行${currentRowIndex} (${targetScroll}px)`);
+                selectionElement.scrollTo({
+                    top: targetScroll,
+                    behavior: 'smooth'
+                });
+                
+                // 等待動畫完成
+                setTimeout(() => {
+                    isAligning = false;
+                }, 300);
+            } else {
+                isAligning = false;
+                console.log(`✅ 位置已對齊: 行${currentRowIndex} (${scrollTop}px)`);
+            }
+        }
+        
+        function startScrollMonitoring() {
+            if (scrollMonitorInterval) return;
+            
+            let lastScrollTop = selectionElement.scrollTop;
+            let stableCount = 0;
+            
+            scrollMonitorInterval = setInterval(() => {
+                const currentScrollTop = selectionElement.scrollTop;
+                
+                if (Math.abs(currentScrollTop - lastScrollTop) < 1) {
+                    stableCount++;
+                    if (stableCount >= 3) { // 連續3次檢查都沒有變化
+                        // 滾動已穩定，進行對齊
+                        performAlignment(currentScrollTop);
+                        
+                        clearInterval(scrollMonitorInterval);
+                        scrollMonitorInterval = null;
+                    }
+                } else {
+                    stableCount = 0;
+                }
+                
+                lastScrollTop = currentScrollTop;
+            }, 50);
+        }
 
         // 鍵盤事件處理（可選）
         selectionElement.addEventListener('keydown', (event) => {
