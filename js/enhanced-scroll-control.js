@@ -636,7 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasAnimatingTags = animatingTags.length > 0;
             
             if (hasAnimatingTags) {
-                console.log(`🚫 標籤淡入動畫進行中，禁止觸摸滾動 (還有 ${animatingTags.length} 個標籤未完成動畫)`);
+                console.log(`🚫 標籤淡入動畫進行中，禁止觸摸開始 (還有 ${animatingTags.length} 個標籤未完成動畫)`);
                 event.preventDefault();
                 event.stopPropagation();
                 return;
@@ -692,6 +692,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 觸摸結束
         const touchEndHandler = () => {
+            // 檢查是否有標籤還在進行淡入動畫
+            const animatingTags = selectionElement.querySelectorAll('.axd_selection.axd_tag:not(.tag-fade-in)');
+            const hasAnimatingTags = animatingTags.length > 0;
+            
+            if (hasAnimatingTags) {
+                console.log(`🚫 標籤淡入動畫進行中，禁止觸摸結束處理 (還有 ${animatingTags.length} 個標籤未完成動畫)`);
+                isTouchScrolling = false; // 重置狀態
+                return;
+            }
+            
             console.log('👆 觸摸結束');
             isTouchScrolling = false;
             
@@ -718,6 +728,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 改進的滾動事件處理
         const scrollHandler = () => {
+            // 檢查是否有標籤還在進行淡入動畫
+            const animatingTags = selectionElement.querySelectorAll('.axd_selection.axd_tag:not(.tag-fade-in)');
+            const hasAnimatingTags = animatingTags.length > 0;
+            
+            if (hasAnimatingTags) {
+                console.log(`🚫 標籤淡入動畫進行中，跳過滾動處理 (還有 ${animatingTags.length} 個標籤未完成動畫)`);
+                return;
+            }
+            
             lastScrollTime = Date.now();
             clearTimeout(touchScrollTimeout);
             
@@ -776,6 +795,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (velocityCheckInterval) clearInterval(velocityCheckInterval);
             
             velocityCheckInterval = setInterval(() => {
+                // 檢查是否有標籤還在進行淡入動畫
+                const animatingTags = selectionElement.querySelectorAll('.axd_selection.axd_tag:not(.tag-fade-in)');
+                const hasAnimatingTags = animatingTags.length > 0;
+                
+                if (hasAnimatingTags) {
+                    console.log(`🚫 標籤淡入動畫進行中，停止速度追蹤 (還有 ${animatingTags.length} 個標籤未完成動畫)`);
+                    clearInterval(velocityCheckInterval);
+                    velocityCheckInterval = null;
+                    return;
+                }
+                
                 const currentScrollTop = selectionElement.scrollTop;
                 scrollVelocity = Math.abs(currentScrollTop - lastScrollTop);
                 lastScrollTop = currentScrollTop;
@@ -798,6 +828,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // 改進對齊函數
         function performAlignment(scrollTop) {
             if (isAligning) return;
+            
+            // 檢查是否有標籤還在進行淡入動畫
+            const animatingTags = selectionElement.querySelectorAll('.axd_selection.axd_tag:not(.tag-fade-in)');
+            const hasAnimatingTags = animatingTags.length > 0;
+            
+            if (hasAnimatingTags) {
+                console.log(`🚫 標籤淡入動畫進行中，跳過對齊處理 (還有 ${animatingTags.length} 個標籤未完成動畫)`);
+                return;
+            }
             
             const maxScroll = selectionElement.scrollHeight - selectionElement.clientHeight;
             if (maxScroll <= 0) return;
@@ -843,6 +882,17 @@ document.addEventListener('DOMContentLoaded', () => {
             let stableCount = 0;
             
             scrollMonitorInterval = setInterval(() => {
+                // 檢查是否有標籤還在進行淡入動畫
+                const animatingTags = selectionElement.querySelectorAll('.axd_selection.axd_tag:not(.tag-fade-in)');
+                const hasAnimatingTags = animatingTags.length > 0;
+                
+                if (hasAnimatingTags) {
+                    console.log(`🚫 標籤淡入動畫進行中，停止滾動監控 (還有 ${animatingTags.length} 個標籤未完成動畫)`);
+                    clearInterval(scrollMonitorInterval);
+                    scrollMonitorInterval = null;
+                    return;
+                }
+                
                 const currentScrollTop = selectionElement.scrollTop;
                 
                 if (Math.abs(currentScrollTop - lastScrollTop) < 1) {
