@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const arrow = createScrollDownArrow();
         
         // update_delete containet
-        const currentContainer = document.querySelector('.container.mbinfo.animX.animFadeIn.update_delete .swiper-wrapper');
+        const currentContainer = document.querySelector('.container.mbinfo.animX.animFadeIn.update_delete');
         if (currentContainer) {
             // 將箭頭添加到頁面
             if (!currentContainer.contains(arrow)) {
