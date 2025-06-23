@@ -57,7 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 attributeFilter: ['style']
             });
 
-            // 初始檢查
             const isVisible = window.getComputedStyle(pbackElement).display !== 'none';
             const hasVisibleContainers = document.querySelectorAll('[id^="container-"]:not([style*="display: none"])').length > 0;
 
@@ -69,34 +68,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 阻止背景區域的滾動事件
     function preventBackgroundScroll() {
-        document.addEventListener('wheel', (event) => {
-            if (isModalOpen) {
-                const target = event.target;
-                const isInScrollableArea = target.closest('.axd_selections.selection') ||
-                                           target.closest('.swiper-slide') ||
-                                           target.closest('.tag-desc-container');
+    document.addEventListener('wheel', (event) => {
+        if (isModalOpen) {
+            const target = event.target;
+            const isInScrollableArea = target.closest('.axd_selections.selection') ||
+                                       target.closest('.swiper-slide') ||
+                                       target.closest('.tag-desc-container');
 
-                if (!isInScrollableArea) {
-                    event.preventDefault();
-                    console.log('阻止背景滾動');
-                }
+            if (!isInScrollableArea) {
+                event.preventDefault();
+                console.log('阻止背景滾動');
             }
-        }, { passive: false });
+        }
+    }, { passive: false });
 
-        document.addEventListener('touchmove', (event) => {
-            if (isModalOpen) {
-                const target = event.target;
-                const isInScrollableArea = target.closest('.axd_selections.selection') ||
-                                           target.closest('.swiper-slide') ||
-                                           target.closest('.tag-desc-container');
+    document.addEventListener('touchmove', (event) => {
+        if (isModalOpen) {
+            const target = event.target;
+            const isInScrollableArea = target.closest('.axd_selections.selection') ||
+                                       target.closest('.swiper-slide') ||
+                                       target.closest('.tag-desc-container');
 
-                if (!isInScrollableArea) {
-                    event.preventDefault();
-                    console.log('阻止背景觸摸滾動');
-                }
+            if (!isInScrollableArea) {
+                event.preventDefault();
+                console.log('阻止背景觸摸滾動');
             }
-        }, { passive: false });
-    }
+        }
+    }, { passive: false });
+}
 
     // 初始化滾動控制
     function initScrollControl() {
@@ -156,10 +155,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         needsScrollControl: selection.scrollHeight > minScrollHeight
                     });
 
-                    // 檢查是否需要滾動控制（內容高度是否超過 3 行）
                     const shouldApplyScrollControl = selection.scrollHeight > minScrollHeight;
 
-                    // 滾輪事件（電腦版）
                     selection.addEventListener('wheel', (event) => {
                         if (!shouldApplyScrollControl) {
                             console.log('內容未超過 3 行，允許自由滾動');
@@ -179,22 +176,35 @@ document.addEventListener('DOMContentLoaded', () => {
                             return;
                         }
 
-                        // 第一行檢查：阻止向上滾動
                         if (scrollDirection < 0 && currentScroll <= 0) {
                             console.log('已在第一行，阻止向上滾動');
                             return;
                         }
 
-                        // 最後一行檢查：阻止向下滾動
-                        const remainingScrollDown = maxScroll - currentScroll;
-                        if (scrollDirection > 0 && remainingScrollDown <= 0) {
-                            console.log('已在最後一行，阻止向下滾動');
+                        // 計算目標滾動位置
+                        let targetScroll = currentScroll + (scrollStep * scrollDirection);
+                        
+                        // 向下滾動時，檢查是否會導致標籤只顯示一半
+                        if (scrollDirection > 0) {
+                            const remainingHeight = maxScroll - targetScroll;
+                            
+                            // 如果滾動後剩餘高度不足一個完整行高，調整到能完整顯示的位置
+                            if (remainingHeight > 0 && remainingHeight < scrollStep * 0.8) {
+                                // 計算能完整顯示標籤的最大滾動位置
+                                const maxCompleteScroll = Math.floor(maxScroll / scrollStep) * scrollStep;
+                                targetScroll = Math.min(targetScroll, maxCompleteScroll);
+                                console.log(`調整目標位置避免標籤被切: 原目標=${currentScroll + scrollStep}, 調整後=${targetScroll}, 剩餘=${maxScroll - targetScroll}`);
+                            }
+                        }
+                        
+                        // 確保不超出範圍
+                        const clampedScroll = Math.max(0, Math.min(maxScroll, targetScroll));
+                        
+                        // 檢查是否真的需要滾動
+                        if (Math.abs(currentScroll - clampedScroll) < 1) {
+                            console.log('滾動距離太小或已在邊界，跳過滾動');
                             return;
                         }
-
-                        // 計算目標滾動位置，確保每次移動 48px
-                        const targetScroll = currentScroll + (scrollStep * scrollDirection);
-                        const clampedScroll = Math.max(0, Math.min(maxScroll, targetScroll));
 
                         console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${clampedScroll}, 最大=${maxScroll}`);
 
@@ -204,63 +214,54 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     });
 
-                    // 手機觸摸滾動支持
-                    let touchStartY = 0;
-                    let touchStartTime = 0;
-                    let touchStartScroll = 0;
-                    let isScrolling = false;
+                    // 觸控滾動依賴 CSS scroll-snap，無需額外對齊
                     let scrollTimeout = null;
-
-                    selection.addEventListener('touchstart', (event) => {
-                        touchStartY = event.touches[0].clientY;
-                        touchStartTime = Date.now();
-                        touchStartScroll = selection.scrollTop;
-                        isScrolling = false;
-
+                    
+                    selection.addEventListener('touchstart', () => {
                         if (scrollTimeout) {
                             clearTimeout(scrollTimeout);
                         }
                     }, { passive: true });
 
-                    selection.addEventListener('touchmove', (event) => {
-                        if (!shouldApplyScrollControl) {
-                            return;
-                        }
-
-                        isScrolling = true;
-                    }, { passive: true });
-
-                    selection.addEventListener('touchend', (event) => {
+                    selection.addEventListener('touchend', () => {
                         if (!shouldApplyScrollControl) {
                             console.log('內容未超過 3 行，跳過觸控對齊');
                             return;
                         }
 
-                        if (isScrolling) {
+                        // 延遲對齊，等待慣性滾動結束
+                        scrollTimeout = setTimeout(() => {
                             const currentScroll = selection.scrollTop;
                             const maxScroll = selection.scrollHeight - selection.clientHeight;
-
-                            if (maxScroll <= 0) {
-                                console.log('內容高度不足，無需滾動');
-                                return;
-                            }
-
-                            // 計算最近的對齊位置
+                            
+                            if (maxScroll <= 0) return;
+                            
+                            // 計算最接近的行對齊位置
                             let alignedScroll = Math.round(currentScroll / scrollStep) * scrollStep;
+                            
+                            // 檢查是否會導致標籤只顯示一半
+                            const remainingHeight = maxScroll - alignedScroll;
+                            if (remainingHeight > 0 && remainingHeight < scrollStep * 0.8) {
+                                // 調整到能完整顯示標籤的位置
+                                alignedScroll = Math.floor(maxScroll / scrollStep) * scrollStep;
+                                console.log(`觸摸對齊: 調整避免標籤被切, 對齊到=${alignedScroll}, 剩餘=${maxScroll - alignedScroll}`);
+                            }
+                            
+                            // 確保不超出範圍
                             alignedScroll = Math.max(0, Math.min(maxScroll, alignedScroll));
-
-                            console.log(`觸摸結束對齊: 當前=${currentScroll}, 對齊=${alignedScroll}, 最大=${maxScroll}`);
-
-                            scrollTimeout = setTimeout(() => {
+                            
+                            // 只有偏差較大時才對齊
+                            const distance = Math.abs(currentScroll - alignedScroll);
+                            if (distance > 5) {
+                                console.log(`觸摸對齊: 當前=${currentScroll}, 對齊=${alignedScroll}, 距離=${distance}`);
                                 selection.scrollTo({
                                     top: alignedScroll,
                                     behavior: 'smooth'
                                 });
-                            }, 100);
-                        }
+                            }
+                        }, 150);
                     }, { passive: true });
 
-                    // 標記已初始化
                     selection.setAttribute('data-scroll-initialized', 'true');
                 }
             });
@@ -276,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
     observeModalChanges();
     preventBackgroundScroll();
 
-    // 監聽DOM變化，當新容器出現時重新初始化
+    // 監聽DOM變化
     const observer = new MutationObserver((mutations) => {
         let shouldReinit = false;
 
