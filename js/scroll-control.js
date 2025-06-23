@@ -83,7 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, { passive: false });
 
-        // 阻止觸摸滾動（手機版）
         document.addEventListener('touchmove', (event) => {
             if (isModalOpen) {
                 const target = event.target;
@@ -153,50 +152,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log('元素滾動信息:', {
                         scrollHeight: selection.scrollHeight,
                         clientHeight: selection.clientHeight,
-                        canScroll: selection.scrollHeight > selection.clientHeight
+                        canScroll: selection.scrollHeight > selection.clientHeight,
+                        needsScrollControl: selection.scrollHeight > minScrollHeight
                     });
 
                     // 檢查是否需要滾動控制（內容高度是否超過 3 行）
                     const shouldApplyScrollControl = selection.scrollHeight > minScrollHeight;
 
-                    // 對齊滾動位置的函數
-                    function alignScrollPosition(element, isGentle = true) {
-                        if (!shouldApplyScrollControl) {
-                            console.log('內容未超過 3 行，跳過對齊');
-                            return;
-                        }
-
-                        const currentScroll = element.scrollTop;
-                        const maxScroll = element.scrollHeight - element.clientHeight;
-
-                        if (maxScroll <= 0) {
-                            console.log('內容高度不足，無需滾動');
-                            return;
-                        }
-
-                        let alignedScroll = Math.round(currentScroll / scrollStep) * scrollStep;
-                        alignedScroll = Math.max(0, Math.min(maxScroll, alignedScroll));
-
-                        const threshold = isGentle ? scrollStep * 0.3 : 1;
-                        const distance = Math.abs(currentScroll - alignedScroll);
-
-                        if (distance > threshold) {
-                            console.log(`對齊滾動: 當前=${currentScroll}, 對齊=${alignedScroll}, 距離=${distance}, 最大=${maxScroll}`);
-                            element.scrollTo({
-                                top: alignedScroll,
-                                behavior: 'smooth'
-                            });
-                        }
-                    }
-
                     // 滾輪事件（電腦版）
                     selection.addEventListener('wheel', (event) => {
                         if (!shouldApplyScrollControl) {
                             console.log('內容未超過 3 行，允許自由滾動');
-                            return; // 如果內容不超過 3 行，不阻止默認滾動
+                            return;
                         }
 
-                        event.preventDefault(); // 阻止默認滾動行為
+                        event.preventDefault();
                         console.log('滾輪事件觸發在元素:', selection.className);
 
                         const delta = event.deltaY;
@@ -209,32 +179,27 @@ document.addEventListener('DOMContentLoaded', () => {
                             return;
                         }
 
-                        // 修正1：第一行顯示時阻止向上滾動
+                        // 第一行檢查：阻止向上滾動
                         if (scrollDirection < 0 && currentScroll <= 0) {
                             console.log('已在第一行，阻止向上滾動');
                             return;
                         }
 
-                        // 修正2：最後一行顯示時阻止向下滾動
+                        // 最後一行檢查：阻止向下滾動
                         const remainingScrollDown = maxScroll - currentScroll;
                         if (scrollDirection > 0 && remainingScrollDown <= 0) {
                             console.log('已在最後一行，阻止向下滾動');
                             return;
                         }
 
-                        const scrollAmount = scrollStep * scrollDirection;
-                        let targetScroll = Math.round((currentScroll + scrollAmount) / scrollStep) * scrollStep;
-                        targetScroll = Math.max(0, Math.min(maxScroll, targetScroll));
+                        // 計算目標滾動位置，確保每次移動 48px
+                        const targetScroll = currentScroll + (scrollStep * scrollDirection);
+                        const clampedScroll = Math.max(0, Math.min(maxScroll, targetScroll));
 
-                        if (Math.abs(currentScroll - targetScroll) < 1) {
-                            console.log('滾動距離太小，跳過滾動');
-                            return;
-                        }
-
-                        console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${targetScroll}, 最大=${maxScroll}`);
+                        console.log(`滾輪滾動: 當前=${currentScroll}, 目標=${clampedScroll}, 最大=${maxScroll}`);
 
                         selection.scrollTo({
-                            top: targetScroll,
+                            top: clampedScroll,
                             behavior: 'smooth'
                         });
                     });
@@ -245,18 +210,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     let touchStartScroll = 0;
                     let isScrolling = false;
                     let scrollTimeout = null;
-                    let lastScrollTop = 0;
-                    let scrollVelocity = 0;
-                    let lastScrollTime = Date.now();
 
                     selection.addEventListener('touchstart', (event) => {
                         touchStartY = event.touches[0].clientY;
                         touchStartTime = Date.now();
                         touchStartScroll = selection.scrollTop;
                         isScrolling = false;
-                        scrollVelocity = 0;
-                        lastScrollTop = selection.scrollTop;
-                        lastScrollTime = Date.now();
 
                         if (scrollTimeout) {
                             clearTimeout(scrollTimeout);
@@ -265,22 +224,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     selection.addEventListener('touchmove', (event) => {
                         if (!shouldApplyScrollControl) {
-                            return; // 如果內容不超過 3 行，允許自由滾動
+                            return;
                         }
 
                         isScrolling = true;
-
-                        const currentTime = Date.now();
-                        const currentScroll = selection.scrollTop;
-                        const timeDiff = currentTime - lastScrollTime;
-                        const scrollDiff = currentScroll - lastScrollTop;
-
-                        if (timeDiff > 0) {
-                            scrollVelocity = Math.abs(scrollDiff / timeDiff);
-                        }
-
-                        lastScrollTop = currentScroll;
-                        lastScrollTime = currentTime;
                     }, { passive: true });
 
                     selection.addEventListener('touchend', (event) => {
@@ -290,50 +237,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         if (isScrolling) {
-                            const baseDelay = 50;
-                            const velocityDelay = Math.min(400, scrollVelocity * 300);
-                            const totalDelay = baseDelay + velocityDelay;
+                            const currentScroll = selection.scrollTop;
+                            const maxScroll = selection.scrollHeight - selection.clientHeight;
 
-                            console.log(`觸摸結束: 速度=${scrollVelocity.toFixed(3)}, 延遲=${totalDelay}ms`);
+                            if (maxScroll <= 0) {
+                                console.log('內容高度不足，無需滾動');
+                                return;
+                            }
+
+                            // 計算最近的對齊位置
+                            let alignedScroll = Math.round(currentScroll / scrollStep) * scrollStep;
+                            alignedScroll = Math.max(0, Math.min(maxScroll, alignedScroll));
+
+                            console.log(`觸摸結束對齊: 當前=${currentScroll}, 對齊=${alignedScroll}, 最大=${maxScroll}`);
 
                             scrollTimeout = setTimeout(() => {
-                                const isGentle = scrollVelocity > 0.5;
-                                alignScrollPosition(selection, isGentle);
-                            }, totalDelay);
+                                selection.scrollTo({
+                                    top: alignedScroll,
+                                    behavior: 'smooth'
+                                });
+                            }, 100);
                         }
-                    }, { passive: true });
-
-                    // 監聽滾動事件，處理慣性滾動結束後的對齊
-                    let scrollEndTimeout = null;
-                    let scrollCheckCount = 0;
-                    let lastScrollPosition = 0;
-
-                    selection.addEventListener('scroll', () => {
-                        if (!shouldApplyScrollControl) {
-                            return; // 如果內容不超過 3 行，跳過對齊
-                        }
-
-                        if (scrollEndTimeout) {
-                            clearTimeout(scrollEndTimeout);
-                        }
-
-                        const currentScroll = selection.scrollTop;
-
-                        if (Math.abs(currentScroll - lastScrollPosition) < 1) {
-                            scrollCheckCount++;
-                        } else {
-                            scrollCheckCount = 0;
-                        }
-
-                        lastScrollPosition = currentScroll;
-
-                        const checkDelay = scrollCheckCount >= 3 ? 50 : 200;
-
-                        scrollEndTimeout = setTimeout(() => {
-                            if (Math.abs(selection.scrollTop - lastScrollPosition) < 2) {
-                                alignScrollPosition(selection, true);
-                            }
-                        }, checkDelay);
                     }, { passive: true });
 
                     // 標記已初始化
