@@ -46,7 +46,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // 增強的滾動控制函數
     function enhanceScrollControl(selectionElement) {
         if (selectionElement.hasAttribute('data-enhanced-scroll')) {
+            console.log(`⚠️ 元素 ${selectionElement.className} 已經有增強滾動控制，跳過重複初始化`);
             return; // 已經初始化過了
+        }
+
+        // 清理可能存在的舊事件監聽器（防止重複綁定）
+        if (selectionElement._scrollCleanup) {
+            console.log(`🧹 清理元素 ${selectionElement.className} 的舊事件監聽器`);
+            selectionElement._scrollCleanup();
         }
 
         const rowHeight = calculateRowHeight(selectionElement);
@@ -63,8 +70,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // 用於清理事件監聽器的函數集合
+        const eventCleanupFunctions = [];
+        
         // 滾輪事件處理
-        selectionElement.addEventListener('wheel', (event) => {
+        const wheelHandler = (event) => {
             const maxScroll = selectionElement.scrollHeight - selectionElement.clientHeight;
             
             if (maxScroll <= 0) {
@@ -92,7 +102,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 top: targetScroll,
                 behavior: 'smooth'
             });
-        }, { passive: false });
+        };
+        eventCleanupFunctions.push(() => {
+            selectionElement.removeEventListener('wheel', wheelHandler);
+        });
 
         // 觸摸滾動增強處理
         let touchScrollTimeout = null;
@@ -102,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let isTouchScrolling = false;
         
         // 觸摸開始
-        selectionElement.addEventListener('touchstart', (event) => {
+        const touchStartHandler = (event) => {
             touchStartY = event.touches[0].clientY;
             isTouchScrolling = true;
             isUserScrolling = true;
@@ -119,10 +132,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             console.log('👆 觸摸開始');
-        }, { passive: true });
+        };
+        eventCleanupFunctions.push(() => {
+            selectionElement.removeEventListener('touchstart', touchStartHandler);
+        });
         
         // 觸摸移動時的滾動處理
-        selectionElement.addEventListener('touchmove', (event) => {
+        const touchMoveHandler = (event) => {
             if (!isTouchScrolling) return;
             
             const touchY = event.touches[0].clientY;
@@ -132,10 +148,13 @@ document.addEventListener('DOMContentLoaded', () => {
             lastScrollTime = Date.now();
             
             console.log(`👆 觸摸移動: ${touchDelta}px`);
-        }, { passive: true });
+        };
+        eventCleanupFunctions.push(() => {
+            selectionElement.removeEventListener('touchmove', touchMoveHandler);
+        });
         
         // 觸摸結束
-        selectionElement.addEventListener('touchend', () => {
+        const touchEndHandler = () => {
             console.log('👆 觸摸結束');
             isTouchScrolling = false;
             
@@ -145,10 +164,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 啟動速度追蹤來檢測慣性滾動
                 startVelocityTracking();
             }, 50);
-        }, { passive: true });
+        };
+        eventCleanupFunctions.push(() => {
+            selectionElement.removeEventListener('touchend', touchEndHandler);
+        });
 
         // 改進的滾動事件處理
-        selectionElement.addEventListener('scroll', () => {
+        const scrollHandler = () => {
             lastScrollTime = Date.now();
             clearTimeout(touchScrollTimeout);
             
@@ -181,7 +203,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log(`📱 滾動位置已對齊: 行${currentRowIndex} (${currentScroll}px)`);
                 }
             }, 100); // 減少延遲時間
-        }, { passive: true });
+        };
+        eventCleanupFunctions.push(() => {
+            selectionElement.removeEventListener('scroll', scrollHandler);
+        });
         
         // 添加滾動狀態監控
         let scrollMonitorInterval = null;
@@ -273,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 鍵盤事件處理（可選）
-        selectionElement.addEventListener('keydown', (event) => {
+        const keydownHandler = (event) => {
             if (!selectionElement.contains(document.activeElement)) {
                 return;
             }
@@ -325,7 +350,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     behavior: 'smooth'
                 });
             }
+        };
+        eventCleanupFunctions.push(() => {
+            selectionElement.removeEventListener('keydown', keydownHandler);
         });
+
+        // 綁定所有事件監聽器
+        selectionElement.addEventListener('wheel', wheelHandler, { passive: false });
+        selectionElement.addEventListener('touchstart', touchStartHandler, { passive: true });
+        selectionElement.addEventListener('touchmove', touchMoveHandler, { passive: true });
+        selectionElement.addEventListener('touchend', touchEndHandler, { passive: true });
+        selectionElement.addEventListener('scroll', scrollHandler, { passive: true });
+        selectionElement.addEventListener('keydown', keydownHandler);
 
         // 標記為已初始化
         selectionElement.setAttribute('data-enhanced-scroll', 'true');
@@ -336,6 +372,18 @@ document.addEventListener('DOMContentLoaded', () => {
         selectionElement.setAttribute('aria-label', '標籤選擇列表');
         
         console.log(`✅ 已為元素 ${selectionElement.className} 設置增強滾動控制 (總行數: ${totalRows}, 可見行數: ${visibleRows})`);
+
+        // 清理事件監聽器
+        selectionElement._scrollCleanup = () => {
+            eventCleanupFunctions.forEach(fn => fn());
+            
+            // 清理定時器
+            if (touchScrollTimeout) clearTimeout(touchScrollTimeout);
+            if (scrollMonitorInterval) clearInterval(scrollMonitorInterval);
+            if (velocityCheckInterval) clearInterval(velocityCheckInterval);
+            
+            console.log(`🧹 已清理元素 ${selectionElement.className} 的滾動控制`);
+        };
     }
 
     // 查找並初始化所有標籤選擇區域
@@ -425,6 +473,90 @@ document.addEventListener('DOMContentLoaded', () => {
     // 初始化
     initializeAllScrollAreas();
     setupDynamicInitialization();
+    
+    // 處理頁面可見性變化
+    function handleVisibilityChange() {
+        if (document.visibilityState === 'visible') {
+            console.log('📱 頁面重新可見，重新初始化滾動控制...');
+            setTimeout(() => {
+                // 清除所有現有的增強滾動標記，強制重新初始化
+                document.querySelectorAll('[data-enhanced-scroll="true"]').forEach(element => {
+                    element.removeAttribute('data-enhanced-scroll');
+                    console.log(`🧹 清除元素 ${element.className} 的增強滾動標記`);
+                });
+                
+                // 重新初始化所有滾動區域
+                initializeAllScrollAreas();
+            }, 200); // 給一點時間讓頁面穩定
+        } else {
+            console.log('📱 頁面不可見，滾動控制將在返回時重新初始化');
+        }
+    }
+    
+    // 處理頁面焦點變化
+    function handleFocusChange() {
+        console.log('🔄 頁面重新獲得焦點，檢查滾動控制狀態...');
+        setTimeout(() => {
+            // 檢查現有的滾動控制是否還在工作
+            const enhancedElements = document.querySelectorAll('[data-enhanced-scroll="true"]');
+            let workingElements = 0;
+            
+            enhancedElements.forEach(element => {
+                // 簡單檢查：看元素是否還在DOM中且可見
+                if (element.isConnected && element.offsetParent !== null) {
+                    workingElements++;
+                } else {
+                    element.removeAttribute('data-enhanced-scroll');
+                    console.log(`🧹 清除無效元素 ${element.className} 的增強滾動標記`);
+                }
+            });
+            
+            console.log(`🔍 發現 ${enhancedElements.length} 個增強元素，其中 ${workingElements} 個正常工作`);
+            
+            // 如果沒有正常工作的元素，重新初始化
+            if (workingElements === 0) {
+                console.log('🔄 沒有正常工作的滾動控制，重新初始化...');
+                initializeAllScrollAreas();
+            }
+        }, 300);
+    }
+    
+    // 強制重新初始化函數
+    function forceReinitialize() {
+        console.log('🔄 強制重新初始化所有滾動控制...');
+        
+        // 清除所有現有標記
+        document.querySelectorAll('[data-enhanced-scroll="true"]').forEach(element => {
+            element.removeAttribute('data-enhanced-scroll');
+        });
+        
+        // 重新初始化
+        setTimeout(() => {
+            initializeAllScrollAreas();
+        }, 100);
+    }
+    
+    // 添加事件監聽器
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocusChange);
+    window.addEventListener('pageshow', forceReinitialize); // 處理從bfcache恢復的情況
+    
+    // 定期檢查和修復機制（可選，用於處理極端情況）
+    let healthCheckInterval = setInterval(() => {
+        const enhancedElements = document.querySelectorAll('[data-enhanced-scroll="true"]');
+        const selectionElements = document.querySelectorAll('.axd_selections.selection, .selection, [class*="selection"]');
+        
+        // 如果有選擇元素但沒有增強元素，說明可能出問題了
+        if (selectionElements.length > 0 && enhancedElements.length === 0) {
+            console.log('🏥 健康檢查：發現未增強的滾動元素，自動修復...');
+            forceReinitialize();
+        }
+    }, 5000); // 每5秒檢查一次
+    
+    // 清理定時器（頁面卸載時）
+    window.addEventListener('beforeunload', () => {
+        clearInterval(healthCheckInterval);
+    });
     
     console.log('✅ 增強滾動控制初始化完成');
 }); 
