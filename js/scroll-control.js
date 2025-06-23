@@ -3,43 +3,59 @@ document.addEventListener('DOMContentLoaded', () => {
     const gap = 8; // 標籤間距
     const scrollStep = rowHeight + gap; // 每次滾動距離（48px）
     
-    // 檢查是否有彈窗打開
-    function isModalOpen() {
-        // 檢查各種可能的彈窗狀態
+    // 彈窗滾動鎖定管理
+    let isModalOpen = false;
+    let activeModal = null;
+    
+    // 檢測彈窗狀態
+    function checkModalState() {
+        // 常見的彈窗選擇器
         const modalSelectors = [
             '.modal:not([style*="display: none"])',
             '.popup:not([style*="display: none"])',
             '.overlay:not([style*="display: none"])',
             '.dialog:not([style*="display: none"])',
             '[class*="modal"]:not([style*="display: none"])',
-            '[class*="popup"]:not([style*="display: none"])',
-            '#intro-page:not([style*="display: none"])', // 介紹頁面
-            '.intro-coupon-modal:not([style*="display: none"])', // 優惠券彈窗
+            '[class*="popup"]:not([style*="display: none"])'
         ];
         
+        let foundModal = null;
         for (const selector of modalSelectors) {
-            const elements = document.querySelectorAll(selector);
-            if (elements.length > 0) {
-                // 檢查元素是否真的可見
-                for (const element of elements) {
-                    const style = window.getComputedStyle(element);
-                    if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
-                        console.log('檢測到彈窗開啟:', selector, element);
-                        return true;
-                    }
-                }
+            const modal = document.querySelector(selector);
+            if (modal && window.getComputedStyle(modal).display !== 'none') {
+                foundModal = modal;
+                break;
             }
         }
         
-        // 檢查 body 是否有禁止滾動的類
-        if (document.body.classList.contains('modal-open') || 
-            document.body.classList.contains('no-scroll') ||
-            document.body.style.overflow === 'hidden') {
-            console.log('檢測到 body 滾動被禁用');
-            return true;
+        const wasModalOpen = isModalOpen;
+        isModalOpen = !!foundModal;
+        activeModal = foundModal;
+        
+        if (wasModalOpen !== isModalOpen) {
+            console.log(`彈窗狀態變化: ${isModalOpen ? '打開' : '關閉'}`, foundModal);
+            
+            if (isModalOpen) {
+                // 彈窗打開時鎖定背景滾動
+                document.body.style.overflow = 'hidden';
+                document.body.style.position = 'fixed';
+                document.body.style.width = '100%';
+            } else {
+                // 彈窗關閉時恢復背景滾動
+                document.body.style.overflow = '';
+                document.body.style.position = '';
+                document.body.style.width = '';
+            }
         }
         
-        return false;
+        return isModalOpen;
+    }
+    
+    // 判斷元素是否在彈窗內
+    function isElementInModal(element) {
+        if (!isModalOpen || !activeModal) return false;
+        
+        return activeModal.contains(element);
     }
     
     // 初始化滾動控制
@@ -101,12 +117,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // 對齊滾動位置的函數
                     function alignScrollPosition(element, isGentle = true) {
-                        // 檢查彈窗狀態，如果有彈窗打開就不進行滾動對齊
-                        if (isModalOpen()) {
-                            console.log('彈窗開啟中，跳過滾動對齊');
-                            return;
-                        }
-                        
                         const currentScroll = element.scrollTop;
                         const maxScroll = element.scrollHeight - element.clientHeight;
                         
@@ -144,9 +154,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // 滾輪事件（電腦版）
                     selection.addEventListener('wheel', (event) => {
-                        // 檢查彈窗狀態，如果有彈窗打開就不處理滾輪事件
-                        if (isModalOpen()) {
-                            console.log('彈窗開啟中，忽略滾輪事件');
+                        // 檢查彈窗狀態和滾動權限
+                        checkModalState();
+                        if (isModalOpen && !isElementInModal(selection)) {
+                            event.preventDefault();
+                            console.log('彈窗打開時阻止背景滾動');
                             return;
                         }
                         
@@ -198,8 +210,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     // 觸摸開始
                     selection.addEventListener('touchstart', (event) => {
                         // 檢查彈窗狀態
-                        if (isModalOpen()) {
-                            console.log('彈窗開啟中，忽略觸摸事件');
+                        checkModalState();
+                        if (isModalOpen && !isElementInModal(selection)) {
+                            event.preventDefault();
+                            console.log('彈窗打開時阻止背景觸摸');
                             return;
                         }
                         
@@ -215,12 +229,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (scrollTimeout) {
                             clearTimeout(scrollTimeout);
                         }
-                    }, { passive: true });
+                    }, { passive: false }); // 改為非被動模式以支持preventDefault
                     
                     // 觸摸移動
                     selection.addEventListener('touchmove', (event) => {
                         // 檢查彈窗狀態
-                        if (isModalOpen()) {
+                        if (isModalOpen && !isElementInModal(selection)) {
+                            event.preventDefault();
                             return;
                         }
                         
@@ -238,12 +253,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         lastScrollTop = currentScroll;
                         lastScrollTime = currentTime;
-                    }, { passive: true });
+                    }, { passive: false }); // 改為非被動模式以支持preventDefault
                     
                     // 觸摸結束
                     selection.addEventListener('touchend', (event) => {
                         // 檢查彈窗狀態
-                        if (isModalOpen()) {
+                        if (isModalOpen && !isElementInModal(selection)) {
                             return;
                         }
                         
@@ -273,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     selection.addEventListener('scroll', () => {
                         // 檢查彈窗狀態
-                        if (isModalOpen()) {
+                        if (isModalOpen && !isElementInModal(selection)) {
                             return;
                         }
                         
@@ -322,6 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 監聽DOM變化，當新容器出現時重新初始化
     const observer = new MutationObserver((mutations) => {
         let shouldReinit = false;
+        let shouldCheckModal = false;
         
         mutations.forEach((mutation) => {
             if (mutation.type === 'childList' || 
@@ -331,8 +347,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (newContainers.length > 0) {
                     shouldReinit = true;
                 }
+                
+                // 檢查是否有彈窗狀態變化
+                shouldCheckModal = true;
             }
         });
+        
+        if (shouldCheckModal) {
+            checkModalState();
+        }
         
         if (shouldReinit) {
             console.log('檢測到容器變化，重新初始化滾動控制');
@@ -347,6 +370,9 @@ document.addEventListener('DOMContentLoaded', () => {
         attributes: true,
         attributeFilter: ['style', 'class']
     });
+    
+    // 定期檢查彈窗狀態（備用機制）
+    setInterval(checkModalState, 1000);
     
     console.log('滾動控制初始化完成，正在監聽容器變化...');
 })
