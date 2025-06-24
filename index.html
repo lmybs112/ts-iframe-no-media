@@ -100,11 +100,7 @@
       var customCSS = document.createElement("link");
       customCSS.rel = "stylesheet";
       customCSS.type = "text/css";
-      // customCSS.href = "./../css/iframe_ai_pd_style.css";
-      customCSS.href =
-        window.location.port === "5503"
-          ? "./../css/iframe_ai_pd_style.css"
-          : "https://cdn.jsdelivr.net/gh/lmybs112/ts-iframe@1.0.28/css/iframe_ai_pd_style.css";
+      customCSS.href = "./../css/iframe_ai_pd_style.css";
       document.head.appendChild(customCSS);
 
       $(function () {
@@ -135,7 +131,6 @@
           }
         });
         // 添加 html template
-        // https://ts-iframe-8ysy.vercel.app
         var aiSearchPdTemplate = `
             <div class="ai-pd-container">
             <button
