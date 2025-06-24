@@ -1023,9 +1023,22 @@ const fetchData = async () => {
       const order = Array.isArray(product?.TagGroups_order)
         ? product.TagGroups_order
         : [];
-      const backgroundImages = Array.isArray(themeBackgroundImages)
-        ? themeBackgroundImages
+      const productMedias = Array.isArray(product?.TagGroups_Medias)
+        ? product.TagGroups_Medias
         : [];
+      
+      // 建立補充後的背景圖片陣列
+      const backgroundImages = order.map((key, index) => {
+        // 如果 productMedias 中對應位置的值是空字串、null、undefined 或不存在
+        const productMedia = productMedias[index];
+        if (!productMedia || productMedia.trim() === '') {
+          // 隨機從 themeBackgroundImages 中選擇一張圖片補充
+          const randomIndex = Math.floor(Math.random() * themeBackgroundImages.length);
+          return themeBackgroundImages[randomIndex] || themeBackgroundImages[0];
+        }
+        return productMedia;
+      });
+      
       return order.reduce((map, key, index) => {
         if (backgroundImages[index] != null) {
           // 排除 undefined 或 null
