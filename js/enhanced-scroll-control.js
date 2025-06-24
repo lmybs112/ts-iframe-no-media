@@ -992,9 +992,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 綁定所有事件監聽器
         selectionElement.addEventListener('wheel', wheelHandler, { passive: false });
-        selectionElement.addEventListener('touchstart', touchStartHandler, { passive: true });
-        selectionElement.addEventListener('touchmove', touchMoveHandler, { passive: true });
-        selectionElement.addEventListener('touchend', touchEndHandler, { passive: true });
+        selectionElement.addEventListener('touchstart', touchStartHandler, { passive: false });
+        selectionElement.addEventListener('touchmove', touchMoveHandler, { passive: false });
+        selectionElement.addEventListener('touchend', touchEndHandler, { passive: false });
         selectionElement.addEventListener('scroll', scrollHandler, { passive: true });
         selectionElement.addEventListener('keydown', keydownHandler);
 
