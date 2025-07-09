@@ -1181,6 +1181,9 @@ const fetchData = async () => {
               )
      }"></p>`)
      $(`#container-${r.replaceAll(" ","")}`).css({backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${themeBackgroundImagesMap[r]})`});
+     $(`.container#container-${r.replaceAll(" ","")}`).css({
+      backgroundColor: 'unset'
+    });
       //first route hide type_backarrow
       if (r === all_Route[0]) {
         // document.getElementById(
