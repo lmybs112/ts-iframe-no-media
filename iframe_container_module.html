@@ -326,6 +326,15 @@
       /* try */
       .container {
         overflow: hidden;
+        background-color: unset;
+      }
+      .container.mbinfo.animX{
+        background-color: unset !important;
+      }
+      #loadingbar_recom,
+      #intro-page,
+      #container-recom{
+        background-color: white !important;
       }
 
       .slide {
@@ -549,8 +558,8 @@
       <div class="spinner spinner-circle"></div>
     </div>
     <!-- load recom -->
-    <div class="mbinfo" id="loadingbar_recom" style="display: none">
-      <div class="intro-content">
+    <div class="mbinfo container animFadeIn" id="loadingbar_recom" style="display: none;">
+      <div class="intro-content" style="position: absolute;top: 50%;left: 50%;transform: translate(-50%, -50%);">
         <div class="intro-logo intro-modal__logo">
           <!-- <img
             src="img/product suggestion loading animation (better).gif"
@@ -593,7 +602,7 @@
     </div>
 
     <!-- Intro Page -->
-    <div id="intro-page" class="intro-page intro-modal mbinfo animX">
+    <div id="intro-page" class="container mbinfo animFadeIn intro-page intro-modal mbinfo animX">
       <div
         class="intro-content intro-coupon-modal__content"
         style="display: none"
@@ -951,6 +960,7 @@
         width: 100%;
         margin: auto;
         text-align: center;
+        height: fit-content;
       }
       .intro-page {
         width: inherit;
