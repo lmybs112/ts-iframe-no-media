@@ -1066,6 +1066,8 @@ const fetchData = async () => {
     })();
     const formatTagGroupMap = (() => {
       const product = obj?.Product;
+      $("#intro-coupon-modal__footer-content-text").text(product?.Name || "開啟個人化購物之旅");
+
       const order = Array.isArray(product?.TagGroups_order)
         ? product.TagGroups_order
         : [];
