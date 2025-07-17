@@ -409,9 +409,9 @@ const show_results = (response, isFirst = false) => {
   for (let ii in finalitem) {
     let i = finalitem[ii];
     var ItemName = response.Item[i].ItemName;
-    if (ItemName.length >= 16) {
-      ItemName = ItemName.substring(0, 15) + "...";
-    }
+    // if (ItemName.length >= 16) {
+    //   ItemName = ItemName.substring(0, 15) + "...";
+    // }
     $(`#container-recom`).find(".axd_selections").append(`
       <div class="axd_selection cursor-pointer update_delete">
  <a href="${
@@ -795,7 +795,7 @@ function startTypewriterEffect(containerRoute) {
     
     // 如果所有標籤都已經有 tag-fade-in 類，說明動畫已經完成，不需要重新播放
     if (allTagsHaveFadeIn && tagElements.length > 0) {
-      console.log(`🎭 容器 ${targetRoute} 的標籤動畫已完成，跳過重新播放`);
+      // console.log(`🎭 容器 ${targetRoute} 的標籤動畫已完成，跳過重新播放`);
       
       // 確保打字效果容器也是完成狀態
       const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
@@ -891,7 +891,7 @@ function startTypewriterEffect(containerRoute) {
     // 確保有內容才啟動打字效果
     if (content && content.trim() !== '' && content !== 'undefined') {
       // 只有在動畫未完成時才重置狀態
-      console.log(`🎭 開始容器 ${targetRoute} 的動畫序列`);
+      // console.log(`🎭 開始容器 ${targetRoute} 的動畫序列`);
       
       // 清空容器內容，準備重新打字
       typewriterContainer.innerHTML = '';
@@ -961,7 +961,7 @@ function startTypewriterEffect(containerRoute) {
     } else {
       // 如果沒有內容，檢查標籤是否已經完成了動畫
       if (allTagsHaveFadeIn && tagElements.length > 0) {
-        console.log(`🎭 容器 ${targetRoute} 的標籤動畫已完成，跳過重新播放（無內容情況）`);
+        // console.log(`🎭 容器 ${targetRoute} 的標籤動畫已完成，跳過重新播放（無內容情況）`);
         
         // 確保容器狀態正確
         const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
@@ -974,7 +974,7 @@ function startTypewriterEffect(containerRoute) {
       }
       
       // 如果動畫未完成，直接顯示空內容並顯示 swiper-slide 元素和標籤
-      console.log(`🎭 開始容器 ${targetRoute} 的動畫序列（無內容情況）`);
+      // console.log(`🎭 開始容器 ${targetRoute} 的動畫序列（無內容情況）`);
       typewriterContainer.innerHTML = '';
       
       const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
@@ -1218,7 +1218,7 @@ const fetchData = async () => {
 
       const mediaQuery = window.matchMedia("(max-width: 400px)");
       function handleMediaQueryChange(mediaQuery, tar) {
-        console.log(tar)
+        // console.log(tar)
         init(tar);
       }
 
@@ -1344,7 +1344,7 @@ const fetchData = async () => {
               });
               
               if (fs === firstIncompleteIndex) {
-                console.log("firstIncompleteIndex", firstIncompleteIndex);
+                // console.log("firstIncompleteIndex", firstIncompleteIndex);
                 $("#intro-page").hide();
                 $("#container-" + currentRoute).show();
                 startTypewriterEffect(all_Route[fs]);
@@ -1559,7 +1559,7 @@ function copyCoupon(couponCode, btn) {
   navigator.clipboard
     .writeText(couponCode)
     .then(() => {
-      console.log("已複製優惠碼：", couponCode);
+      // console.log("已複製優惠碼：", couponCode);
       const $btn = $(btn);
       const $parent = $btn.closest(
         ".intro-coupon-modal__content-container-content-footer"
