@@ -992,7 +992,7 @@ const fetchData = async () => {
   // 背景圖片懶加載
   function lazyLoadBackgroundImage() {
     const bgImage = new Image();
-    bgImage.src = 'https://images.unsplash.com/photo-1533750204176-3b0d38e9ac1e?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=4800';
+    bgImage.src = 'https://images.unsplash.com/photo-1533750204176-3b0d38e9ac1e?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=480';
     
     bgImage.onload = function() {
       // 圖片加載完成後，為所有 animX 容器添加 bg-loaded 類別
