@@ -573,7 +573,7 @@ const fetchCoupon = async () => {
             return `
             <div class="intro-coupon-modal__content-container-content" style="position: relative;">
                 <div class="intro-coupon-modal__content-container-content-icon">
-                  <img src="img/coupon-vant.png" alt="coupon icon" width="25" height="25" />
+                  <img src="img/coupon-vant.png" alt="coupon icon" width="25" height="25" loading="lazy" />
                 </div>
                 <div class="intro-coupon-modal__content-container-content-line">
                   <svg xmlns="http://www.w3.org/2000/svg" width="2" height="44" viewBox="0 0 2 44" fill="none">
@@ -637,7 +637,7 @@ const fetchCoupon = async () => {
           return `
           <div class="intro-coupon-modal__content-container-content">
               <div class="intro-coupon-modal__content-container-content-icon">
-                <img src="img/coupon-vant.png" alt="coupon icon" width="25" height="25" />
+                <img src="img/coupon-vant.png" alt="coupon icon" width="25" height="25" loading="lazy" />
               </div>
               <div class="intro-coupon-modal__content-container-content-line">
                 <svg xmlns="http://www.w3.org/2000/svg" width="2" height="44" viewBox="0 0 2 44" fill="none">
@@ -1033,7 +1033,7 @@ const fetchData = async () => {
     all_Route = obj.Product["TagGroups_order"] || [];
     SpecifyTags = obj.Product["SpecifyTags"] || [];
     SpecifyKeywords = obj.Product["SpecifyKeywords"] || [];
-    themeBackgroundImages = ['https://images.unsplash.com/photo-1743630738181-b0e26c76c74c?q=80&w=760&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D','https://images.unsplash.com/photo-1606335567422-09b986cc47bb?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D','https://plus.unsplash.com/premium_photo-1664301332055-8792841f3dc7?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 'https://images.unsplash.com/photo-1630945386735-372fbe731e3f?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 'https://images.unsplash.com/photo-1593504197189-c0dafb6f2e92?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?q=80&w=1548&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D']
+    themeBackgroundImages = ['https://images.unsplash.com/photo-1743630738181-b0e26c76c74c?q=80&w=600&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D','https://images.unsplash.com/photo-1606335567422-09b986cc47bb?q=80&w=600&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D','https://plus.unsplash.com/premium_photo-1664301332055-8792841f3dc7?q=80&w=600&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 'https://images.unsplash.com/photo-1630945386735-372fbe731e3f?q=80&w=600&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 'https://images.unsplash.com/photo-1593504197189-c0dafb6f2e92?q=80&w=600&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?q=80&w=600&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D']
 
     const themeBackgroundImagesMap = (() => {
       const product = obj?.Product;
@@ -1135,8 +1135,8 @@ const fetchData = async () => {
     const isMobile = /mobile|android|iphone|ipod|phone/.test(userAgent);
 
     const iconNext = isMobile
-      ? "./../img/icon-next-white.svg"
-      : "./../img/icon-next-white.svg";
+      ? "data:image/svg+xml;charset=UTF-8,%3csvg width='36' height='37' viewBox='0 0 36 37' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M18 11.0264L10.8 18.2264L18 25.4264' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3cpath d='M25.2 18.2266H10.8' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e"
+      : "data:image/svg+xml;charset=UTF-8,%3csvg width='36' height='37' viewBox='0 0 36 37' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M18 11.0264L10.8 18.2264L18 25.4264' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3cpath d='M25.2 18.2266H10.8' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e";
 
     for (var r in Route_in_frame) {
       // console.log("TagGroup : " + r);

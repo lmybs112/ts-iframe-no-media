@@ -789,10 +789,10 @@
                         <h2 class="embeddedAdContainer__title">${title}</h2>
                         <div class="title-navigation">
                           <div class="title-nav-prev">
-                            <img src="https://raw.githubusercontent.com/infFITSDevelopment/pop-ad/refs/heads/main/slide-arrow-left.svg" />
+                            <img src="data:image/svg+xml;charset=UTF-8,%3csvg width='25' height='24' viewBox='0 0 25 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3crect x='24.5' y='24' width='24' height='24' rx='12' transform='rotate(-180 24.5 24)' fill='%233B3B32' fill-opacity='0.14'/%3e%3cg clip-path='url(%23clip0_544_432)'%3e%3cpath d='M14.4792 17.1621C14.7875 17.3576 15.175 17.3641 15.4896 17.1814C15.8042 16.9988 16 16.6551 16 16.2812V8.71875C16 8.34492 15.8042 8.00117 15.4896 7.81855C15.175 7.63593 14.7875 7.64453 14.4792 7.83789L8.47917 11.6191C8.18125 11.8061 8 12.1391 8 12.5C8 12.8609 8.18125 13.1918 8.47917 13.3809L14.4792 17.1621Z' fill='%23F3F3EF'/%3e%3c/g%3e%3cdefs%3e%3cclipPath id='clip0_544_432'%3e%3crect width='8' height='11' fill='white' transform='matrix(-1 0 0 -1 16 18)'/%3e%3c/clipPath%3e%3c/defs%3e%3c/svg%3e" />
                           </div>
                           <div class="title-nav-next">
-                            <img src="https://raw.githubusercontent.com/infFITSDevelopment/pop-ad/refs/heads/main/slide-arrow-right.svg" />
+                            <img src="data:image/svg+xml;charset=UTF-8,%3csvg width='25' height='24' viewBox='0 0 25 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3crect x='0.5' width='24' height='24' rx='12' fill='%233B3B32' fill-opacity='0.14'/%3e%3cg clip-path='url(%23clip0_544_445)'%3e%3cpath d='M10.5208 6.83789C10.2125 6.64239 9.825 6.63594 9.51042 6.81856C9.19583 7.00117 9 7.34492 9 7.71875V15.2813C9 15.6551 9.19583 15.9988 9.51042 16.1814C9.825 16.3641 10.2125 16.3555 10.5208 16.1621L16.5208 12.3809C16.8188 12.1939 17 11.8609 17 11.5C17 11.1391 16.8188 10.8082 16.5208 10.6191L10.5208 6.83789Z' fill='%23F3F3EF'/%3e%3c/g%3e%3cdefs%3e%3cclipPath id='clip0_544_445'%3e%3crect width='8' height='11' fill='white' transform='translate(9 6)'/%3e%3c/clipPath%3e%3c/defs%3e%3c/svg%3e" />
                           </div>
                         </div>
                       </div>
@@ -809,12 +809,12 @@
                       </div>
                       <div class="swiper-next a-right">
                       <img
-                      src="https://raw.githubusercontent.com/infFITSDevelopment/pop-ad/refs/heads/main/slide-arrow-right.svg"
+                      src="data:image/svg+xml;charset=UTF-8,%3csvg width='25' height='24' viewBox='0 0 25 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3crect x='0.5' width='24' height='24' rx='12' fill='%233B3B32' fill-opacity='0.14'/%3e%3cg clip-path='url(%23clip0_544_445)'%3e%3cpath d='M10.5208 6.83789C10.2125 6.64239 9.825 6.63594 9.51042 6.81856C9.19583 7.00117 9 7.34492 9 7.71875V15.2813C9 15.6551 9.19583 15.9988 9.51042 16.1814C9.825 16.3641 10.2125 16.3555 10.5208 16.1621L16.5208 12.3809C16.8188 12.1939 17 11.8609 17 11.5C17 11.1391 16.8188 10.8082 16.5208 10.6191L10.5208 6.83789Z' fill='%23F3F3EF'/%3e%3c/g%3e%3cdefs%3e%3cclipPath id='clip0_544_445'%3e%3crect width='8' height='11' fill='white' transform='translate(9 6)'/%3e%3c/clipPath%3e%3c/defs%3e%3c/svg%3e"
                       />
                       </div>
                       <div class="swiper-prev a-left">
                       <img
-                      src="https://raw.githubusercontent.com/infFITSDevelopment/pop-ad/refs/heads/main/slide-arrow-left.svg"
+                      src="data:image/svg+xml;charset=UTF-8,%3csvg width='25' height='24' viewBox='0 0 25 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3crect x='24.5' y='24' width='24' height='24' rx='12' transform='rotate(-180 24.5 24)' fill='%233B3B32' fill-opacity='0.14'/%3e%3cg clip-path='url(%23clip0_544_432)'%3e%3cpath d='M14.4792 17.1621C14.7875 17.3576 15.175 17.3641 15.4896 17.1814C15.8042 16.9988 16 16.6551 16 16.2812V8.71875C16 8.34492 15.8042 8.00117 15.4896 7.81855C15.175 7.63593 14.7875 7.64453 14.4792 7.83789L8.47917 11.6191C8.18125 11.8061 8 12.1391 8 12.5C8 12.8609 8.18125 13.1918 8.47917 13.3809L14.4792 17.1621Z' fill='%23F3F3EF'/%3e%3c/g%3e%3cdefs%3e%3cclipPath id='clip0_544_432'%3e%3crect width='8' height='11' fill='white' transform='matrix(-1 0 0 -1 16 18)'/%3e%3c/clipPath%3e%3c/defs%3e%3c/svg%3e"
                       />
                       </div>
                       </div>
