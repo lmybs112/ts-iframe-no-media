@@ -755,9 +755,6 @@ const fetchCoupon = async () => {
     window.addEventListener("resize", sendHeight);
     // 定期检查高度变化
     setInterval(sendHeight, 500);
-
-    $(".intro-content.intro-coupon-modal__content").show();
-    $(".intro-content.intro-modal__content").hide();
   // } else {
   //   alert.log('沒有設置模組');
   //   $(".intro-content.intro-coupon-modal__content").show();
@@ -1023,7 +1020,7 @@ const fetchData = async () => {
       options
     );
     const data = await response.json();
-    $("#loadingbar").hide();
+    // $("#loadingbar").hide();
     $("#pback").show();
     $("#containerback").show();
     $("#intro_page").show();
@@ -1542,13 +1539,14 @@ const fetchData = async () => {
 };
 var tap = window.ontouchstart === null ? "touchend" : "click";
 
-$(".icon-inffits").on(tap, function () {
+// 使用事件委託來處理動態創建的圖標元素
+$(document).on(tap, ".icon-inffits", function () {
   $(".icon-inffits").toggleClass("open");
   $(".text-inffits").toggleClass("visible");
   $(".icon-reminder").removeClass("open");
   $(".text-reminder").removeClass("visible");
 });
-$(".icon-reminder").on(tap, function () {
+$(document).on(tap, ".icon-reminder", function () {
   $(".icon-reminder").toggleClass("open");
   $(".text-reminder").toggleClass("visible");
   $(".icon-inffits").removeClass("open");
@@ -1583,7 +1581,8 @@ function copyCoupon(couponCode, btn) {
     });
 }
 
-$("#start-button").on(tap, function () {
+// 使用事件委託來處理動態創建的元素
+$(document).on(tap, "#start-button", function () {
   $("#recommend-title").text("專屬商品推薦");
   $("#recommend-desc").text("根據您的偏好，精選以下單品。"); // 使用淡入動畫
   $("#recommend-btn").text("刷新推薦");
