@@ -15,7 +15,9 @@ let formatTagGroupMap = {};
 let isFetchCouponCalled = false;
 let isForPreview = window.location.href
   .toLocaleLowerCase()
-  .includes("myinffits");
+  .includes("myinffits")|| window.location.href
+  .toLocaleLowerCase()
+  .includes("norecommend");
 
 let isForReferral = window.location.href
   .toLocaleLowerCase()
@@ -1058,6 +1060,18 @@ const fetchData = async () => {
         Route,
       options
     );
+    
+    // 檢查狀態碼，如果是 200 則發送 postMessage
+    if (response.status == 200) {
+      const messageData = {
+        type: "run_routeproduct_success",
+        status: response.status,
+        brand: Brand,
+        route: Route
+      };
+      window.parent.postMessage(messageData, "*");
+    }
+    
     const data = await response.json();
     // $("#loadingbar").hide();
     $("#pback").show();
