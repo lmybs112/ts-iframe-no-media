@@ -198,8 +198,38 @@ const get_recom_res = () => {
     });
 };
 
+const analyzeGenderInTags = (tags_chosen) => {
+  let maleCount = 0;
+  let femaleCount = 0;
+  const maleNames = [];
+  const femaleNames = [];
+  
+  // 遍歷所有標籤群組
+  Object.values(tags_chosen).forEach(tagGroup => {
+    tagGroup.forEach(tag => {
+      const name = tag.Name;
+      if (name.includes('男')) {
+        maleCount++;
+        maleNames.push(name);
+      }
+      if (name.includes('女')) {
+        femaleCount++;
+        femaleNames.push(name);
+      }
+    });
+  });
+  
+  return {
+    maleCount,
+    femaleCount,
+    maleNames,
+    femaleNames,
+    result: maleCount > femaleCount ? '男' : femaleCount > maleCount ? '女' : null
+  };
+}
+
 const getEmbedded = async () => {
-  const requestData = {
+  let requestData = {
     Brand: Brand,
     LGVID: "SObQG1eZ0oxzKmpgT2dc",
     MRID: "",
@@ -207,6 +237,16 @@ const getEmbedded = async () => {
     PID: "",
     SP_PID:'skip'
   };
+  const api_recom_product_url = Brand.toLocaleUpperCase() === 'VER' ? 'HTTP_stock_cdp_product_recommendation' : 'HTTP_inf_bhv_cdp_product_recommendation';
+  const apiUrl = `https://api.inffits.com/${api_recom_product_url}/extension/recom_product`;
+
+  if(Brand.toLocaleUpperCase() === 'VER'){
+    const series_in = analyzeGenderInTags(tags_chosen).result;
+    if(series_in){
+      requestData.series_in = series_in;
+    }
+  }
+
   const options = {
     method: "POST",
     headers: {
@@ -218,7 +258,7 @@ const getEmbedded = async () => {
 
   try {
     const response = await fetch(
-      "https://api.inffits.com/HTTP_inf_bhv_cdp_product_recommendation/extension/recom_product",
+      apiUrl,
       options
     );
     const data = await response.json();
@@ -293,7 +333,7 @@ function getRandomElements(arr, count) {
   return result;
 }
 const getEmbeddedForBackup = () => {
-  const requestData = {
+  let requestData = {
     Brand: Brand,
     LGVID:"2Zdl1XTfRX3FdvPqGEhs",
     MRID:"",
@@ -301,6 +341,16 @@ const getEmbeddedForBackup = () => {
     recom_num: "12",
     SP_PID:"xxSOCIAL PROOF"
   };
+
+  const api_recom_product_url = Brand.toLocaleUpperCase() === 'VER' ? 'HTTP_stock_cdp_product_recommendation' : 'HTTP_inf_bhv_cdp_product_recommendation';
+  const apiUrl = `https://api.inffits.com/${api_recom_product_url}/extension/recom_product`;
+
+  if(Brand.toLocaleUpperCase() === 'VER'){
+    const series_in = analyzeGenderInTags(tags_chosen).result;
+    if(series_in){
+      requestData.series_in = series_in;
+    }
+  }
   const options = {
     method: "POST",
     headers: {
@@ -310,7 +360,7 @@ const getEmbeddedForBackup = () => {
     body: JSON.stringify(requestData),
   };
   fetch(
-    "https://api.inffits.com/HTTP_inf_bhv_cdp_product_recommendation/extension/recom_product",
+    apiUrl,
     options
   )
     .then((response) => response.json())
