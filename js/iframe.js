@@ -224,7 +224,7 @@ const analyzeGenderInTags = (tags_chosen) => {
     femaleCount,
     maleNames,
     femaleNames,
-    result: maleCount > femaleCount ? '男' : femaleCount > maleCount ? '女' : null
+    result: maleCount > femaleCount ?  "[\"男\"]" : femaleCount > maleCount ? "[\"女\"]" : null
   };
 }
 
