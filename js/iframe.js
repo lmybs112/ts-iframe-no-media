@@ -855,7 +855,7 @@ const fetchCoupon = async () => {
 
 // 啟動特定容器的打字效果
 function startTypewriterEffect(containerRoute) {
-  const targetRoute = containerRoute.replaceAll(" ", "");
+  const targetRoute = containerRoute.replaceAll(/[\s\.]/g, "");
   const typewriterContainer = document.querySelector(`.typewriter-${targetRoute}`);
   
   if (typewriterContainer && typeof Typewriter !== 'undefined') {
@@ -1240,16 +1240,10 @@ const fetchData = async () => {
       // console.log("TagGroup : " + r);
       document.getElementById("pback").insertAdjacentHTML(
         "beforebegin",
-        `<div class='container mbinfo animX animFadeIn update_delete' id="container-${r.replaceAll(
-          " ",
-          ""
-        )}">
+        `<div class='container mbinfo animX animFadeIn update_delete' id="container-${r.replaceAll(/[\s\.]/g, "")}">
                     <div class="c_header" id="container-x-header">
                         
-                        <img class="type_backarrow" id="container-${r.replaceAll(
-                          " ",
-                          ""
-                        )}-backarrow" src="${iconNext}" width="100%"
+                        <img class="type_backarrow" id="container-${r.replaceAll(/[\s\.]/g, "")}-backarrow" src="${iconNext}" width="100%"
                         height="100%" >
                         <div class="header-text" style="opacity: 0;" >
                             <span style="margin-bottom: 0.3em">${r}</span>
@@ -1268,27 +1262,21 @@ const fetchData = async () => {
                         height="100%" >
                     </div>
 
-                        <div style="margin: auto" class="selection_scroll slide swiper-container-${r.replaceAll(
-                          " ",
-                          ""
-                        )}">
+                        <div style="margin: auto" class="selection_scroll slide swiper-container-${r.replaceAll(/[\s\.]/g, "")}">
                             <div class="swiper-wrapper" >
                             </div>         
                         </div>
                     
-                         <div class="pagination-${r.replaceAll(
-                           " ",
-                           ""
-                         )} pag-margin dot-btns" style="text-align: center; ">
+                         <div class="pagination-${r.replaceAll(/[\s\.]/g, "")} pag-margin dot-btns" style="text-align: center; ">
                         </div>
                      <div class="con-footer">
-                        <a class='c-${r.replaceAll(" ", "")} skip'>略過</a>
+                        <a class='c-${r.replaceAll(/[\s\.]/g, "")} skip'>略過</a>
                      </div>
                        
                     </div>`
       );
-      $(`#container-${r.replaceAll(" ","")}`).find(`.swiper-container-${r.replaceAll(" ","")}`).prepend(`
-          <p class="tag-desc-container typewriter typewriter-${r.replaceAll(" ", "")}" data-content="${
+      $(`#container-${r.replaceAll(/[\s\.]/g, "")}`).find(`.swiper-container-${r.replaceAll(/[\s\.]/g, "")}`).prepend(`
+          <p class="tag-desc-container typewriter typewriter-${r.replaceAll(/[\s\.]/g, "")}" data-content="${
             formatTagGroupMap?.[r] && formatTagGroupMap[r] !== ""
             ? formatTagGroupMap[r]
             : (
@@ -1297,15 +1285,15 @@ const fetchData = async () => {
                   : ""
               )
      }"></p>`)
-     $(`#container-${r.replaceAll(" ","")}`).css({backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${themeBackgroundImagesMap[r]})`});
+     $(`#container-${r.replaceAll(/[\s\.]/g, "")}`).css({backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${themeBackgroundImagesMap[r]})`});
       //first route hide type_backarrow
       if (r === all_Route[0]) {
         // document.getElementById(
-        //   `container-${r.replaceAll(" ", "")}-backarrow`
+        //   `container-${r.replaceAll(/[\s\.]/g, "")}-backarrow`
         // ).style.visibility = "hidden";
 
        const backarrow = document.getElementById(
-          `container-${r.replaceAll(" ", "")}-backarrow`
+          `container-${r.replaceAll(/[\s\.]/g, "")}-backarrow`
         )
         $(backarrow).on(tap, function () {
           $("#intro-page").show();
@@ -1322,7 +1310,7 @@ const fetchData = async () => {
 
       // 初始檢查
       function init(tar) {
-        var target = tar.replaceAll(" ", "");
+        var target = tar.replaceAll(/[\s\.]/g, "");
         $(`#container-${target}`).find(".selection").remove();
         $(`#container-${target}`).find(".remove-button").remove();
         $(`#container-${target}`).find(`.pagination-${target}`).empty();
@@ -1337,8 +1325,8 @@ const fetchData = async () => {
         for (let rr = 0; rr < render_num; rr++) {
           $(`#container-${target}`).find(".axd_selections").append(`
                             <div class="axd_selection axd_tag">
-                                <div class="axd_tag_inner c-${target} tagId-${Route_in_frame[target][rr].Tag.S}">
-                                    <p>${Route_in_frame[target][rr].Name.S}</p>
+                                <div class="axd_tag_inner c-${target} tagId-${Route_in_frame[tar][rr].Tag.S}">
+                                    <p>${Route_in_frame[tar][rr].Name.S}</p>
                                 </div>
                             </div>
                         `);
@@ -1365,7 +1353,7 @@ const fetchData = async () => {
         
         // 檢查是否所有路由都有有效的選擇
         const allRoutesCompleted = all_Route.every(route => {
-          const routeKey = route.replaceAll(" ", "");
+          const routeKey = route.replaceAll(/[\s\.]/g, "");
           return tags_chosen[routeKey] && 
                  tags_chosen[routeKey].length > 0 && 
                  tags_chosen[routeKey][0].Name !== "example";
@@ -1386,7 +1374,7 @@ const fetchData = async () => {
       
       for (var fs = 0; fs < all_Route.length; fs++) {
         (function (fs) {
-          const currentRoute = all_Route[fs].replaceAll(" ", "");
+          const currentRoute = all_Route[fs].replaceAll(/[\s\.]/g, "");
           // 檢查並設定預設值
           var INFS_ROUTE_ORDER = !isForPreview
             ? JSON.parse(localStorage.getItem(`INFS_ROUTE_ORDER_${Brand}`)) ||
@@ -1435,7 +1423,7 @@ const fetchData = async () => {
             } else if (fs === 0 || !currentRouteCompleted) {
               // 只顯示第一個未完成的問題
               const firstIncompleteIndex = all_Route.findIndex(route => {
-                const routeKey = route.replaceAll(" ", "");
+                const routeKey = route.replaceAll(/[\s\.]/g, "");
                 return !(tags_chosen[routeKey] && 
                         tags_chosen[routeKey].length > 0 && 
                         tags_chosen[routeKey][0].Name !== "example");
@@ -1461,7 +1449,7 @@ const fetchData = async () => {
               var tag = `c-${all_Route[fs]}`;
               $(`.${tag}.tag-selected`).removeClass("tag-selected");
               $(".tag-selected").removeClass("tag-selected");
-              tags_chosen[all_Route[fs].replaceAll(" ", "")] = [
+              tags_chosen[all_Route[fs].replaceAll(/[\s\.]/g, "")] = [
                 {
                   Description: "example",
                   Imgsrc: "https://example.com/imageB1.png",
@@ -1501,7 +1489,7 @@ const fetchData = async () => {
                     .first();
                   var tagid = firstEl.attr("class").match(/tagId-(\d+)/)[1];
                   // console.warn("tagid", tagid);
-                  tags_chosen[all_Route[fs].replaceAll(" ", "")] = [
+                  tags_chosen[all_Route[fs].replaceAll(/[\s\.]/g, "")] = [
                     {
                       Description: "example",
                       Imgsrc: "https://example.com/imageB1.png",
@@ -1513,9 +1501,9 @@ const fetchData = async () => {
                 }
                 get_recom_res();
               } else {
-                // console.log(".c-" + all_Route[fs + 1].replaceAll(" ", ""));
+                // console.log(".c-" + all_Route[fs + 1].replaceAll(/[\s\.]/g, ""));
                 $("#container-" + currentRoute).hide();
-                $("#container-" + all_Route[fs + 1].replaceAll(" ", "")).show();
+                $("#container-" + all_Route[fs + 1].replaceAll(/[\s\.]/g, "")).show();
                 // 啟動下一個容器的打字效果
                 startTypewriterEffect(all_Route[fs + 1]);
               }
@@ -1534,7 +1522,7 @@ const fetchData = async () => {
               if (fs == all_Route.length - 1) {
                 $("#container-" + currentRoute).hide();
 
-                tags_chosen[all_Route[fs].replaceAll(" ", "")] = [
+                tags_chosen[all_Route[fs].replaceAll(/[\s\.]/g, "")] = [
                   {
                     Description: $(
                       `#container-${all_Route[fs]} .desc-container`
@@ -1557,10 +1545,10 @@ const fetchData = async () => {
                 }
               } else {
                 $("#container-" + currentRoute).hide();
-                $("#container-" + all_Route[fs + 1].replaceAll(" ", "")).show();
+                $("#container-" + all_Route[fs + 1].replaceAll(/[\s\.]/g, "")).show();
                 // 啟動下一個容器的打字效果
                 startTypewriterEffect(all_Route[fs + 1]);
-                tags_chosen[all_Route[fs].replaceAll(" ", "")] = [
+                tags_chosen[all_Route[fs].replaceAll(/[\s\.]/g, "")] = [
                   {
                     Description: $(
                       `#container-${all_Route[fs]} .desc-container`
@@ -1593,12 +1581,12 @@ const fetchData = async () => {
                 );
               }
             });
-          $(`#container-${all_Route[fs].replaceAll(" ", "")}-backarrow`).on(
+          $(`#container-${all_Route[fs].replaceAll(/[\s\.]/g, "")}-backarrow`).on(
             mytap,
             function (e) {
               if (fs != 0) {
                 $("#container-" + currentRoute).hide();
-                $("#container-" + all_Route[fs - 1].replaceAll(" ", "")).show();
+                $("#container-" + all_Route[fs - 1].replaceAll(/[\s\.]/g, "")).show();
                 // 啟動上一個容器的打字效果
                 startTypewriterEffect(all_Route[fs - 1]);
               }
@@ -1699,7 +1687,7 @@ $(document).on(tap, "#start-button", function () {
   if (match && !isForPreview && !isForReferral) {
     const savedTags = match.Record;
     const allRoutesCompleted = all_Route.every(route => {
-      const routeKey = route.replaceAll(" ", "");
+      const routeKey = route.replaceAll(/[\s\.]/g, "");
       return savedTags[routeKey] && 
              savedTags[routeKey].length > 0 && 
              savedTags[routeKey][0].Name !== "example";
