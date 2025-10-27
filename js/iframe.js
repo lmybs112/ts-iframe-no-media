@@ -232,6 +232,9 @@ const analyzeGenderInTags = (tags_chosen) => {
 }
 
 const getEmbedded = async () => {
+  console.warn('getEmbedded LGVID', LGVID);
+  console.warn('getEmbedded MRID', MRID);
+  console.warn('getEmbedded GVID', GVID);
   let requestData = {
     Brand: Brand,
     LGVID: LGVID || "SObQG1eZ0oxzKmpgT2dc",
@@ -336,6 +339,9 @@ function getRandomElements(arr, count) {
   return result;
 }
 const getEmbeddedForBackup = () => {
+  console.warn('getEmbeddedForBackup LGVID', LGVID);
+  console.warn('getEmbeddedForBackup MRID', MRID);
+  console.warn('getEmbeddedForBackup GVID', GVID);
   let requestData = {
     Brand: Brand,
     LGVID: LGVID || "2Zdl1XTfRX3FdvPqGEhs",
