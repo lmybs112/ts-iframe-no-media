@@ -1108,11 +1108,11 @@ const fetchData = async () => {
       "https://xjsoc4o2ci.execute-api.ap-northeast-1.amazonaws.com/v0/extension/run_routeproduct?Brand=" +
         Brand +
         "&Route=" +
-        Route,
+        Route +
         "&LGVID=" +
-        LGVID,
+        LGVID +
         "&MRID=" +
-        MRID,
+        MRID +
         "&GVID=" +
         GVID,
       options
