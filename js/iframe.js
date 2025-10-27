@@ -1104,17 +1104,11 @@ const fetchData = async () => {
   try {
     var obj;
     // 塞空值
-    // 構建查詢參數，包含 MRID、GVID、LGVID
-    const queryParams = new URLSearchParams({
-      Brand: Brand,
-      Route: Route,
-      MRID: MRID || "",
-      GVID: GVID || "",
-      LGVID: LGVID || ""
-    });
-    
     const response = await fetch(
-      "https://xjsoc4o2ci.execute-api.ap-northeast-1.amazonaws.com/v0/extension/run_routeproduct?" + queryParams.toString(),
+      "https://xjsoc4o2ci.execute-api.ap-northeast-1.amazonaws.com/v0/extension/run_routeproduct?Brand=" +
+        Brand +
+        "&Route=" +
+        Route,
       options
     );
     
@@ -1794,6 +1788,7 @@ const Initial = () => {
 window.addEventListener("message", async (event) => {
   // console.warn("message", event);
   if (event.data.header == "from_preview") {
+
     Route = event.data.id;
     Brand = event.data.brand;
     MRID = event.data.MRID || "";
