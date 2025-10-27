@@ -1799,5 +1799,6 @@ window.addEventListener("message", async (event) => {
     fetchCoupon();
 
     $("#intro-page").fadeIn(800);
+    console.warn('from_preview', event.data);
   }
 });
