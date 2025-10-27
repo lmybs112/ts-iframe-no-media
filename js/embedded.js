@@ -1121,28 +1121,11 @@
             skuContent: skuContent,
           };
         }
-        // 監聽來自 iframe.js 的 ID 更新訊息
-        let updatedIds = {
-          LGVID: ids.lgiven_id,
-          MRID: ids.member_id,
-          GVID: ""
-        };
-        
-        window.addEventListener("message", function(event) {
-          if (event.data.header === "from_preview") {
-            updatedIds.LGVID = event.data.LGVID || ids.lgiven_id;
-            updatedIds.MRID = event.data.MRID || ids.member_id;
-            updatedIds.GVID = event.data.GVID || "";
-            console.log("Updated IDs from iframe:", updatedIds);
-          }
-        });
-
         function getEmbeddedAds(ids) {
           const requestData = {
             Brand: Brand,
-            LGVID: updatedIds.LGVID,
-            MRID: updatedIds.MRID,
-            GVID: updatedIds.GVID,
+            LGVID: ids.lgiven_id,
+            MRID: ids.member_id,
             recom_num: "6",
             PID: ids.skuContent,
             SP_PID:'skip'
