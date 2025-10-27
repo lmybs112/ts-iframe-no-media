@@ -239,6 +239,7 @@ const getEmbedded = async () => {
     Brand: Brand,
     LGVID: LGVID || "",
     MRID: MRID || "",
+    GVID: GVID || "",
     recom_num: "12",
     PID: "",
     SP_PID:'skip'
@@ -343,6 +344,7 @@ const getEmbeddedForBackup = () => {
     Brand: Brand,
     LGVID: LGVID || "",
     MRID: MRID || "",
+    GVID: GVID || "",
     PID:"搭配商品的pid",
     recom_num: "12",
     SP_PID:"xxSOCIAL PROOF"
@@ -1111,13 +1113,7 @@ const fetchData = async () => {
       "https://xjsoc4o2ci.execute-api.ap-northeast-1.amazonaws.com/v0/extension/run_routeproduct?Brand=" +
         Brand +
         "&Route=" +
-        Route +
-        "&LGVID=" +
-        LGVID +
-        "&MRID=" +
-        MRID +
-        "&GVID=" +
-        GVID,
+        Route,
       options
     );
     
