@@ -1602,6 +1602,9 @@ const fetchData = async () => {
                 header: "from_preview",
                 id: Route,
                 brand: Brand,
+                MRID: MRID,
+                GVID: GVID,
+                LGVID: LGVID,
               };
 
               // 發送消息到接收窗口
@@ -1792,7 +1795,6 @@ window.addEventListener("message", async (event) => {
     MRID = event.data.MRID || "";
     GVID = event.data.GVID || "";
     LGVID = event.data.LGVID || "";
-    console.log('from_preview', event.data);
     fetchData();
     fetchCoupon();
 
