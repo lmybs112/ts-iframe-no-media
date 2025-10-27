@@ -1109,6 +1109,12 @@ const fetchData = async () => {
         Brand +
         "&Route=" +
         Route,
+        "&LGVID=" +
+        LGVID,
+        "&MRID=" +
+        MRID,
+        "&GVID=" +
+        GVID,
       options
     );
     
