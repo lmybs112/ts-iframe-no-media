@@ -1795,8 +1795,8 @@ window.addEventListener("message", async (event) => {
     GVID = event.data.GVID || "";
     LGVID = event.data.LGVID || "";
     await Initial();
-    fetchData();
-    fetchCoupon();
+    await fetchData();
+    await fetchCoupon();
 
     $("#intro-page").fadeIn(800);
     console.warn('from_preview', event.data);
