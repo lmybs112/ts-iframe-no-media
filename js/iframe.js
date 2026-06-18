@@ -884,6 +884,19 @@ function showChangeGroupBtn(target) {
   }, CHANGE_GROUP_BTN_DELAY_MS);
 }
 
+function formatCssBackgroundUrl(url) {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  return `url("${encodeURI(trimmed)}")`;
+}
+
+function buildContainerBackgroundImage(imageUrl) {
+  const cssUrl = formatCssBackgroundUrl(imageUrl);
+  if (!cssUrl) return "none";
+  return `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), ${cssUrl}`;
+}
+
 function buildTagGroups(routeItems) {
   const groups = [];
   for (let i = 0; i < routeItems.length; i += 8) {
@@ -1407,7 +1420,7 @@ const fetchData = async () => {
                   : ""
               )
      }"></p>`)
-     $(`#container-${r.replaceAll(/[\s\.]/g, "")}`).css({backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${themeBackgroundImagesMap[r]})`});
+     $(`#container-${r.replaceAll(/[\s\.]/g, "")}`).css({backgroundImage: buildContainerBackgroundImage(themeBackgroundImagesMap[r])});
       //first route hide type_backarrow
       if (r === all_Route[0]) {
         // document.getElementById(
