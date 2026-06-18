@@ -600,6 +600,19 @@ function openDetailDialog (){
   }
 }
 
+function formatCssBackgroundUrl(url) {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  return `url("${encodeURI(trimmed)}")`;
+}
+
+function buildContainerBackgroundImage(imageUrl) {
+  const cssUrl = formatCssBackgroundUrl(imageUrl);
+  if (!cssUrl) return "none";
+  return `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), ${cssUrl}`;
+}
+
 // 深度比較函數（排除指定屬性）
 function deepEqualWithoutKey(obj1, obj2, ignoreKeys = []) {
   const filteredObj1 = Object.fromEntries(
@@ -1310,7 +1323,7 @@ const fetchData = async () => {
                   : ""
               )
      }"></p>`)
-     $(`#container-${r.replaceAll(/[\s\.]/g, "")}`).css({backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${themeBackgroundImagesMap[r]})`});
+     $(`#container-${r.replaceAll(/[\s\.]/g, "")}`).css({backgroundImage: buildContainerBackgroundImage(themeBackgroundImagesMap[r])});
       //first route hide type_backarrow
       if (r === all_Route[0]) {
         // document.getElementById(
