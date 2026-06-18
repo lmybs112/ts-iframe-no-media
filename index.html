@@ -140,12 +140,10 @@
       document.head.appendChild(customCSS);
 
       $(function () {
-        // console.log("DOM is ready");
         $(window).on("message", function (event) {
           var origin = event.originalEvent.origin;
           // if (origin !== 'https://iframe所在的網址') return; // 避免跨域攻擊
           // 處理從 <iframe> 來的訊息
-          // console.log("接收到來自 iframe 的訊息：", event.originalEvent.data);
           if (event.originalEvent.data.type === "result") {
             if (event.originalEvent.data.value) {
               $(".ai-pd-container__trigger").addClass(
@@ -337,8 +335,6 @@
 
           // Initial load
           $("#send-to-iframe").click();
-        } else {
-          console.error("iframe 元素未找到，無法傳送 postMessage");
         }
 
         $(".ai-pd-container__trigger").on("pointerdown", function (event) {

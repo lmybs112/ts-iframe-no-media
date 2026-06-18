@@ -107,8 +107,6 @@
         for (let i = 0; i < dataLayer.length; i++) {
           if (dataLayer[i].Action === "Product-Detail") {
             // 找到了符合條件的項目，執行後續動作
-            console.log('找到了符合 "gtm.load" 的事件，執行後續動作');
-            console.log("FOUND!!");
             if (dataLayer[i].Uid !== "") member_id = dataLayer[i].Uid;
             else member_id = "";
 
@@ -136,8 +134,6 @@
         for (let i = 0; i < dataLayer.length; i++) {
           if (dataLayer[i].Action === "Product-Detail") {
             // 找到了符合條件的項目，執行後續動作
-            console.log('找到了符合 "gtm.load" 的事件，執行後續動作');
-            console.log("FOUND!!");
             if (dataLayer[i].Uid !== "") member_id = dataLayer[i].Uid;
             else member_id = "";
 
@@ -152,14 +148,11 @@
       var metaTag = document.querySelector('meta[property="og:sku"]');
       if (metaTag) {
         var skuContent = metaTag.getAttribute("content").split("-")[0];
-        console.log(skuContent); // 輸出 "FRP99153"
       } else if (document.querySelector(".prodnoBox") !== null) {
         var skuContent = document
           .querySelector(".prodnoBox")
           .innerText.split(":")[1]
           .split("-")[0];
-      } else {
-        console.log("Meta tag not found");
       }
       return skuContent;
     }
@@ -188,16 +181,11 @@
           "https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js";
         embeddedAdjQueryScript.type = "text/javascript";
         embeddedAdjQueryScript.onload = function () {
-          // console.log("jQuery 已成功載入");
           loadSwiperScript(); // 先載入 Swiper
           callback(); // 再執行嵌入腳本
         };
-        embeddedAdjQueryScript.onerror = function () {
-          console.error("載入 jQuery 時出錯");
-        };
         document.head.appendChild(embeddedAdjQueryScript);
       } else {
-        // console.log("jQuery 已經載入");
         loadSwiperScript(); // 先載入 Swiper
         callback(); // 再執行嵌入腳本
       }
@@ -214,12 +202,6 @@
       var SwiperScript = document.createElement("script");
       SwiperScript.src =
         "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js";
-      SwiperScript.onload = function () {
-        // console.log("Swiper script loaded successfully");
-      };
-      SwiperScript.onerror = function () {
-        console.error("Error loading Swiper script");
-      };
       document.head.appendChild(SwiperScript);
     }
     //embedded script
@@ -777,7 +759,6 @@
         $(function () {
           let ids = ids_init();
 
-          // console.log("DOM is ready");
           $(show_up_position_before).append(
             `<div id="recommendation-loading">
               <span class="loading-text">Loading...</span>
@@ -923,8 +904,6 @@
                 );
               }
             }
-          } else {
-            console.error("找不到容器元素:", show_up_position_before);
           }
 
           // Fetch the Bootstrap CSS from CDN
@@ -1096,7 +1075,6 @@
           var lgiven_id = "";
 
           member_id = member_id_Shopline();
-          // console.log(member_id);
 
           // Always Generate a pair of LGVID
           lgvid_exist = false;
@@ -1231,7 +1209,6 @@
                             $("#loadingbar").hide();
             })
             .catch((err) => {
-              console.error(err);
                             // 動態生成 intro-content-simple 來取代 intro-content-advanced
                             const simpleContent = `
                             <div id="intro-content-simple" class="intro-content intro-modal__content" style="opacity: 0; transition: opacity 0.3s ease-in-out;">
@@ -1472,7 +1449,6 @@
             breakpoints: sortedBreakpoints,
             on: {
               init: function () {
-                // console.log("生效的斷點配置:");
               },
             },
             // breakpoints: {

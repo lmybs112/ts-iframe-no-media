@@ -1036,6 +1036,86 @@
         pointer-events: auto;
         cursor: pointer;
       }
+
+      /* 分組隱藏：必須用 !important 覆蓋 .axd_selection { display: flex !important } */
+      .update_delete .selection_scroll .axd_selection.axd_tag.axd_tag-group-hidden {
+        display: none !important;
+      }
+
+      /* 換組卡槽：沿用與第一組相同的 tagFadeInSmooth 淡入 */
+      .update_delete .selection_scroll .axd_tag-slot {
+        width: fit-content !important;
+        flex-direction: row !important;
+      }
+
+      .update_delete .selection_scroll .axd_tag-slot.axd_tag-slot--swapping {
+        pointer-events: none;
+      }
+
+      .update_delete .selection_scroll .axd_tag-slot--inactive {
+        display: none !important;
+      }
+
+      /* 換一組試試：圖二樣式 — 白字白 icon、無邊框 */
+      .update_delete .selection_scroll .change-group-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        margin: 10px auto 0;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: #fff;
+        font-family: "Noto Sans TC", "Figtree", sans-serif;
+        font-size: 13px;
+        font-weight: 400;
+        line-height: 1;
+        cursor: pointer;
+        width: fit-content;
+        box-shadow: none;
+        visibility: visible;
+        opacity: 1;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+      }
+
+      .update_delete .selection_scroll .change-group-btn.change-group-btn--hidden {
+        visibility: hidden;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .update_delete .selection_scroll .change-group-btn:hover,
+      .update_delete .selection_scroll .change-group-btn:active {
+        background: transparent;
+        color: #fff;
+        transform: none;
+        box-shadow: none;
+        opacity: 0.85;
+      }
+
+      .update_delete .selection_scroll .change-group-btn__icon {
+        width: 13px;
+        height: 13px;
+        flex-shrink: 0;
+        transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .update_delete .selection_scroll .change-group-btn__text {
+        font-size: inherit;
+        font-weight: inherit;
+        line-height: inherit;
+        color: inherit;
+      }
+
+      .update_delete .selection_scroll .change-group-btn.rotating .change-group-btn__icon {
+        animation: change-group-rotate 0.5s ease;
+      }
+
+      @keyframes change-group-rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
     </style>
   </body>
 </html>

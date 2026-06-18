@@ -129,10 +129,8 @@ const get_recom_res = () => {
       [`${Brand}_${current_route_path.Route}`]: tags_chosen,
     };
     window.parent.postMessage(messageData, "*");
-    // console.error("messageData", messageData);
   }
 
-  // console.warn("tags chosen:", tags_chosen);
   var INFS_ROUTE_ORDER = !isForPreview
     ? JSON.parse(localStorage.getItem(`INFS_ROUTE_ORDER_${Brand}`)) || []
     : [];
@@ -154,8 +152,6 @@ const get_recom_res = () => {
 
   // 如果找到了，則將其移到 INFS_ROUTE_RES
   if ((matchIndex !== -1) & !isForPreview) {
-    // console.error("matchIndex", matchIndex);
-    // console.error("isForPreview", isForPreview);
     const matchedItem = INFS_ROUTE_ORDER.splice(matchIndex, 1)[0]; // 移除並取得物件
     INFS_ROUTE_RES.push(matchedItem); // 將物件推到 RES 陣列
 
@@ -186,14 +182,11 @@ const get_recom_res = () => {
         value: true,
       };
       window.parent.postMessage(messageData, "*");
-      // console.error("Message", response);
       firstResult = response;
       await show_results(response, true);
       // }, 1500);
     })
-    .catch((err) => {
-      console.error("err", err);
-    })
+    .catch(() => {})
     .finally(() => {
       if (isForReferral) {
         const messageData = {
@@ -313,8 +306,6 @@ const getEmbedded = async () => {
       ...jsonDataItem,
     }));
 
-    // console.error("jsonData", jsonData);
-    // console.error("formatItems", formatItems);
 
     const formatData = {
       Item: formatItems,
@@ -325,7 +316,6 @@ const getEmbedded = async () => {
     $("#recommend-btn").text("刷新推薦");
     show_results(formatData);
   } catch (err) {
-    console.error(err);
     getEmbeddedForBackup();
   }
 };
@@ -421,8 +411,6 @@ const getEmbeddedForBackup = () => {
         };
       });
 
-      // console.error("jsonData", jsonData);
-      // console.error("formatItems", formatItems);
 
       const formatData = {
         Item: formatItems,
@@ -437,9 +425,7 @@ const getEmbeddedForBackup = () => {
         JSON.stringify([])
       );
     })
-    .catch((err) => {
-      console.error(err);
-    });
+    .catch(() => {});
 };
 
 const show_results = (response, isFirst = false) => {
@@ -486,7 +472,6 @@ const show_results = (response, isFirst = false) => {
   const finalitem = isFirst
     ? getTopCommonIndices()
     : getRandomNumbers(itemCount, displayCount);
-  // console.error("finalitem", finalitem);
   const finalitemCount = 3;
   resList = response.Item;
   $(`#container-recom`).find(".axd_selections").html("");
@@ -649,9 +634,7 @@ const fetchCoupon = async () => {
     options
   );
   const responseData = await response.json();
-  // console.log('responseData', responseData)
   const currentData = responseData.find(item => item.Module === 'Personalized_Landing_Widget');
-  // console.log('currentData', currentData)
   const data = currentData?.ConfigData?.Discount_Info || [{
     Title: '敬請期待',
     Description: '敬請期待',
@@ -878,6 +861,197 @@ const fetchCoupon = async () => {
   // }
 };
 
+const CHANGE_GROUP_BTN_DELAY_MS = 500;
+const changeGroupBtnTimers = {};
+
+function hideChangeGroupBtn(target) {
+  if (changeGroupBtnTimers[target]) {
+    clearTimeout(changeGroupBtnTimers[target]);
+    delete changeGroupBtnTimers[target];
+  }
+  const btn = document.querySelector(`#container-${target} .change-group-btn`);
+  if (btn) btn.classList.add("change-group-btn--hidden");
+}
+
+function showChangeGroupBtn(target) {
+  if (changeGroupBtnTimers[target]) {
+    clearTimeout(changeGroupBtnTimers[target]);
+  }
+  changeGroupBtnTimers[target] = setTimeout(() => {
+    delete changeGroupBtnTimers[target];
+    const btn = document.querySelector(`#container-${target} .change-group-btn`);
+    if (btn) btn.classList.remove("change-group-btn--hidden");
+  }, CHANGE_GROUP_BTN_DELAY_MS);
+}
+
+function buildTagGroups(routeItems) {
+  const groups = [];
+  for (let i = 0; i < routeItems.length; i += 8) {
+    groups.push(
+      routeItems.slice(i, i + 8).map((item) => ({
+        Name: item.Name.S,
+        Tag: item.Tag.S,
+      }))
+    );
+  }
+  return groups;
+}
+
+function buildTagSlotHtml(target, slotIndex, tag) {
+  const inactiveClass = tag ? "" : " axd_tag-slot--inactive";
+  const innerClass = tag
+    ? `axd_tag_inner c-${target} tagId-${tag.Tag}`
+    : `axd_tag_inner c-${target}`;
+  const tagName = tag ? tag.Name : "";
+
+  return `
+    <div class="axd_selection axd_tag axd_tag-slot${inactiveClass}" data-slot="${slotIndex}">
+      <div class="axd_tag-flip">
+        <div class="${innerClass}">
+          <p>${tagName}</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function setTagInnerContent(innerEl, target, tag) {
+  if (!innerEl) return;
+  if (!tag || !tag.Tag) {
+    innerEl.className = `axd_tag_inner c-${target}`;
+    innerEl.innerHTML = "<p></p>";
+    return;
+  }
+  innerEl.className = `axd_tag_inner c-${target} tagId-${tag.Tag}`;
+  innerEl.innerHTML = `<p>${tag.Name}</p>`;
+}
+
+function getRouteTagElements(targetRoute) {
+  const container = document.querySelector(`#container-${targetRoute}`);
+  if (!container) return [];
+
+  const slots = container.querySelectorAll(".axd_tag-slot:not(.axd_tag-slot--inactive)");
+  if (slots.length > 0) return Array.from(slots);
+
+  return Array.from(
+    container.querySelectorAll('.axd_selection.axd_tag[data-group="0"]')
+  );
+}
+
+const tagFlipLock = {};
+const TAG_FADE_IN_DELAY_MS = 200;
+
+function resetTagSlotVisual($slot) {
+  $slot.removeClass("tag-fade-in axd_tag-slot--swapping");
+  const inner = $slot.find(".axd_tag_inner")[0];
+  if (!inner) return;
+  inner.getAnimations?.().forEach((animation) => animation.cancel());
+  inner.style.opacity = "";
+}
+
+function flipTagsToGroup(target, nextGroup) {
+  if (tagFlipLock[target]) return Promise.resolve();
+
+  const $container = $(`#container-${target}`);
+  const groups = $container.data("tag-groups");
+  if (!groups?.[nextGroup]) return Promise.resolve();
+
+  tagFlipLock[target] = true;
+  hideChangeGroupBtn(target);
+  $container.find(".tag-selected").removeClass("tag-selected");
+
+  const nextTags = groups[nextGroup];
+  const slots = $container.find(".axd_tag-slot").toArray();
+  const visibleSlots = [];
+
+  slots.forEach((slotEl, index) => {
+    const $slot = $(slotEl);
+    const tag = nextTags[index];
+    const inner = $slot.find(".axd_tag-flip .axd_tag_inner")[0];
+
+    resetTagSlotVisual($slot);
+
+    if (!tag) {
+      $slot.addClass("axd_tag-slot--inactive");
+      return;
+    }
+
+    setTagInnerContent(inner, target, tag);
+    $slot.removeClass("axd_tag-slot--inactive");
+    visibleSlots.push(slotEl);
+  });
+
+  return fadeInTagsSequentially(target, visibleSlots, TAG_FADE_IN_DELAY_MS).finally(() => {
+    tagFlipLock[target] = false;
+    if (typeof window.refreshScrollDownArrow === "function") {
+      window.refreshScrollDownArrow();
+    }
+  });
+}
+
+function fadeInTagsSequentially(targetRoute, tagElements, delay = TAG_FADE_IN_DELAY_MS) {
+  hideChangeGroupBtn(targetRoute);
+
+  return new Promise((resolve) => {
+    if (tagElements.length === 0) {
+      showChangeGroupBtn(targetRoute);
+      resolve();
+      return;
+    }
+
+    const optionsContainer = document.querySelector(`#container-${targetRoute} .axd_selections.selection`);
+
+    let index = 0;
+    function fadeInNext() {
+      if (index < tagElements.length) {
+        const currentTag = tagElements[index];
+        currentTag.classList.add("tag-fade-in");
+
+        if (optionsContainer && currentTag && index >= 2) {
+          setTimeout(() => {
+            const tagRect = currentTag.getBoundingClientRect();
+            const containerRect = optionsContainer.getBoundingClientRect();
+
+            const isTagVisible =
+              tagRect.top >= containerRect.top &&
+              tagRect.bottom <= containerRect.bottom;
+
+            if (!isTagVisible) {
+              const tagOffsetTop = currentTag.offsetTop;
+              const containerHeight = optionsContainer.clientHeight;
+              const tagHeight = currentTag.offsetHeight;
+              let scrollPosition;
+
+              if (tagRect.bottom > containerRect.bottom) {
+                scrollPosition = tagOffsetTop - containerHeight + tagHeight + 10;
+              } else if (tagRect.top < containerRect.top) {
+                scrollPosition = tagOffsetTop - 10;
+              }
+
+              if (scrollPosition !== undefined) {
+                optionsContainer.scrollTo({
+                  top: Math.max(0, scrollPosition),
+                  behavior: "smooth",
+                });
+              }
+            }
+          }, 400);
+        }
+
+        index++;
+        setTimeout(fadeInNext, delay);
+      } else {
+        if (typeof window.refreshScrollDownArrow === "function") {
+          setTimeout(() => window.refreshScrollDownArrow(), 100);
+        }
+        showChangeGroupBtn(targetRoute);
+        resolve();
+      }
+    }
+    fadeInNext();
+  });
+}
+
 // 啟動特定容器的打字效果
 function startTypewriterEffect(containerRoute) {
   const targetRoute = containerRoute.replaceAll(/[\s\.]/g, "");
@@ -901,12 +1075,11 @@ function startTypewriterEffect(containerRoute) {
     }
 
     // 檢查標籤是否已經完成了動畫
-    const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
+    const tagElements = getRouteTagElements(targetRoute);
     const allTagsHaveFadeIn = Array.from(tagElements).every(tag => tag.classList.contains('tag-fade-in'));
     
     // 如果所有標籤都已經有 tag-fade-in 類，說明動畫已經完成，不需要重新播放
     if (allTagsHaveFadeIn && tagElements.length > 0) {
-      // console.log(`🎭 容器 ${targetRoute} 的標籤動畫已完成，跳過重新播放`);
       
       // 確保打字效果容器也是完成狀態
       const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
@@ -918,79 +1091,12 @@ function startTypewriterEffect(containerRoute) {
       if (content && content.trim() !== '' && content !== 'undefined') {
         typewriterContainer.innerHTML = content.trim();
       } else {
-        typewriterContainer.innerHTML = '';
+        typewriterContainer.innerHTML = "";
       }
+      showChangeGroupBtn(targetRoute);
       return;
     }
 
-    // 按順序淡入標籤的函數
-    function fadeInTagsSequentially(tagElements, delay = 200) {
-      return new Promise((resolve) => {
-        if (tagElements.length === 0) {
-          resolve();
-          return;
-        }
-        
-        // 獲取選項容器
-        const optionsContainer = document.querySelector(`#container-${targetRoute} .axd_selections.selection`);
-        
-        let index = 0;
-        function fadeInNext() {
-          if (index < tagElements.length) {
-            const currentTag = tagElements[index];
-            currentTag.classList.add('tag-fade-in');
-            
-            // 自動滾動到當前標籤（只在必要時進行）
-            if (optionsContainer && currentTag && index >= 2) { // 只從第3個標籤開始檢查滾動
-              // 等待標籤動畫完成後再滾動
-              setTimeout(() => {
-                // 計算當前標籤在容器中的位置
-                const tagRect = currentTag.getBoundingClientRect();
-                const containerRect = optionsContainer.getBoundingClientRect();
-                
-                // 檢查標籤是否在可視區域內
-                const isTagVisible = (
-                  tagRect.top >= containerRect.top &&
-                  tagRect.bottom <= containerRect.bottom
-                );
-                
-                if (!isTagVisible) {
-                  // 滾動到標籤位置
-                  const tagOffsetTop = currentTag.offsetTop;
-                  const containerHeight = optionsContainer.clientHeight;
-                  const tagHeight = currentTag.offsetHeight;
-                  
-                  // 計算滾動位置，確保標籤在可視區域內
-                  let scrollPosition;
-                  
-                  if (tagRect.bottom > containerRect.bottom) {
-                    // 標籤在下方，向下滾動
-                    scrollPosition = tagOffsetTop - containerHeight + tagHeight + 10; // 留10px邊距
-                  } else if (tagRect.top < containerRect.top) {
-                    // 標籤在上方，向上滾動
-                    scrollPosition = tagOffsetTop - 10; // 留10px邊距
-                  }
-                  
-                  if (scrollPosition !== undefined) {
-                    optionsContainer.scrollTo({
-                      top: Math.max(0, scrollPosition),
-                      behavior: 'smooth'
-                    });
-                  }
-                }
-              }, 400); // 等待動畫完全完成(0.4s)
-            }
-            
-            index++;
-            setTimeout(fadeInNext, delay);
-          } else {
-            resolve();
-          }
-        }
-        fadeInNext();
-      });
-    }
-    
     // 檢查是否需要滾動的函數
     function checkAndScrollIfNeeded() {
       if (typewriterContainer.scrollHeight > typewriterContainer.clientHeight) {
@@ -1002,7 +1108,6 @@ function startTypewriterEffect(containerRoute) {
     // 確保有內容才啟動打字效果
     if (content && content.trim() !== '' && content !== 'undefined') {
       // 只有在動畫未完成時才重置狀態
-      // console.log(`🎭 開始容器 ${targetRoute} 的動畫序列`);
       
       // 清空容器內容，準備重新打字
       typewriterContainer.innerHTML = '';
@@ -1043,8 +1148,8 @@ function startTypewriterEffect(containerRoute) {
           });
           
           // 然後讓標籤按順序依序淡入
-          const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
-          fadeInTagsSequentially(tagElements, 200); // 每個標籤間隔 200ms
+          const tagElements = getRouteTagElements(targetRoute);
+          fadeInTagsSequentially(targetRoute, tagElements, 200);
         })
         .start();
         
@@ -1072,7 +1177,6 @@ function startTypewriterEffect(containerRoute) {
     } else {
       // 如果沒有內容，檢查標籤是否已經完成了動畫
       if (allTagsHaveFadeIn && tagElements.length > 0) {
-        // console.log(`🎭 容器 ${targetRoute} 的標籤動畫已完成，跳過重新播放（無內容情況）`);
         
         // 確保容器狀態正確
         const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
@@ -1080,12 +1184,12 @@ function startTypewriterEffect(containerRoute) {
           slide.classList.add('typewriter-complete');
         });
         
-        typewriterContainer.innerHTML = '';
+        typewriterContainer.innerHTML = "";
+        showChangeGroupBtn(targetRoute);
         return;
       }
       
       // 如果動畫未完成，直接顯示空內容並顯示 swiper-slide 元素和標籤
-      // console.log(`🎭 開始容器 ${targetRoute} 的動畫序列（無內容情況）`);
       typewriterContainer.innerHTML = '';
       
       const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
@@ -1094,7 +1198,7 @@ function startTypewriterEffect(containerRoute) {
       });
       
       // 標籤按順序依序淡入
-      fadeInTagsSequentially(tagElements, 200);
+      fadeInTagsSequentially(targetRoute, tagElements, 200);
     }
   }
 }
@@ -1111,11 +1215,6 @@ const fetchData = async () => {
       animXContainers.forEach(container => {
         container.classList.add('bg-loaded');
       });
-    };
-    
-    bgImage.onerror = function() {
-      // 圖片加載失敗時的處理（可選）
-      console.warn('Background image failed to load');
     };
   }
   
@@ -1253,7 +1352,6 @@ const fetchData = async () => {
       // let idx = all_Route.indexOf(item.TagGroup.S)
       Route_in_frame[item.TagGroup.S].push(item);
     }
-    // console.error(Route_in_frame, "dog");
     const userAgent = navigator.userAgent.toLowerCase();
     const isMobile = /mobile|android|iphone|ipod|phone/.test(userAgent);
 
@@ -1262,7 +1360,6 @@ const fetchData = async () => {
       : "data:image/svg+xml;charset=UTF-8,%3csvg width='36' height='37' viewBox='0 0 36 37' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M18 11.0264L10.8 18.2264L18 25.4264' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3cpath d='M25.2 18.2266H10.8' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e";
 
     for (var r in Route_in_frame) {
-      // console.log("TagGroup : " + r);
       document.getElementById("pback").insertAdjacentHTML(
         "beforebegin",
         `<div class='container mbinfo animX animFadeIn update_delete' id="container-${r.replaceAll(/[\s\.]/g, "")}">
@@ -1329,7 +1426,6 @@ const fetchData = async () => {
 
       const mediaQuery = window.matchMedia("(max-width: 400px)");
       function handleMediaQueryChange(mediaQuery, tar) {
-        // console.log(tar)
         init(tar);
       }
 
@@ -1339,23 +1435,54 @@ const fetchData = async () => {
         $(`#container-${target}`).find(".selection").remove();
         $(`#container-${target}`).find(".remove-button").remove();
         $(`#container-${target}`).find(`.pagination-${target}`).empty();
+        $(`#container-${target}`).find(`.change-group-btn`).remove(); // 清除舊按鈕
 
         const itemCount = Route_in_frame[tar].length;
-        const render_num =itemCount
+        const render_num = itemCount;
+        const useTagSlots = itemCount > 8;
+
         $(`#container-${target}`)
           .find(".swiper-wrapper")
           .append(
             '<div class="selection swiper-slide"><div class="axd_selections selection"></div></div>'
           );
-        for (let rr = 0; rr < render_num; rr++) {
-          $(`#container-${target}`).find(".axd_selections").append(`
-                            <div class="axd_selection axd_tag">
-                                <div class="axd_tag_inner c-${target} tagId-${Route_in_frame[tar][rr].Tag.S}">
-                                    <p>${Route_in_frame[tar][rr].Name.S}</p>
-                                </div>
-                            </div>
-                        `);
+
+        if (useTagSlots) {
+          const groups = buildTagGroups(Route_in_frame[tar]);
+          $(`#container-${target}`).data("tag-groups", groups);
+
+          for (let slot = 0; slot < 8; slot++) {
+            $(`#container-${target}`)
+              .find(".axd_selections")
+              .append(buildTagSlotHtml(target, slot, groups[0][slot]));
+          }
+        } else {
+          for (let rr = 0; rr < render_num; rr++) {
+            $(`#container-${target}`).find(".axd_selections").append(`
+                             <div class="axd_selection axd_tag">
+                                 <div class="axd_tag_inner c-${target} tagId-${Route_in_frame[tar][rr].Tag.S}">
+                                     <p>${Route_in_frame[tar][rr].Name.S}</p>
+                                 </div>
+                             </div>
+                         `);
+          }
         }
+
+        // 當選項數量大於 8 個時，新增「換一組試試」按鈕
+        if (useTagSlots) {
+          $(`#container-${target}`).find(`.swiper-container-${target}`).append(`
+            <div class="change-group-btn change-group-btn--hidden" data-current-group="0" data-total-groups="${Math.ceil(itemCount / 8)}" data-target="${target}">
+              <svg class="change-group-btn__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <path d="M15.2 2.8V6.8H11.2" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2.8 15.2V11.2H6.8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2.8 8.3C2.8 5.2 5.3 2.8 8.4 2.8C10.6 2.8 12.5 4.2 13.4 6.2" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M15.2 9.7C15.2 12.8 12.7 15.2 9.6 15.2C7.4 15.2 5.5 13.8 4.6 11.8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="change-group-btn__text">換一組試試</span>
+            </div>
+          `);
+        }
+        
         bind();
       }
       init(r);
@@ -1455,7 +1582,6 @@ const fetchData = async () => {
               });
               
               if (fs === firstIncompleteIndex) {
-                // console.log("firstIncompleteIndex", firstIncompleteIndex);
                 $("#intro-page").hide();
                 $("#container-" + currentRoute).show();
                 startTypewriterEffect(all_Route[fs]);
@@ -1469,7 +1595,6 @@ const fetchData = async () => {
           $(".c-" + currentRoute + ".skip")
             .off(mytap)
             .on(mytap, function (e) {
-              // console.error("$(this) SKIP", $(this));
               // if ($(this).text() == "略過") {
               var tag = `c-${all_Route[fs]}`;
               $(`.${tag}.tag-selected`).removeClass("tag-selected");
@@ -1503,9 +1628,7 @@ const fetchData = async () => {
                   JSON.stringify(INFS_ROUTE_ORDER)
                 );
               }
-              // console.error("error skip add", tags_chosen);
               // }
-              // console.log("skip", all_Route[fs]);
               if (fs == all_Route.length - 1) {
                 $("#container-" + currentRoute).hide();
                 if ($.isEmptyObject(tags_chosen)) {
@@ -1513,7 +1636,6 @@ const fetchData = async () => {
                     .find(".image-container")
                     .first();
                   var tagid = firstEl.attr("class").match(/tagId-(\d+)/)[1];
-                  // console.warn("tagid", tagid);
                   tags_chosen[all_Route[fs].replaceAll(/[\s\.]/g, "")] = [
                     {
                       Description: "example",
@@ -1526,7 +1648,6 @@ const fetchData = async () => {
                 }
                 get_recom_res();
               } else {
-                // console.log(".c-" + all_Route[fs + 1].replaceAll(/[\s\.]/g, ""));
                 $("#container-" + currentRoute).hide();
                 $("#container-" + all_Route[fs + 1].replaceAll(/[\s\.]/g, "")).show();
                 // 啟動下一個容器的打字效果
@@ -1650,9 +1771,7 @@ const fetchData = async () => {
       MsgHeader: "fetchDone",
     };
     window.parent.postMessage(pass_data, "*");
-  } catch (error) {
-    console.error("Fetch error:", error);
-  }
+  } catch (error) {}
 };
 var tap = window.ontouchstart === null ? "touchend" : "click";
 
@@ -1670,11 +1789,33 @@ $(document).on(tap, ".icon-reminder", function () {
   $(".text-inffits").removeClass("visible");
 });
 
+// 換一組試試按鈕點擊事件
+$(document).on(tap, ".change-group-btn", function () {
+  const $btn = $(this);
+  const target = $btn.data("target");
+
+  if ($btn.hasClass("rotating") || tagFlipLock[target]) return;
+
+  const currentGroup = parseInt($btn.attr("data-current-group"), 10);
+  const totalGroups = parseInt($btn.data("total-groups"), 10);
+  const nextGroup = (currentGroup + 1) % totalGroups;
+
+  $btn.addClass("rotating change-group-btn--hidden");
+  $btn.attr("data-current-group", nextGroup);
+
+  flipTagsToGroup(target, nextGroup).finally(() => {
+    $btn.removeClass("rotating");
+  });
+
+  $btn.find("svg").one("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd", function () {
+    $btn.removeClass("rotating");
+  });
+});
+
 function copyCoupon(couponCode, btn) {
   navigator.clipboard
     .writeText(couponCode)
     .then(() => {
-      // console.log("已複製優惠碼：", couponCode);
       const $btn = $(btn);
       const $parent = $btn.closest(
         ".intro-coupon-modal__content-container-content-footer"
@@ -1693,7 +1834,6 @@ function copyCoupon(couponCode, btn) {
       }, 3000);
     })
     .catch((err) => {
-      console.error("複製失敗：", err);
       alert("無法複製優惠碼，請手動複製。");
     });
 }
@@ -1796,7 +1936,6 @@ $("#coupon-btn").on(tap, function () {
           correctLevel: QRCode.CorrectLevel.H
         });
       } catch (error) {
-        console.error("生成 QR code 時發生錯誤:", error);
         qrcodeContainer.innerHTML = '<div style="color: red;">QR code 生成失敗</div>';
       }
     } else {
@@ -1808,14 +1947,12 @@ $("#coupon-btn").on(tap, function () {
           generateQRCode();
         };
         script.onerror = function() {
-          console.error("無法載入 QR code 庫");
           if (qrcodeContainer) {
             qrcodeContainer.innerHTML = '<div style="color: red;">QR code 庫載入失敗</div>';
           }
         };
         document.head.appendChild(script);
       } else {
-        console.error("QR code 容器不存在");
         if (qrcodeContainer) {
           qrcodeContainer.innerHTML = '<div style="color: red;">QR code 容器不存在</div>';
         }
@@ -1913,7 +2050,6 @@ const Initial = () => {
 };
 
 window.addEventListener("message", async (event) => {
-  // console.warn("message", event);
   if (event.data.header == "from_preview") {
 
     Route = event.data.id;
