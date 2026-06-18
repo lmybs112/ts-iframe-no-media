@@ -1341,21 +1341,54 @@ const fetchData = async () => {
         $(`#container-${target}`).find(`.pagination-${target}`).empty();
 
         const itemCount = Route_in_frame[tar].length;
-        const render_num =itemCount
+        const render_num = itemCount;
+        const POPULAR_TAG_COUNT = 4;
+
+        function buildTagHtml(rr) {
+          return `
+            <div class="axd_selection axd_tag">
+              <div class="axd_tag_inner c-${target} tagId-${Route_in_frame[tar][rr].Tag.S}">
+                <p>${Route_in_frame[tar][rr].Name.S}</p>
+              </div>
+            </div>
+          `;
+        }
+
+        let popularTagsHtml = "";
+        let allTagsHtml = "";
+        for (let rr = 0; rr < render_num; rr++) {
+          const tagHtml = buildTagHtml(rr);
+          if (rr < POPULAR_TAG_COUNT) {
+            popularTagsHtml += tagHtml;
+          } else {
+            allTagsHtml += tagHtml;
+          }
+        }
+
+        const hasAllSection = render_num > POPULAR_TAG_COUNT;
+        const allSectionHtml = hasAllSection
+          ? `
+            <hr class="tag-section__divider" aria-hidden="true">
+            <div class="tag-section tag-section--all">
+              <p class="tag-section__title">全部選項</p>
+              <div class="axd_selections selection tag-section__tags">${allTagsHtml}</div>
+            </div>
+          `
+          : "";
+
         $(`#container-${target}`)
           .find(".swiper-wrapper")
           .append(
-            '<div class="selection swiper-slide"><div class="axd_selections selection"></div></div>'
+            `<div class="selection swiper-slide">
+              <div class="tag-sections">
+                <div class="tag-section tag-section--popular">
+                  <p class="tag-section__title">熱門</p>
+                  <div class="axd_selections selection tag-section__tags">${popularTagsHtml}</div>
+                </div>
+                ${allSectionHtml}
+              </div>
+            </div>`
           );
-        for (let rr = 0; rr < render_num; rr++) {
-          $(`#container-${target}`).find(".axd_selections").append(`
-                            <div class="axd_selection axd_tag">
-                                <div class="axd_tag_inner c-${target} tagId-${Route_in_frame[tar][rr].Tag.S}">
-                                    <p>${Route_in_frame[tar][rr].Name.S}</p>
-                                </div>
-                            </div>
-                        `);
-        }
         bind();
       }
       init(r);

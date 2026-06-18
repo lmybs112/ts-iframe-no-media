@@ -755,48 +755,53 @@
         height: fit-content;
         max-width: 270px;
         margin: 0 auto;
-        max-height: 155px;
-        overflow-y: auto;
-        /* 隱藏滾動條但保持可滾動 */
-        scrollbar-width: none; /* Firefox */
-        -ms-overflow-style: none; /* Internet Explorer 10+ */
-        /* 平滑滾動 */
-        scroll-behavior: smooth;
+        max-height: none;
+        overflow: visible;
         /* 初始隱藏，等待打字效果完成 */
-        scroll-snap-type: y mandatory;
         opacity: 0;
         transition: opacity 0.3s ease-in-out;
         @media screen and (min-width: 480px) {
           max-width: 340px;
-          max-height: 155px;
         }
-      }
-      /* 隱藏 Webkit 瀏覽器的滾動條 */
-      .update_delete .selection_scroll .swiper-wrapper .swiper-slide::-webkit-scrollbar {
-        display: none;
       }
       /* 打字效果完成後顯示 */
       .update_delete .selection_scroll .swiper-wrapper .swiper-slide.typewriter-complete {
         opacity: 1;
       }
-      .update_delete .selection_scroll .swiper-wrapper .swiper-slide .axd_selections.selection{
-        margin: 8px 0 !important;
+      .update_delete .selection_scroll .tag-sections {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .update_delete .selection_scroll .tag-section__title {
+        color: rgba(255, 255, 255, 0.75);
+        font-family: "Noto Sans TC", "Figtree", sans-serif;
+        font-size: 12px;
+        font-style: normal;
+        font-weight: 500;
+        line-height: 18px;
+        letter-spacing: 0.6px;
+        margin: 0 0 8px 0;
+        text-align: left;
+      }
+      .update_delete .selection_scroll .tag-section__divider {
+        border: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.25);
+        margin: 4px 0;
+        width: 100%;
+      }
+      .update_delete .selection_scroll .tag-section__tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0 !important;
+        max-height: none;
+        overflow: visible;
+        justify-content: flex-start;
       }
       .update_delete .selection_scroll .swiper-wrapper .swiper-slide .axd_selections.selection{
-        gap: 0 8px !important;
-        /* 確保選項容器可以彈性高度並能滾動 */
-        max-height: inherit;
-        overflow-y: auto;
-        /* 隱藏滾動條但保持可滾動 */
-        scrollbar-width: none; /* Firefox */
-        -ms-overflow-style: none; /* Internet Explorer 10+ */
-        /* 平滑滾動 */
-        scroll-behavior: smooth;
-        scroll-snap-align: start;
-      }
-      /* 隱藏選項容器的 Webkit 滾動條 */
-      .update_delete .selection_scroll .swiper-wrapper .swiper-slide .axd_selections.selection::-webkit-scrollbar {
-        display: none;
+        margin: 0 !important;
       }
       .update_delete .selection_scroll .axd_selection.axd_tag {
         box-sizing: border-box;
