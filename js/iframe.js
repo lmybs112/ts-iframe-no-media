@@ -861,7 +861,7 @@ const fetchCoupon = async () => {
   // }
 };
 
-const CHANGE_GROUP_BTN_DELAY_MS = 500;
+const CHANGE_GROUP_BTN_DELAY_MS = 800;
 const changeGroupBtnTimers = {};
 
 function hideChangeGroupBtn(target) {
