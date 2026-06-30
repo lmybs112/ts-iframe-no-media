@@ -337,30 +337,11 @@
         background-color: white !important;
       }
 
-      /* 手機版結果頁：flex column，確保 header/footer 固定、卡片區填滿剩餘空間不溢出 */
+      /* 手機版結果頁：只限制圖片高度，確保圖片＋名稱＋價格全部在 365px 容器內顯示 */
       @media screen and (max-width: 479px) {
-        #container-recom {
-          display: flex !important;
-          flex-direction: column !important;
-          overflow: hidden !important;
-        }
-
-        #container-recom .selection_scroll {
-          flex: 1 1 0 !important;
-          min-height: 0 !important;
-          overflow: hidden !important;
-        }
-
-        #container-recom .selection_scroll .selection,
-        #container-recom .selection_scroll .axd_selections {
-          height: 100% !important;
-        }
-
-        /* 限制結果頁卡片圖片高度，確保圖片＋商品名稱＋價格都能在卡片內顯示 */
         #container-recom a.update_delete img {
           aspect-ratio: unset !important;
-          height: 100% !important;
-          max-height: 115px !important;
+          max-height: 110px !important;
         }
       }
 
