@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OB91 Outfit Capsule Slot Machine</title>
+    <!-- Google Fonts Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-primary: #0b0c15;
+            --bg-secondary: #121424;
+            --accent-neon: #7b2cbf;
+            --accent-neon-glow: rgba(123, 44, 191, 0.4);
+            --accent-green: #00f5d4;
+            --accent-green-glow: rgba(0, 245, 212, 0.3);
+            --accent-pink: #ff007f;
+            --accent-pink-glow: rgba(255, 0, 127, 0.3);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --font-outfit: 'Outfit', 'Inter', sans-serif;
+            --font-inter: 'Inter', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-inter);
+            background: radial-gradient(circle at 50% 0%, #1a153b, var(--bg-primary) 70%);
+            color: #f1f2f6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        header {
+            padding: 24px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(11, 12, 21, 0.6);
+            backdrop-filter: blur(12px);
+            z-index: 10;
+        }
+
+        header h1 {
+            font-family: var(--font-outfit);
+            font-weight: 800;
+            font-size: 24px;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff 30%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header .brand-badge {
+            background: rgba(123, 44, 191, 0.15);
+            border: 1px solid var(--accent-neon);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #c084fc;
+            box-shadow: 0 0 10px var(--accent-neon-glow);
+        }
+
+        /* Main Layout */
+        .container {
+            display: flex;
+            flex: 1;
+            padding: 30px;
+            gap: 30px;
+            max-width: 1600px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Sidebar config panel */
+        .sidebar {
+            width: 320px;
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            align-self: flex-start;
+        }
+
+        .section-title {
+            font-family: var(--font-outfit);
+            font-size: 16px;
+            font-weight: 700;
+            color: #a855f7;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .tag-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .tag-group-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tag-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #cbd5e1;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .tag-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .tag-item.active {
+            background: rgba(123, 44, 191, 0.2);
+            border-color: var(--accent-neon);
+            color: #e9d5ff;
+            box-shadow: 0 0 8px rgba(123, 44, 191, 0.2);
+        }
+
+        /* Fetch Button */
+        .btn-fetch {
+            background: linear-gradient(135deg, #7b2cbf 0%, #5a189a 100%);
+            border: none;
+            color: #fff;
+            padding: 14px;
+            border-radius: 14px;
+            font-family: var(--font-outfit);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(90, 24, 154, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-fetch:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(90, 24, 154, 0.6);
+        }
+
+        .btn-fetch:active {
+            transform: translateY(0);
+        }
+
+        /* Slot Machine Area */
+        .slot-machine-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .reels-wrapper {
+            display: flex;
+            width: 100%;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .reel-container {
+            flex: 1;
+            max-width: 320px;
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--card-border);
+            border-radius: 28px;
+            padding: 16px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .reel-container.pinned {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 15px var(--accent-green-glow);
+        }
+
+        .reel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 8px;
+        }
+
+        .reel-title {
+            font-family: var(--font-outfit);
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.5px;
+        }
+
+        .reel-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Pin Button */
+        .btn-pin {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #94a3b8;
+        }
+
+        .btn-pin:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .reel-container.pinned .btn-pin {
+            background: rgba(0, 245, 212, 0.15);
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+        }
+
+        /* Reel Window / Card */
+        .reel-window {
+            height: 400px;
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+            background: #000;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .reel-roller {
+            position: absolute;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        /* Roll animation classes */
+        @keyframes spinReel {
+            0% {
+                transform: translateY(0);
+            }
+
+            100% {
+                transform: translateY(-70%);
+            }
+        }
+
+        .reel-roller.spinning {
+            animation: spinReel 0.8s cubic-bezier(0.5, 0, 0.2, 1) infinite;
+        }
+
+        .product-card {
+            height: 400px;
+            width: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 20px;
+            background-size: cover;
+            background-position: center;
+            transition: all 0.3s ease;
+        }
+
+        .product-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 70%;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 20%, rgba(0, 0, 0, 0) 100%);
+            z-index: 1;
+        }
+
+        .product-info {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .product-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .product-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 4px;
+        }
+
+        .product-price {
+            font-family: var(--font-outfit);
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--accent-green);
+        }
+
+        .stage-badge {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 3px 8px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+
+        /* Empty State */
+        .empty-card {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            background: rgba(255, 255, 255, 0.01);
+            color: #475569;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .empty-card svg {
+            width: 48px;
+            height: 48px;
+            stroke: #334155;
+        }
+
+        .empty-card span {
+            font-size: 13px;
+        }
+
+        /* Roll Single Button */
+        .btn-roll-single {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: #cbd5e1;
+            padding: 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-roll-single:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+
+        .reel-container.pinned .btn-roll-single {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* Big Spin Button */
+        .spin-controls {
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-spin-main {
+            background: linear-gradient(135deg, #a855f7 0%, #7b2cbf 100%);
+            border: none;
+            color: #fff;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            font-family: var(--font-outfit);
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 8px 30px rgba(168, 85, 247, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            border: 4px solid var(--bg-primary);
+            position: relative;
+            z-index: 2;
+        }
+
+        .btn-spin-main::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border-radius: 50%;
+            border: 2px dashed rgba(168, 85, 247, 0.3);
+            animation: spinBorder 12s linear infinite;
+        }
+
+        @keyframes spinBorder {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .btn-spin-main:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 40px rgba(168, 85, 247, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-spin-main:active {
+            transform: scale(0.95);
+        }
+
+        .btn-spin-main:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: scale(1) !important;
+            box-shadow: none !important;
+        }
+
+        .btn-spin-main span {
+            font-size: 11px;
+            font-weight: 500;
+            color: #f3e8ff;
+            text-transform: uppercase;
+        }
+
+        /* Loading / Notification Overlay */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(18, 20, 36, 0.9);
+            border: 1px solid var(--accent-neon);
+            border-radius: 12px;
+            padding: 16px 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 100;
+            font-size: 14px;
+            align-items: center;
+            gap: 12px;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--accent-neon);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>OB91 OUTFIT SLOT MACHINE</h1>
+        <div class="brand-badge">OB91 Capsule Mode</div>
+    </header>
+
+    <div class="container">
+        <!-- Sidebar Config -->
+        <div class="sidebar">
+            <div>
+                <h3 class="section-title">情境選擇 (Scenarios)</h3>
+                <div class="tag-list" id="scenarios-list">
+                    <div class="tag-item active" data-tag="日常街頭休閒" data-group="scenarios">日常街頭休閒</div>
+                    <div class="tag-item" data-tag="都會職場商務" data-group="scenarios">都會職場商務</div>
+                    <div class="tag-item" data-tag="甜蜜約會度假" data-group="scenarios">甜蜜約會度假</div>
+                    <div class="tag-item" data-tag="居家舒適放鬆" data-group="scenarios">居家舒適放鬆</div>
+                    <div class="tag-item" data-tag="輕度運動健身" data-group="scenarios">輕度運動健身</div>
+                    <div class="tag-item" data-tag="孕期與產後適穿" data-group="scenarios">孕期與產後適穿</div>
+                    <div class="tag-item" data-tag="親子育兒放電" data-group="scenarios">親子育兒放電</div>
+                    <div class="tag-item" data-tag="聯名周邊小物" data-group="scenarios">聯名周邊小物</div>
+                    <div class="tag-item" data-tag="仙氣婚禮宴會" data-group="scenarios">仙氣婚禮宴會</div>
+                    <div class="tag-item" data-tag="夏日戶外休閒" data-group="scenarios">夏日戶外休閒</div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="section-title">面料與特性 (Features)</h3>
+                <div class="tag-list" id="features-list">
+                    <div class="tag-item active" data-tag="親膚舒適" data-group="features">親膚舒適</div>
+                    <div class="tag-item" data-tag="涼感降溫" data-group="features">涼感降溫</div>
+                    <div class="tag-item" data-tag="吸濕" data-group="features">吸濕</div>
+                    <div class="tag-item" data-tag="透氣" data-group="features">透氣</div>
+                    <div class="tag-item" data-tag="不易皺免熨燙" data-group="features">不易皺免熨燙</div>
+                    <div class="tag-item" data-tag="細緻蕾絲雪紡" data-group="features">細緻蕾絲雪紡</div>
+                    <div class="tag-item" data-tag="柔軟高彈" data-group="features">柔軟高彈</div>
+                    <div class="tag-item" data-tag="寬鬆好活動" data-group="features">寬鬆好活動</div>
+                    <div class="tag-item" data-tag="合身修身" data-group="features">合身修身</div>
+                    <div class="tag-item" data-tag="立體打摺" data-group="features">立體打摺</div>
+                    <div class="tag-item" data-tag="顯瘦收腰" data-group="features">顯瘦收腰</div>
+                    <div class="tag-item" data-tag="高腰延伸" data-group="features">高腰延伸</div>
+                    <div class="tag-item" data-tag="遮肉修飾" data-group="features">遮肉修飾</div>
+                    <div class="tag-item" data-tag="防風" data-group="features">防風</div>
+                    <div class="tag-item" data-tag="防潑水" data-group="features">防潑水</div>
+                    <div class="tag-item" data-tag="防曬抗UV" data-group="features">防曬抗UV</div>
+                    <div class="tag-item" data-tag="保暖蓄熱" data-group="features">保暖蓄熱</div>
+                </div>
+            </div>
+
+            <button class="btn-fetch" id="btn-load">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18"></path>
+                </svg>
+                獲取推薦庫
+            </button>
+        </div>
+
+        <!-- Slot Machine View -->
+        <div class="slot-machine-container">
+            <div class="reels-wrapper">
+                <!-- Tops Reel -->
+                <div class="reel-container" id="reel-Tops">
+                    <div class="reel-header">
+                        <span class="reel-title">TOPS 上衣</span>
+                        <button class="btn-pin" title="釘選此位置" onclick="togglePin('Tops')">📌</button>
+                    </div>
+                    <div class="reel-window">
+                        <div class="reel-roller" id="roller-Tops">
+                            <div class="empty-card">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z">
+                                    </path>
+                                </svg>
+                                <span>請先點選左側「獲取推薦庫」以載入商品</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn-roll-single" onclick="rollSingle('Tops')">Roll Single</button>
+                </div>
+
+                <!-- Bottoms Reel -->
+                <div class="reel-container" id="reel-Bottoms">
+                    <div class="reel-header">
+                        <span class="reel-title">BOTTOMS 下身</span>
+                        <button class="btn-pin" title="釘選此位置" onclick="togglePin('Bottoms')">📌</button>
+                    </div>
+                    <div class="reel-window">
+                        <div class="reel-roller" id="roller-Bottoms">
+                            <div class="empty-card">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z">
+                                    </path>
+                                </svg>
+                                <span>請先點選左側「獲取推薦庫」以載入商品</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn-roll-single" onclick="rollSingle('Bottoms')">Roll Single</button>
+                </div>
+
+                <!-- Dresses Reel -->
+                <div class="reel-container" id="reel-Dresses">
+                    <div class="reel-header">
+                        <span class="reel-title">DRESSES 洋裝</span>
+                        <button class="btn-pin" title="釘選此位置" onclick="togglePin('Dresses')">📌</button>
+                    </div>
+                    <div class="reel-window">
+                        <div class="reel-roller" id="roller-Dresses">
+                            <div class="empty-card">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z">
+                                    </path>
+                                </svg>
+                                <span>請先點選左側「獲取推薦庫」以載入商品</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn-roll-single" onclick="rollSingle('Dresses')">Roll Single</button>
+                </div>
+            </div>
+
+            <!-- Spin Trigger Button -->
+            <div class="spin-controls">
+                <button class="btn-spin-main" id="btn-spin" disabled>
+                    SPIN
+                    <span>Pull Lever</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast">
+        <div class="spinner"></div>
+        <span id="toast-message">載入中...</span>
+    </div>
+
+    <script>
+        // Tag Selection
+        document.querySelectorAll('.tag-list').forEach(list => {
+            list.addEventListener('click', e => {
+                if (e.target.classList.contains('tag-item')) {
+                    e.target.classList.toggle('active');
+                }
+            });
+        });
+
+        // App States
+        let pinStates = { Tops: false, Bottoms: false, Dresses: false };
+        let productsPool = { Tops: [], Bottoms: [], Dresses: [] };
+        let currentIndexes = { Tops: 0, Bottoms: 0, Dresses: 0 };
+        let isFetching = false;
+        let isSpinning = false;
+
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toast-message');
+
+        function showToast(message, showSpinner = true) {
+            toastMsg.innerText = message;
+            toast.querySelector('.spinner').style.display = showSpinner ? 'block' : 'none';
+            toast.style.display = 'flex';
+        }
+
+        function hideToast() {
+            toast.style.display = 'none';
+        }
+
+        function togglePin(category) {
+            pinStates[category] = !pinStates[category];
+            const container = document.getElementById(`reel-${category}`);
+            if (pinStates[category]) {
+                container.classList.add('pinned');
+            } else {
+                container.classList.remove('pinned');
+            }
+        }
+
+        // Fetch Recommendations
+        document.getElementById('btn-load').addEventListener('click', async () => {
+            if (isFetching || isSpinning) return;
+            isFetching = true;
+            showToast("正在從伺服器撈取推薦池...");
+
+            // Prepare Request body
+            const scenarioItems = document.querySelectorAll('#scenarios-list .tag-item.active');
+            const featureItems = document.querySelectorAll('#features-list .tag-item.active');
+
+            const scenarios = Array.from(scenarioItems).map((item, idx) => ({
+                "Tag": String(idx + 1),
+                "TagGroup": "scenarios",
+                "Name": item.dataset.tag
+            }));
+
+            const features = Array.from(featureItems).map((item, idx) => ({
+                "Tag": String(idx + 11),
+                "TagGroup": "features",
+                "Name": item.dataset.tag
+            }));
+
+            const payload = {
+                "Brand": "OB91",
+                "Tags": {
+                    "scenarios": scenarios,
+                    "features": features
+                },
+                "NUM": 2, // Fetch up to 8 candidates for slot diversity
+                "capsule": true,
+                "SpecifyTags": {},
+                "SpecifyKeywords": []
+            };
+
+            try {
+                const response = await fetch('https://ldiusfc4ib.execute-api.ap-northeast-1.amazonaws.com/v0/extension/recom_produc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                if (data.Message === 'SUCCESS' && data.Item) {
+                    productsPool.Tops = data.Item.Tops || [];
+                    productsPool.Bottoms = data.Item.Bottoms || [];
+                    productsPool.Dresses = data.Item.Dresses || [];
+
+                    // Reset indexes
+                    currentIndexes.Tops = 0;
+                    currentIndexes.Bottoms = 0;
+                    currentIndexes.Dresses = 0;
+
+                    // Display initial items
+                    updateReelDisplay('Tops');
+                    updateReelDisplay('Bottoms');
+                    updateReelDisplay('Dresses');
+
+                    document.getElementById('btn-spin').disabled = false;
+                    showToast("推薦池載入成功！點擊 SPIN 開始拉霸搭配", false);
+                    setTimeout(hideToast, 2000);
+                } else {
+                    showToast("載入失敗：" + (data.Message || "未知錯誤"), false);
+                }
+            } catch (err) {
+                console.error(err);
+                showToast("連線伺服器出錯，請確認 dev_server.py 是否在執行中", false);
+            } finally {
+                isFetching = false;
+            }
+        });
+
+        // Update card rendering
+        function updateReelDisplay(category) {
+            const roller = document.getElementById(`roller-${category}`);
+            const pool = productsPool[category];
+
+            if (pool.length === 0) {
+                roller.innerHTML = `
+                    <div class="empty-card">
+                        <span>該類別無商品符合此標籤組合</span>
+                    </div>
+                `;
+                return;
+            }
+
+            const item = pool[currentIndexes[category]];
+            const priceText = item.sale_price ? item.sale_price : (item.price ? item.price : "NT$ ---");
+            const imageSrc = item.Imgsrc || "https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=300&auto=format&fit=crop";
+
+            roller.innerHTML = `
+                <div class="product-card" style="background-image: url('${imageSrc}')">
+                    <div class="product-info">
+                        <div class="product-name">${item.ItemName}</div>
+                        <div class="product-meta">
+                            <span class="product-price">${priceText}</span>
+                            <span class="stage-badge">${item.stage}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Spin Function
+        async function spinReels(targetReels) {
+            if (isSpinning) return;
+            isSpinning = true;
+
+            // Filter out pinned reels
+            const activeReels = targetReels.filter(cat => !pinStates[cat] && productsPool[cat].length > 0);
+
+            if (activeReels.length === 0) {
+                isSpinning = false;
+                return;
+            }
+
+            // Start spinning animation
+            activeReels.forEach(cat => {
+                const roller = document.getElementById(`roller-${cat}`);
+                roller.classList.add('spinning');
+            });
+
+            // Simulate slot machine spin delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            // Select random indexes and stop animation
+            activeReels.forEach(cat => {
+                const roller = document.getElementById(`roller-${cat}`);
+                roller.classList.remove('spinning');
+
+                // Pick a random index from the pool
+                const poolSize = productsPool[cat].length;
+                currentIndexes[cat] = Math.floor(Math.random() * poolSize);
+
+                updateReelDisplay(cat);
+            });
+
+            isSpinning = false;
+        }
+
+        // Spin Main
+        document.getElementById('btn-spin').addEventListener('click', () => {
+            spinReels(['Tops', 'Bottoms', 'Dresses']);
+        });
+
+        // Roll Single Category
+        function rollSingle(category) {
+            if (isSpinning) return;
+            spinReels([category]);
+        }
+    </script>
+</body>
+
+</html>

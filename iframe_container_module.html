@@ -1116,6 +1116,144 @@
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
       }
+
+      /* ===== 拉霸結果頁：沿用 demo 的轉動動畫 / 過場效果，不更動現有顏色與尺寸 ===== */
+      #container-recom .reel-slot {
+        position: relative;
+      }
+
+      #container-recom .reel-slot .reel-window {
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+      }
+
+      /* 轉動軌道：以 block 垂直堆疊；過場曲線由 JS 動態設定 (Apple 風格減速) */
+      #container-recom .reel-slot .reel-roller {
+        display: block;
+        will-change: transform;
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+      }
+
+      /* 輕微動態模糊：高速時模糊、接近落定時對焦 */
+      @keyframes reelMotionBlur {
+        0% { filter: blur(0); }
+        18% { filter: blur(2px); }
+        70% { filter: blur(1px); }
+        100% { filter: blur(0); }
+      }
+
+      /* 轉動期間關閉 hover 放大 / 縮放動畫，滾動時不放大圖片 */
+      #container-recom .reel-slot.reel-spinning .reel-link {
+        pointer-events: none;
+      }
+
+      #container-recom .reel-slot.reel-spinning:hover {
+        -webkit-transform: none !important;
+        transform: none !important;
+      }
+
+      #container-recom .reel-slot.reel-spinning:hover img {
+        -webkit-animation: none !important;
+        animation: none !important;
+      }
+
+      #container-recom .reel-slot .reel-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: #9a9a92;
+        font-size: 12px;
+        line-height: 1.5;
+        padding: 24px 12px;
+        min-height: 120px;
+      }
+
+      /* ===== 釘選按鈕：Apple 質感 (毛玻璃 + 彈性微互動) ===== */
+      #container-recom .reel-slot .reel-pin-btn {
+        position: absolute;
+        top: 4px;
+        left: 14px;
+        z-index: 5;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0.5px solid rgba(0, 0, 0, 0.06);
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.6);
+        color: #6e6e73;
+        cursor: pointer;
+        -webkit-backdrop-filter: blur(14px) saturate(180%);
+        backdrop-filter: blur(14px) saturate(180%);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.7);
+        -webkit-tap-highlight-color: transparent;
+        transition: background 0.3s ease, color 0.3s ease,
+          box-shadow 0.35s ease,
+          transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      #container-recom .reel-slot .reel-pin-btn svg {
+        transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      #container-recom .reel-slot .reel-pin-btn:hover {
+        color: #1d1d1f;
+        background: rgba(255, 255, 255, 0.82);
+        transform: scale(1.06);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.8);
+      }
+
+      #container-recom .reel-slot .reel-pin-btn:active {
+        transform: scale(0.9);
+        transition-duration: 0.12s;
+      }
+
+      /* 已釘選：實心深色膠囊 + 圖示輕微傾斜「釘入」感 + 落定彈跳 */
+      #container-recom .reel-slot.reel-pinned .reel-pin-btn {
+        background: #1d1d1f;
+        border-color: transparent;
+        color: #fff;
+        box-shadow: 0 6px 16px rgba(29, 29, 31, 0.38),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.18);
+        -webkit-animation: pinPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        animation: pinPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      #container-recom .reel-slot.reel-pinned .reel-pin-btn svg {
+        transform: rotate(-32deg);
+      }
+
+      #container-recom .reel-slot.reel-pinned .reel-pin-btn:hover {
+        background: #000;
+        transform: scale(1.06);
+      }
+
+      @keyframes pinPop {
+        0% { transform: scale(0.86); }
+        55% { transform: scale(1.16); }
+        100% { transform: scale(1); }
+      }
+
+      /* 已釘選欄位：柔和雙層光環 + 微抬升，取代生硬邊框 */
+      #container-recom .reel-slot .reel-link {
+        transition: box-shadow 0.4s ease,
+          transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      #container-recom .reel-slot.reel-pinned .reel-link {
+        border-color: transparent;
+        transform: translateY(-2px);
+        box-shadow: 0 0 0 1.5px rgba(29, 29, 31, 0.92),
+          0 10px 26px rgba(0, 0, 0, 0.16),
+          0 2px 6px rgba(0, 0, 0, 0.08);
+      }
     </style>
   </body>
 </html>

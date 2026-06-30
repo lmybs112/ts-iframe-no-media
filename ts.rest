@@ -1,0 +1,21 @@
+###
+POST https://api.inffits.com/http_mkt_extensions_recom/recom_product
+Content-Type: application/json
+
+{
+    "Brand": "OB91",
+    {
+    "適用場合": [
+        {
+            "Description": "你今天的日常、辦公室或正式場合，哪個場景最想被精準呈現？讓妳的穿搭自信展現無遺。",
+            "Name": "居家",
+            "Tag": "77771753666776226",
+            "TagGroup": "適用場合"
+        }
+    ]
+},
+    "NUM": 2,
+    "capsule": true,
+    "SpecifyTags": {},
+    "SpecifyKeywords": []
+}
