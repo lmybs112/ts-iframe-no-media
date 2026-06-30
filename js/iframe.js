@@ -580,17 +580,21 @@ function animateReel(cat, finalIdx, done) {
   const $link = $slot.find(".reel-link");
   $link.css({ animation: "", filter: "" });
   $roller
-    .css({ transition: "none", transform: "translateY(0)", animation: "", filter: "" })
+    .css({ transition: "none", transform: "translate3d(0,0,0)", animation: "", filter: "" })
     .html(html);
   void $roller[0].offsetHeight;
 
-  const distance = FILLERS * h;
+  // 落定距離以「最終圖磚實際 offsetTop」計算，避免手機端 aspect-ratio
+  // 算出的小數高度累積取整誤差，導致停住時抖動
+  const $tiles = $roller.children("img");
+  const finalEl = $tiles.last()[0];
+  const distance = (finalEl && finalEl.offsetTop) || FILLERS * h;
   const duration = 1150 + Math.floor(Math.random() * 300);
 
   requestAnimationFrame(() => {
     $roller.css({
       transition: `transform ${duration}ms ${REEL_EASE}`,
-      transform: `translateY(-${distance}px)`,
+      transform: `translate3d(0, -${distance}px, 0)`,
     });
     // 輕微動態模糊：套在整張卡片，讓圖片、名稱與價格一起模糊→對焦
     $link.css("animation", `reelMotionBlur ${duration}ms ease-out`);
