@@ -337,11 +337,22 @@
         background-color: white !important;
       }
 
-      /* 手機版結果頁：限制圖片最大高度，確保圖片＋名稱＋價格全部在容器內顯示 */
+      /* 手機版結果頁 */
       @media screen and (max-width: 479px) {
+        /* 圖片高度上限，確保卡片在 365px 容器內完整顯示 */
         #container-recom a.update_delete img {
           aspect-ratio: unset !important;
-          max-height: 138px !important;
+          max-height: 142px !important;
+        }
+
+        /* 釘選後不做垂直抬升：手機水平捲動容器 overflow-y 未限制，translateY 會讓卡片溢出 */
+        #container-recom .reel-slot.reel-pinned .reel-link {
+          transform: none !important;
+        }
+
+        /* 補上 overflow-y 防止其他子元素意外溢出 */
+        #container-recom .axd_selections {
+          overflow-y: hidden !important;
         }
       }
 
