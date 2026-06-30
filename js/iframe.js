@@ -536,9 +536,9 @@ function buildCapsuleReels() {
 // Apple 風格的減速曲線 (easeOutExpo)，末段以近乎靜止的速度落定
 const REEL_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
 
-// 轉動圖磚沿用靜止圖樣式 (相同尺寸)，避免滾動時被放大
-function reelStripImg(src) {
-  return `<img class="c-recom reel-img" src="${src}" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`;
+// 轉動圖磚：明確傳入每格高度，避免 aspect-ratio 在各裝置算出不同小數值
+function reelStripImg(src, tileH) {
+  return `<img class="c-recom reel-img" style="height:${tileH}px;min-height:${tileH}px" src="${src}" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`;
 }
 
 // 單一欄位：以一次性減速動畫精準落定到 finalIdx，並做無縫收尾
@@ -548,26 +548,28 @@ function animateReel(cat, finalIdx, done) {
   const $window = $slot.find(".reel-window");
   const $roller = $slot.find(".reel-roller");
 
-  const h = Math.round($window.height());
+  // getBoundingClientRect 回傳精確浮點數，避免 Math.round / offsetTop 造成的次像素誤差
+  const h = $window[0].getBoundingClientRect().height;
   if (!h || pool.length === 0) {
     capsuleIndex[cat] = finalIdx;
     renderCapsuleReel(cat);
     done && done();
     return;
   }
-  // 鎖定視窗高度為目前圖片高度，避免堆疊圖片造成版面跳動
+  // 鎖定視窗高度，整段動畫採用統一高度的圖磚
   $window.css("height", h + "px");
   $slot.addClass("reel-spinning");
 
-  // 組合滾輪：前段隨機填充圖 + 最後一張為最終商品 (落定後剛好停在視窗)
+  // 組合滾輪：前段隨機填充圖 + 最後一張為最終商品
+  // 每格明確設定 height = h，確保 FILLERS × h 精準等於最終圖磚頂部距離
   const FILLERS = 10;
   let html = "";
   for (let k = 0; k < FILLERS; k++) {
     const rnd = pool[Math.floor(Math.random() * pool.length)];
-    html += reelStripImg((rnd.Imgsrc || rnd.image_link || "").trim());
+    html += reelStripImg((rnd.Imgsrc || rnd.image_link || "").trim(), h);
   }
   const fin = pool[finalIdx];
-  html += reelStripImg((fin.Imgsrc || fin.image_link || "").trim());
+  html += reelStripImg((fin.Imgsrc || fin.image_link || "").trim(), h);
 
   // 轉動一開始就把名稱/價格換成最終商品 (趁模糊過程中切換)
   $slot.find(".recom-text").text(fin.ItemName || "");
@@ -584,11 +586,8 @@ function animateReel(cat, finalIdx, done) {
     .html(html);
   void $roller[0].offsetHeight;
 
-  // 落定距離以「最終圖磚實際 offsetTop」計算，避免手機端 aspect-ratio
-  // 算出的小數高度累積取整誤差，導致停住時抖動
-  const $tiles = $roller.children("img");
-  const finalEl = $tiles.last()[0];
-  const distance = (finalEl && finalEl.offsetTop) || FILLERS * h;
+  // 距離 = FILLERS × h (精確浮點)，每格已明確設 height:h，兩者完全對齊
+  const distance = FILLERS * h;
   const duration = 1150 + Math.floor(Math.random() * 300);
 
   requestAnimationFrame(() => {
@@ -617,7 +616,7 @@ function animateReel(cat, finalIdx, done) {
     $slot.removeClass("reel-spinning");
 
     // 還原成靜止商品樣式 (重用同一張已載入的圖，避免重新淡入)
-    $finalImg.css({ opacity: 1 });
+    $finalImg.css({ opacity: 1, height: "", minHeight: "" });
 
     done && done();
   };
