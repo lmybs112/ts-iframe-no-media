@@ -26,7 +26,6 @@
           id="opt-olivo"
           name="param-option"
           value="olivo"
-          checked
         />
         <label for="opt-olivo" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OLIVO <span style='color:#888;'>(ID: 1750051004528)</span></label>
       </div>
@@ -79,7 +78,27 @@
         <input type="radio" id="opt-almi" name="param-option" value="almi" />
         <label for="opt-almi" style="margin-left: 6px; font-weight: 500; cursor: pointer;">ALMI <span style='color:#888;'>(ID: 2025-05-29-18-00-13-2)</span></label>
       </div>
-      <div style="margin-bottom: 10px; display: flex; align-items: flex-start;">
+      <div style="margin-bottom: 10px;">
+        <input type="radio" id="opt-ob91" name="param-option" value="ob91" checked />
+        <label for="opt-ob91" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OB91 <span style='color:#888;'>(ID: 2026-06-25-05-22-26-2)</span></label>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <input type="radio" id="opt-ob91_1" name="param-option" value="ob91_1" />
+        <label for="opt-ob91_1" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OB91 1 <span style='color:#888;'>(ID: 2026-06-25-05-22-26-4)</span></label>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <input type="radio" id="opt-ob91_2" name="param-option" value="ob91_2" />
+        <label for="opt-ob91_2" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OB91 2 <span style='color:#888;'>(ID: 2026-06-25-05-22-26-1)</span></label>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <input type="radio" id="opt-ob91_3" name="param-option" value="ob91_3" />
+        <label for="opt-ob91_3" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OB91 3 <span style='color:#888;'>(ID: 2026-06-25-05-22-26-3)</span></label>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <input type="radio" id="opt-ob91_4" name="param-option" value="ob91_4" />
+        <label for="opt-ob91_4" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OB91 4 <span style='color:#888;'>(ID: 2026-06-25-05-22-26-0)</span></label>
+      </div>
+      <div style="margin-bottom: 10px; display: none; align-items: flex-start;">
         <input type="radio" id="opt-custom" name="param-option" value="custom" style="margin-top: 4px;" />
         <label for="opt-custom" style="margin-left: 6px; font-weight: 500; cursor: pointer; min-width: 60px;">自訂：</label>
         <div
@@ -262,6 +281,11 @@
             olivo4: { id: "2025-06-24-16-55-16-4", brand: "OLIVO" },
             jerscy: { id: "1734582962432", brand: "JERSCY" },
             almi: { id: "2025-05-29-18-00-13-2", brand: "ALMI" },
+            ob91: { id: "2026-06-25-05-22-26-2", brand: "OB91" },
+            ob91_1: { id: "2026-06-25-05-22-26-4", brand: "OB91" },
+            ob91_2: { id: "2026-06-25-05-22-26-1", brand: "OB91" },
+            ob91_3: { id: "2026-06-25-05-22-26-3", brand: "OB91" },
+            ob91_4: { id: "2026-06-25-05-22-26-0", brand: "OB91" },
           };
 
           $('input[name="param-option"]').on("change", function () {
