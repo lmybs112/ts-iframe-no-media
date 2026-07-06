@@ -32,6 +32,19 @@
     return dateStr(d);
   }
 
+  // 完整時間字串（日期 + 時分秒），例如 2026-07-06 15:32:45
+  function dateTimeStr(d) {
+    return (
+      dateStr(d) +
+      " " +
+      pad2(d.getHours()) +
+      ":" +
+      pad2(d.getMinutes()) +
+      ":" +
+      pad2(d.getSeconds())
+    );
+  }
+
   function loadState(brand) {
     try {
       var raw = localStorage.getItem(storageKey(brand));
@@ -39,10 +52,22 @@
         var s = JSON.parse(raw);
         if (!s.claimedGifts) s.claimedGifts = [];
         if (!s.giftPrizes) s.giftPrizes = {};
+        if (!s.dailyCounts) s.dailyCounts = {};
+        if (!s.usageTimes) s.usageTimes = [];
+        delete s.todayCount;
+        delete s.lastTime;
         return s;
       }
     } catch (_) {}
-    return { streak: 0, cycle: 0, lastDate: null, claimedGifts: [], giftPrizes: {} };
+    return {
+      streak: 0,
+      cycle: 0,
+      lastDate: null,
+      dailyCounts: {},
+      usageTimes: [],
+      claimedGifts: [],
+      giftPrizes: {},
+    };
   }
 
   function saveState(brand, state) {
@@ -124,6 +149,9 @@
         brand: currentBrand,
         streak: state.streak,
         cycle: state.cycle,
+        todayCount: (state.dailyCounts || {})[todayStr()] || 0,
+        dailyCounts: state.dailyCounts || {},
+        usageTimes: state.usageTimes || [],
         stamps: buildStamps(state),
         giftPrizes: state.giftPrizes || {},
         pendingGift: pendingGift,
@@ -170,14 +198,21 @@
     publishState(state);
   }
 
-  // 當使用者看到最後推薦結果時呼叫：記錄當日打卡（每天僅一次）
+  // 當使用者看到最後推薦結果時呼叫：記錄當日打卡（每天僅一次），
+  // 同時累計每日使用次數並記錄每一筆體驗時間（含秒數）
   function markCheckinComplete() {
     if (!currentBrand) return;
 
     var state = loadState(currentBrand);
+    var now = new Date();
     var today = todayStr();
 
+    // 每次體驗都累計當天的使用次數，並記錄該筆體驗時間
+    state.dailyCounts[today] = (state.dailyCounts[today] || 0) + 1;
+    state.usageTimes.push(dateTimeStr(now));
+
     if (state.lastDate === today) {
+      saveState(currentBrand, state);
       publishState(state);
       return;
     }

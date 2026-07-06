@@ -829,12 +829,16 @@
           updateCheckinDebugPanel();
         }
 
+        function getRewardWheelSlotAngle(index, count) {
+          var segment = 360 / count;
+          return index * segment;
+        }
+
         function buildRewardWheelSlots(pool, revealed) {
           var count = pool.length;
-          var step = 360 / count;
           return pool
             .map(function (item, i) {
-              var angle = i * step;
+              var angle = getRewardWheelSlotAngle(i, count);
               var type = getRewardPrizeType(item);
               var inner;
               if (revealed) {
@@ -897,7 +901,9 @@
             transition: "none",
           });
           $("#reward-wheel-ring").removeData("rotation");
-          $(".reward-wheel").addClass("reward-wheel--ready");
+          $(".reward-wheel")
+            .addClass("reward-wheel--ready")
+            .css("--wheel-segment-from", -180 / pool.length + "deg");
           $("#reward-modal-result").attr("hidden", true);
           $(".reward-wheel__stage").removeAttr("hidden");
           $("#reward-wheel-spin")
@@ -953,11 +959,10 @@
           rewardWinPrize = pool[winIndex];
 
           var count = pool.length;
-          var segment = 360 / count;
           var ring = document.getElementById("reward-wheel-ring");
           var current = parseFloat($(ring).data("rotation")) || 0;
-          // 格位角度為 i * segment（0° 在頂部指針處），停點需讓中獎格中心對準指針
-          var stopAngle = (360 - winIndex * segment) % 360;
+          var slotAngle = getRewardWheelSlotAngle(winIndex, count);
+          var stopAngle = (360 - slotAngle) % 360;
           var currentMod = ((current % 360) + 360) % 360;
           var delta = (stopAngle - currentMod + 360) % 360;
           var target = current + 360 * 5 + delta;
@@ -967,10 +972,20 @@
             "transform 3.2s cubic-bezier(0.17, 0.67, 0.12, 0.99)";
           ring.style.transform = "rotate(" + target + "deg)";
 
+          // 格子內容反向旋轉，讓圖示在轉動與停止時都保持直立
+          Array.prototype.forEach.call(
+            ring.querySelectorAll(".reward-wheel__slot-inner"),
+            function (el) {
+              el.style.transition =
+                "transform 3.2s cubic-bezier(0.17, 0.67, 0.12, 0.99)";
+              el.style.transform = "rotate(" + -target + "deg)";
+            }
+          );
+
           ring.addEventListener(
             "transitionend",
             function onEnd(e) {
-              if (e.propertyName !== "transform") return;
+              if (e.target !== ring || e.propertyName !== "transform") return;
               ring.removeEventListener("transitionend", onEnd);
               showRewardResult(rewardWinPrize);
             },
@@ -1148,6 +1163,8 @@
             "cycle: " + (state.cycle || 0) + " / 7",
             "streak: " + (state.streak || 0),
             "lastDate: " + (state.lastDate || "—"),
+            "dailyCounts: " + JSON.stringify(state.dailyCounts || {}),
+            "usageTimes: " + JSON.stringify(state.usageTimes || []),
             "doneToday: " + (state.lastDate === today ? "是" : "否"),
             "claimedGifts: " + JSON.stringify(state.claimedGifts || []),
             "giftPrizes: " + JSON.stringify(state.giftPrizes || {}),
@@ -1289,6 +1306,7 @@
                     <div class="reward-wheel__rim" aria-hidden="true"></div>
                     <div class="reward-wheel__disc" aria-hidden="true">
                       <div class="reward-wheel__segments" aria-hidden="true"></div>
+                      <div class="reward-wheel__ring" id="reward-wheel-ring"></div>
                       <div class="reward-wheel__hub" aria-hidden="true"></div>
                     </div>
                     <div class="reward-wheel__pointer" aria-hidden="true">
@@ -1296,7 +1314,6 @@
                         <path d="M10 14 0 0h20L10 14Z" fill="#dbff94"/>
                       </svg>
                     </div>
-                    <div class="reward-wheel__ring" id="reward-wheel-ring"></div>
                     <button type="button" class="reward-wheel__spin" id="reward-wheel-spin">
                       <span class="reward-wheel__spin-text">抽優惠</span>
                     </button>
@@ -1816,6 +1833,9 @@
         opacity: 0;
         transform: scale(0.96);
         transition: opacity 0.24s ease, transform 0.28s ease;
+        --wheel-slot-size: 54px;
+        --wheel-slot-radius: 88px;
+        --wheel-segment-from: -30deg;
       }
 
       .reward-wheel--ready {
@@ -1839,6 +1859,7 @@
         inset: 7px;
         border-radius: 50%;
         overflow: hidden;
+        z-index: 2;
         background: radial-gradient(
           circle at 50% 38%,
           rgba(255, 255, 255, 0.98) 0%,
@@ -1854,7 +1875,7 @@
         inset: 0;
         border-radius: 50%;
         background: conic-gradient(
-          from -60deg,
+          from var(--wheel-segment-from),
           rgba(255, 255, 255, 0.9) 0deg 60deg,
           rgba(240, 240, 243, 0.9) 60deg 120deg,
           rgba(255, 255, 255, 0.9) 120deg 180deg,
@@ -1870,7 +1891,7 @@
         inset: 0;
         border-radius: 50%;
         background: repeating-conic-gradient(
-          from -60deg,
+          from var(--wheel-segment-from),
           transparent 0deg 59.2deg,
           rgba(0, 0, 0, 0.04) 59.2deg 60deg
         );
@@ -1947,17 +1968,18 @@
         inset: 0;
         border-radius: 50%;
         will-change: transform;
-        z-index: 3;
+        z-index: 1;
       }
 
       .reward-wheel__slot {
         position: absolute;
         left: 50%;
         top: 50%;
-        width: 58px;
-        height: 58px;
-        margin: -29px 0 0 -29px;
-        transform: rotate(var(--angle)) translateY(-97px)
+        width: var(--wheel-slot-size);
+        height: var(--wheel-slot-size);
+        margin: calc(var(--wheel-slot-size) / -2) 0 0
+          calc(var(--wheel-slot-size) / -2);
+        transform: rotate(var(--angle)) translateY(calc(-1 * var(--wheel-slot-radius)))
           rotate(calc(-1 * var(--angle)));
       }
 
@@ -1969,7 +1991,7 @@
         align-items: center;
         justify-content: center;
         gap: 2px;
-        border-radius: 14px;
+        border-radius: 12px;
         background: rgba(255, 255, 255, 0.95);
         border: 1px solid rgba(0, 0, 0, 0.05);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06),
