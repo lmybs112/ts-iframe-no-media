@@ -129,6 +129,119 @@
         傳送參數到 Iframe
       </button>
     </div>
+
+    <div id="checkin-debug-panel" class="checkin-debug">
+      <button type="button" id="checkin-debug-toggle" class="checkin-debug__toggle" aria-expanded="false">
+        打卡 Debug
+      </button>
+      <div id="checkin-debug-body" class="checkin-debug__body" hidden>
+        <pre class="checkin-debug__status" id="checkin-debug-status">尚未載入打卡狀態</pre>
+        <div class="checkin-debug__actions">
+          <button type="button" class="checkin-debug__btn" id="checkin-debug-trigger">觸發今日打卡</button>
+          <button type="button" class="checkin-debug__btn" id="checkin-debug-allow-retoday">允許再打卡</button>
+          <button type="button" class="checkin-debug__btn" id="checkin-debug-plus-day">+1 天</button>
+          <button type="button" class="checkin-debug__btn" id="checkin-debug-undo-today">撤銷今日</button>
+        </div>
+        <div class="checkin-debug__setday">
+          <label for="checkin-debug-day-input">設為第</label>
+          <input type="number" id="checkin-debug-day-input" min="0" max="7" value="0" />
+          <span>天</span>
+          <button type="button" class="checkin-debug__btn" id="checkin-debug-set-day">套用</button>
+        </div>
+        <div class="checkin-debug__actions">
+          <button type="button" class="checkin-debug__btn" id="checkin-debug-clear-gifts">清除禮物</button>
+          <button type="button" class="checkin-debug__btn checkin-debug__btn--danger" id="checkin-debug-reset">全部重置</button>
+        </div>
+      </div>
+    </div>
+    <style>
+      .checkin-debug {
+        position: fixed;
+        right: 12px;
+        bottom: 12px;
+        z-index: 1300;
+        font-family: "SF Mono", "Menlo", "Figtree", monospace;
+        font-size: 11px;
+      }
+
+      .checkin-debug__toggle {
+        padding: 8px 12px;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        border-radius: 8px;
+        background: rgba(29, 29, 31, 0.92);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+      }
+
+      .checkin-debug__body {
+        margin-top: 8px;
+        width: min(320px, calc(100vw - 24px));
+        padding: 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      }
+
+      .checkin-debug__status {
+        margin: 0 0 10px;
+        padding: 8px;
+        border-radius: 6px;
+        background: #f5f5f7;
+        color: #333;
+        font-size: 10px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .checkin-debug__actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+
+      .checkin-debug__setday {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+        color: #444;
+      }
+
+      .checkin-debug__setday input {
+        width: 48px;
+        padding: 4px 6px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 11px;
+      }
+
+      .checkin-debug__btn {
+        padding: 6px 8px;
+        border: 1px solid #d1d1d6;
+        border-radius: 6px;
+        background: #fff;
+        color: #1d1d1f;
+        font-size: 10px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .checkin-debug__btn:hover {
+        background: #f5f5f7;
+      }
+
+      .checkin-debug__btn--danger {
+        color: #b42318;
+        border-color: #f5c2c0;
+        background: #fff5f5;
+      }
+    </style>
   </body>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
   <script>
@@ -162,9 +275,10 @@
         $(window).on("message", function (event) {
           var origin = event.originalEvent.origin;
           // if (origin !== 'https://iframe所在的網址') return; // 避免跨域攻擊
+          var data = event.originalEvent.data;
           // 處理從 <iframe> 來的訊息
-          if (event.originalEvent.data.type === "result") {
-            if (event.originalEvent.data.value) {
+          if (data.type === "result") {
+            if (data.value) {
               $(".ai-pd-container__trigger").addClass(
                 "ai-pd-container__trigger--result"
               );
@@ -174,15 +288,954 @@
               );
             }
           }
-          if (event.originalEvent.data.type === "closeModal") {
-            if (event.originalEvent.data.value) {
+          if (data.type === "closeModal") {
+            if (data.value) {
               $("#inffits_cblock--overlay").fadeOut();
+              hideCheckinBubble();
               $(".ai-pd-container__trigger").toggleClass(
                 "ai-pd-container__trigger--search ai-pd-container__trigger--close"
               );
             }
           }
+          if (data.type === "checkin:state") {
+            renderCheckinBubble(data);
+          }
         });
+
+        var checkinRepos = null;
+        var checkinAnchor = null;
+        var checkinResizeObs = null;
+        var checkinPosRaf = null;
+        var checkinAnimating = false;
+        var checkinAnimTimer = null;
+
+        function cacheCheckinAnchor() {
+          var pr = getCheckinAnchorRect();
+          if (!pr || pr.width === 0) return false;
+          checkinAnchor = {
+            top: pr.top,
+            left: pr.left,
+            width: pr.width,
+            centerX: pr.left + pr.width / 2,
+          };
+          return true;
+        }
+
+        function applyCheckinPosition() {
+          var bubble = document.getElementById("checkin-bubble");
+          if (!bubble || bubble.hasAttribute("hidden") || !checkinAnchor) return;
+
+          var bw = bubble.offsetWidth;
+          var bh = bubble.offsetHeight;
+          var arrowH = 9;
+
+          var left = checkinAnchor.centerX - bw / 2;
+          left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+
+          bubble.style.left = left + "px";
+          bubble.style.top = checkinAnchor.top - bh - arrowH + "px";
+
+          var arrowX = checkinAnchor.centerX - left;
+          arrowX = Math.max(18, Math.min(arrowX, bw - 18));
+          bubble.style.setProperty("--arrow-x", arrowX + "px");
+        }
+
+        function scheduleCheckinPosition() {
+          if (checkinPosRaf) return;
+          checkinPosRaf = requestAnimationFrame(function () {
+            checkinPosRaf = null;
+            applyCheckinPosition();
+          });
+        }
+
+        // 動態對齊：讓打卡卡片位於彈窗正上方中央，箭頭指向彈窗中心
+        function positionCheckinBubble() {
+          if (cacheCheckinAnchor()) {
+            applyCheckinPosition();
+          }
+        }
+
+        function ensureCheckinResizeObserver() {
+          var bubble = document.getElementById("checkin-bubble");
+          if (!bubble || checkinResizeObs) return;
+          checkinResizeObs = new ResizeObserver(function () {
+            scheduleCheckinPosition();
+          });
+          checkinResizeObs.observe(bubble);
+        }
+
+        function startCheckinAnchorPoll() {
+          if (checkinRepos) clearInterval(checkinRepos);
+          checkinRepos = setInterval(function () {
+            if (!checkinAnimating) positionCheckinBubble();
+          }, 1500);
+        }
+
+        function finishCheckinCollapseAnim() {
+          var bubble = document.getElementById("checkin-bubble");
+          if (!bubble || !checkinAnimating) return;
+          bubble.classList.remove("is-animating");
+          checkinAnimating = false;
+          if (checkinAnimTimer) {
+            clearTimeout(checkinAnimTimer);
+            checkinAnimTimer = null;
+          }
+          positionCheckinBubble();
+        }
+
+        function startCheckinCollapseAnim() {
+          var bubble = document.getElementById("checkin-bubble");
+          if (!bubble) return;
+
+          cacheCheckinAnchor();
+          checkinAnimating = true;
+          bubble.classList.add("is-animating");
+
+          var collapse = bubble.querySelector(".checkin-card__collapse");
+          if (collapse) {
+            collapse.addEventListener("transitionend", onCollapseEnd);
+          }
+          if (checkinAnimTimer) clearTimeout(checkinAnimTimer);
+          checkinAnimTimer = setTimeout(finishCheckinCollapseAnim, 460);
+
+          function onCollapseEnd(e) {
+            if (e.propertyName !== "grid-template-rows") return;
+            collapse.removeEventListener("transitionend", onCollapseEnd);
+            finishCheckinCollapseAnim();
+          }
+        }
+
+        // 取得 iframe 內實際可見彈窗位置（桌面版 cblock 比可見卡片高，不能直接用它）
+        function getCheckinAnchorRect() {
+          var fallback = document.getElementById("inffits_cblock");
+          var iframe = document.getElementById("inffits_tryon_window");
+          if (!iframe) {
+            return fallback ? fallback.getBoundingClientRect() : null;
+          }
+
+          try {
+            var doc = iframe.contentDocument || iframe.contentWindow.document;
+            if (!doc || !doc.body) {
+              return fallback ? fallback.getBoundingClientRect() : null;
+            }
+
+            var iframeRect = iframe.getBoundingClientRect();
+            var best = null;
+            var bestArea = 0;
+            var candidates = doc.querySelectorAll(
+              "#intro-page, #container-recom, .container.back, #loadingbar_recom, .container.update_delete, .container.mbinfo"
+            );
+
+            for (var i = 0; i < candidates.length; i++) {
+              var el = candidates[i];
+              var cs = doc.defaultView.getComputedStyle(el);
+              if (cs.display === "none" || cs.visibility === "hidden") continue;
+              if (parseFloat(cs.opacity) < 0.05) continue;
+
+              var r = el.getBoundingClientRect();
+              if (r.width < 80 || r.height < 80) continue;
+
+              var area = r.width * r.height;
+              if (area > bestArea) {
+                bestArea = area;
+                best = {
+                  top: iframeRect.top + r.top,
+                  left: iframeRect.left + r.left,
+                  width: r.width,
+                  height: r.height,
+                  right: iframeRect.left + r.right,
+                  bottom: iframeRect.top + r.bottom,
+                };
+              }
+            }
+
+            if (best) return best;
+          } catch (_) {}
+
+          return fallback ? fallback.getBoundingClientRect() : null;
+        }
+
+        function applyCheckinCollapsed() {
+          var collapsed = false;
+          try {
+            collapsed = localStorage.getItem("INFS_CHECKIN_COLLAPSED") === "1";
+          } catch (_) {}
+          $("#checkin-bubble").toggleClass("is-collapsed", collapsed);
+          $("#checkin-toggle").attr("aria-expanded", collapsed ? "false" : "true");
+        }
+
+        $(document).on("click", "#checkin-toggle", function () {
+          var collapsed = !$("#checkin-bubble").hasClass("is-collapsed");
+          $("#checkin-bubble").toggleClass("is-collapsed", collapsed);
+          $(this).attr("aria-expanded", collapsed ? "false" : "true");
+          try {
+            localStorage.setItem("INFS_CHECKIN_COLLAPSED", collapsed ? "1" : "0");
+          } catch (_) {}
+          startCheckinCollapseAnim();
+        });
+
+        function showCheckinBubble() {
+          $("#checkin-bubble").removeAttr("hidden");
+          applyCheckinCollapsed();
+          ensureCheckinResizeObserver();
+          positionCheckinBubble();
+          $("#checkin-bubble").addClass("checkin-bubble--visible");
+
+          var iframe = document.getElementById("inffits_tryon_window");
+          if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage({ type: "checkin:request" }, "*");
+          }
+
+          startCheckinAnchorPoll();
+        }
+
+        function hideCheckinBubble() {
+          $("#checkin-bubble")
+            .removeClass("checkin-bubble--visible")
+            .attr("hidden", true);
+          if (checkinRepos) {
+            clearInterval(checkinRepos);
+            checkinRepos = null;
+          }
+          if (checkinResizeObs) {
+            checkinResizeObs.disconnect();
+            checkinResizeObs = null;
+          }
+          if (checkinAnimTimer) {
+            clearTimeout(checkinAnimTimer);
+            checkinAnimTimer = null;
+          }
+          checkinAnimating = false;
+        }
+
+        window.addEventListener("resize", positionCheckinBubble);
+
+        var checkinToastTimer = null;
+        var checkinLastData = null;
+        var checkinGiftPrizesCache = {};
+        var rewardWheelSpinning = false;
+        var rewardCurrentDay = null;
+        var rewardWinPrize = null;
+        var rewardViewMode = false;
+        var rewardPrizePersisted = false;
+
+        var REWARD_POOLS = {
+          3: [
+            { label: "9 折券", desc: "全館適用", code: "INFS-D3-10PCT" },
+            { label: "免運券", desc: "滿 $599 折 $50", code: "INFS-D3-SHIP50" },
+            { label: "$50 折抵券", desc: "限時 3 天", code: "INFS-D3-OFF50" },
+            { label: "驚喜小禮", desc: "隨單贈送", code: "INFS-D3-GIFT01" },
+            { label: "75 折券", desc: "指定品類 「XX」，限時 3 天", code: "INFS-D3-25PCT" },
+            { label: "免運券", desc: "無門檻", code: "INFS-D3-FREE" },
+          ],
+          5: [
+            { label: "85 折券", desc: "專屬優惠", code: "INFS-D5-15PCT" },
+            { label: "$100 折抵券", desc: "滿 $800", code: "INFS-D5-OFF100" },
+            { label: "免運券", desc: "無門檻", code: "INFS-D5-FREE" },
+            { label: "驚喜禮盒", desc: "隨單附贈", code: "INFS-D5-BOX01" },
+            { label: "9 折券", desc: "全館適用", code: "INFS-D5-10PCT" },
+            { label: "品牌小禮", desc: "限量贈品", code: "INFS-D5-GIFT02" },
+          ],
+          7: [
+            { label: "8 折券", desc: "品牌大禮", code: "INFS-D7-20PCT" },
+            { label: "$200 折抵券", desc: "滿 $1500", code: "INFS-D7-OFF200" },
+            { label: "限定贈品", desc: "品牌周邊", code: "INFS-D7-LIMIT01" },
+            { label: "7 折券", desc: "熱銷款，限時 3 天", code: "INFS-D7-30PCT" },
+            { label: "免運券", desc: "一週內無限次", code: "INFS-D7-SHIP7D" },
+            { label: "驚喜大禮", desc: "神秘大獎", code: "INFS-D7-MEGA01" },
+          ],
+        };
+
+        var REWARD_TITLES = {
+          3: "驚喜小禮轉盤",
+          5: "專屬優惠轉盤",
+          7: "品牌大禮轉盤",
+        };
+
+        var REWARD_PRIZE_ICONS = {
+          coupon:
+            '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true">' +
+            '<rect x="9" y="13" width="30" height="22" rx="4.5" stroke="currentColor" stroke-width="2.2"/>' +
+            '<path d="M20 13v22" stroke="currentColor" stroke-width="2" stroke-dasharray="3.5 3.5" stroke-linecap="round"/>' +
+            '<path d="M28.5 21.5h7M28.5 26.5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+            '<circle cx="28" cy="24" r="2.2" fill="currentColor"/>' +
+            "</svg>",
+          gift:
+            '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true">' +
+            '<path d="M10 22h28v17a2.5 2.5 0 0 1-2.5 2.5h-23A2.5 2.5 0 0 1 10 39V22Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>' +
+            '<path d="M8 17.5h32v4.5H8z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>' +
+            '<path d="M24 17.5V41.5" stroke="currentColor" stroke-width="2.2"/>' +
+            '<path d="M24 17.5s-4.8-7.2-9.6-4.8c-2.4 1.2-1.2 4.8 2.4 4.8M24 17.5s4.8-7.2 9.6-4.8c2.4 1.2 1.2 4.8-2.4 4.8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>' +
+            "</svg>",
+          shipping:
+            '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true">' +
+            '<path d="M7 30h22.5V16H7v14Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>' +
+            '<path d="M29.5 20.5H36l5 7.5V34H29.5" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>' +
+            '<circle cx="15" cy="34.5" r="3.2" stroke="currentColor" stroke-width="2.2"/>' +
+            '<circle cx="35.5" cy="34.5" r="3.2" stroke="currentColor" stroke-width="2.2"/>' +
+            '<path d="M7 22h22.5M12 26h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+            "</svg>",
+        };
+
+        function getRewardPrizeType(prize) {
+          var label = (prize && prize.label) || "";
+          if (/免運/.test(label)) return "shipping";
+          if (/禮|贈|盒|周邊/.test(label)) return "gift";
+          return "coupon";
+        }
+
+        function renderRewardResultIcon(prize) {
+          var type = getRewardPrizeType(prize);
+          $("#reward-result-visual")
+            .attr(
+              "class",
+              "reward-modal__result-visual reward-modal__result-visual--" + type
+            )
+            .find(".reward-modal__result-icon")
+            .html(REWARD_PRIZE_ICONS[type] || REWARD_PRIZE_ICONS.coupon);
+        }
+
+        function parentPrizeKey(brand, day) {
+          return "INFS_GIFT_PRIZE_" + brand + "_" + day;
+        }
+
+        function saveParentGiftPrize(brand, day, prize) {
+          if (!brand || !day || !prize || !prize.label) return;
+          var stored = enrichPrizeWithCode(prize, day);
+          try {
+            localStorage.setItem(
+              parentPrizeKey(brand, day),
+              JSON.stringify({
+                label: stored.label,
+                desc: stored.desc || "",
+                code: stored.code || "",
+              })
+            );
+            checkinGiftPrizesCache[brand + ":" + day] = stored;
+          } catch (_) {}
+        }
+
+        function enrichPrizeWithCode(prize, day) {
+          if (!prize) return prize;
+          if (prize.code) return prize;
+          var pool = day && REWARD_POOLS[day];
+          if (!pool) return prize;
+          for (var i = 0; i < pool.length; i++) {
+            if (pool[i].label === prize.label) {
+              return {
+                label: prize.label,
+                desc: prize.desc || pool[i].desc || "",
+                code: pool[i].code || "",
+              };
+            }
+          }
+          return prize;
+        }
+
+        function resetCopyCodeButton() {
+          var $btn = $("#reward-copy-code");
+          $btn.text("複製優惠碼").removeClass("is-copied");
+        }
+
+        function persistRewardPrize() {
+          if (
+            rewardViewMode ||
+            !rewardCurrentDay ||
+            !rewardWinPrize ||
+            rewardPrizePersisted
+          ) {
+            return;
+          }
+
+          rewardPrizePersisted = true;
+          var brand = checkinLastData && checkinLastData.brand;
+          saveParentGiftPrize(brand, rewardCurrentDay, rewardWinPrize);
+
+          var iframe = document.getElementById("inffits_tryon_window");
+          if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage(
+              {
+                type: "checkin:claim-gift",
+                day: rewardCurrentDay,
+                prize: enrichPrizeWithCode(rewardWinPrize, rewardCurrentDay),
+              },
+              "*"
+            );
+          }
+        }
+
+        function showCopyCodeFeedback() {
+          var $btn = $("#reward-copy-code");
+          $btn.text("已複製").addClass("is-copied");
+          setTimeout(resetCopyCodeButton, 1600);
+        }
+
+        function copyRewardCode() {
+          var code = $("#reward-result-code").text();
+          if (!code) return;
+
+          function onSuccess() {
+            showCopyCodeFeedback();
+          }
+
+          function fallbackCopy() {
+            var ta = document.createElement("textarea");
+            ta.value = code;
+            ta.setAttribute("readonly", "");
+            ta.style.position = "fixed";
+            ta.style.left = "-9999px";
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+              document.execCommand("copy");
+              onSuccess();
+            } catch (_) {}
+            document.body.removeChild(ta);
+          }
+
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(code).then(onSuccess).catch(fallbackCopy);
+          } else {
+            fallbackCopy();
+          }
+        }
+
+        function getGiftPrize(day) {
+          var brand = checkinLastData && checkinLastData.brand;
+          var fromStamp = null;
+
+          if (checkinLastData && checkinLastData.stamps) {
+            for (var i = 0; i < checkinLastData.stamps.length; i++) {
+              var s = checkinLastData.stamps[i];
+              if (s.day === day && s.prize && s.prize.label) {
+                fromStamp = s.prize;
+                break;
+              }
+            }
+          }
+
+          if (fromStamp) return enrichPrizeWithCode(fromStamp, day);
+
+          if (brand && checkinGiftPrizesCache[brand + ":" + day]) {
+            return enrichPrizeWithCode(checkinGiftPrizesCache[brand + ":" + day], day);
+          }
+
+          if (brand) {
+            try {
+              var raw = localStorage.getItem(parentPrizeKey(brand, day));
+              if (raw) return enrichPrizeWithCode(JSON.parse(raw), day);
+            } catch (_) {}
+          }
+
+          if (checkinLastData && checkinLastData.giftPrizes) {
+            var gp = checkinLastData.giftPrizes[String(day)] || checkinLastData.giftPrizes[day];
+            if (gp && gp.label) return enrichPrizeWithCode(gp, day);
+          }
+
+          return null;
+        }
+
+        function renderCheckinBubble(data) {
+          checkinLastData = data;
+          if (data.brand && data.giftPrizes) {
+            Object.keys(data.giftPrizes).forEach(function (day) {
+              var p = data.giftPrizes[day];
+              if (p && p.label) {
+                checkinGiftPrizesCache[data.brand + ":" + day] = p;
+              }
+            });
+          }
+          $("#checkin-streak-text").text(data.streak || 0);
+
+          var stampsHtml = (data.stamps || [])
+            .map(function (s) {
+              var cls = "checkin-dot";
+              if (s.filled) cls += " checkin-dot--filled";
+              if (s.gift) cls += " checkin-dot--gift";
+              if (s.claimable) cls += " checkin-dot--claimable";
+              if (s.viewable) cls += " checkin-dot--viewable";
+              if (s.claimed) cls += " checkin-dot--claimed";
+
+              var inner = "";
+              if (s.gift) {
+                inner =
+                  '<svg viewBox="0 0 12 12" fill="none" aria-hidden="true">' +
+                  '<path d="M2.5 4.8h7v4.4a.6.6 0 0 1-.6.6H3.1a.6.6 0 0 1-.6-.6V4.8Z" stroke="currentColor" stroke-width="0.9"/>' +
+                  '<path d="M1.6 3.3h8.8v1.5H1.6zM6 3.3v6.5" stroke="currentColor" stroke-width="0.9" stroke-linejoin="round"/>' +
+                  '<path d="M6 3.3S5.4 1.6 4.4 1.9c-.9.3-.5 1.4.4 1.4M6 3.3s.6-1.7 1.6-1.4c.9.3.5 1.4-.4 1.4" stroke="currentColor" stroke-width="0.9" stroke-linecap="round"/>' +
+                  "</svg>";
+              } else if (s.filled) {
+                inner =
+                  '<svg viewBox="0 0 10 8" fill="none" aria-hidden="true">' +
+                  '<path d="M1 4.2 3.6 6.8 9 1.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+                  "</svg>";
+              } else {
+                inner =
+                  '<span class="checkin-dot__num" aria-hidden="true">' +
+                  s.day +
+                  "</span>";
+              }
+
+              if (s.claimable || s.viewable) {
+                var ariaLabel = s.claimable
+                  ? "領取第 " + s.day + " 天禮物"
+                  : "查看第 " + s.day + " 天優惠";
+                var dataAttrs =
+                  ' data-gift-day="' +
+                  s.day +
+                  '"';
+                if (s.prize) {
+                  dataAttrs +=
+                    ' data-prize-label="' +
+                    String(s.prize.label).replace(/"/g, "&quot;") +
+                    '" data-prize-desc="' +
+                    String(s.prize.desc || "").replace(/"/g, "&quot;") +
+                    '"';
+                }
+                return (
+                  '<button type="button" class="' +
+                  cls +
+                  '"' +
+                  dataAttrs +
+                  ' aria-label="' +
+                  ariaLabel +
+                  '">' +
+                  inner +
+                  "</button>"
+                );
+              }
+              return '<span class="' + cls + '">' + inner + "</span>";
+            })
+            .join("");
+          $("#checkin-dots").html(stampsHtml);
+
+          $("#checkin-status").text(data.status || "");
+          $("#checkin-bubble").toggleClass("is-done", !!data.doneToday);
+          $("#checkin-bubble").toggleClass("has-claimable-gift", !!data.pendingGift);
+
+          if (data.toast && data.toast.message) {
+            showCheckinToast(data.toast);
+          }
+
+          if (data.toast && data.toast.openWheel && data.toast.day) {
+            setTimeout(function () {
+              openRewardWheel(data.toast.day);
+            }, 700);
+          }
+
+          if (typeof positionCheckinBubble === "function") {
+            positionCheckinBubble();
+          }
+          updateCheckinDebugPanel();
+        }
+
+        function buildRewardWheelSlots(pool, revealed) {
+          var count = pool.length;
+          var step = 360 / count;
+          return pool
+            .map(function (item, i) {
+              var angle = i * step;
+              var type = getRewardPrizeType(item);
+              var inner;
+              if (revealed) {
+                inner =
+                  '<span class="reward-wheel__slot-label">' +
+                  item.label +
+                  "</span>" +
+                  '<span class="reward-wheel__slot-desc">' +
+                  item.desc +
+                  "</span>";
+              } else {
+                inner =
+                  '<div class="reward-wheel__slot-mystery-wrap">' +
+                  '<span class="reward-wheel__slot-mystery-icon" aria-hidden="true">' +
+                  REWARD_PRIZE_ICONS[type] +
+                  "</span>" +
+                  "</div>";
+              }
+              return (
+                '<div class="reward-wheel__slot" style="--angle:' +
+                angle +
+                "deg;--slot-i:" +
+                i +
+                '">' +
+                '<div class="reward-wheel__slot-inner' +
+                (revealed
+                  ? ""
+                  : " reward-wheel__slot-inner--mystery reward-wheel__slot-inner--" +
+                    type) +
+                '">' +
+                inner +
+                "</div></div>"
+              );
+            })
+            .join("");
+        }
+
+        function showRewardModal($modal) {
+          $modal.removeAttr("hidden");
+          void $modal[0].offsetHeight;
+          $modal.addClass("reward-modal--visible");
+        }
+
+        function openRewardWheel(day) {
+          var pool = REWARD_POOLS[day];
+          if (!pool || rewardWheelSpinning) return;
+
+          rewardViewMode = false;
+          rewardCurrentDay = day;
+          rewardWinPrize = null;
+          rewardPrizePersisted = false;
+
+          var $modal = $("#checkin-reward-modal");
+          $("#reward-modal-title").text(REWARD_TITLES[day] || "專屬優惠轉盤");
+          $(".reward-modal__sub").text("點擊中心按鈕，抽取你的專屬優惠");
+          $("#reward-result-label").text("恭喜獲得");
+          $("#reward-modal-result").removeClass("reward-modal__result--view");
+          $("#reward-wheel-ring").html(buildRewardWheelSlots(pool, false)).css({
+            transform: "rotate(0deg)",
+            transition: "none",
+          });
+          $("#reward-wheel-ring").removeData("rotation");
+          $(".reward-wheel").addClass("reward-wheel--ready");
+          $("#reward-modal-result").attr("hidden", true);
+          $(".reward-wheel__stage").removeAttr("hidden");
+          $("#reward-wheel-spin")
+            .prop("disabled", false)
+            .find(".reward-wheel__spin-text")
+            .text("抽優惠");
+          resetCopyCodeButton();
+
+          showRewardModal($modal);
+        }
+
+        function openRewardView(day, prize) {
+          rewardViewMode = true;
+          rewardCurrentDay = day;
+          rewardWinPrize = prize;
+
+          var $modal = $("#checkin-reward-modal");
+          $("#reward-modal-title").text(REWARD_TITLES[day] || "我的優惠");
+          $(".reward-modal__sub").text("以下為你已獲得的優惠券");
+          $("#reward-result-label").text("你的優惠");
+          $(".reward-wheel__stage").attr("hidden", true);
+          showRewardResult(prize);
+
+          showRewardModal($modal);
+        }
+
+        function closeRewardWheel() {
+          var $modal = $("#checkin-reward-modal");
+          $modal.removeClass("reward-modal--visible");
+          setTimeout(function () {
+            $modal.attr("hidden", true);
+            rewardWheelSpinning = false;
+            rewardViewMode = false;
+            rewardCurrentDay = null;
+            rewardPrizePersisted = false;
+          }, 260);
+        }
+
+        function spinRewardWheel() {
+          if (rewardWheelSpinning || !rewardCurrentDay) return;
+
+          var pool = REWARD_POOLS[rewardCurrentDay];
+          if (!pool) return;
+
+          rewardWheelSpinning = true;
+          $(".reward-wheel").addClass("reward-wheel--spinning");
+          $("#reward-wheel-spin")
+            .prop("disabled", true)
+            .find(".reward-wheel__spin-text")
+            .text("抽取中");
+
+          var winIndex = Math.floor(Math.random() * pool.length);
+          rewardWinPrize = pool[winIndex];
+
+          var count = pool.length;
+          var segment = 360 / count;
+          var ring = document.getElementById("reward-wheel-ring");
+          var current = parseFloat($(ring).data("rotation")) || 0;
+          // 格位角度為 i * segment（0° 在頂部指針處），停點需讓中獎格中心對準指針
+          var stopAngle = (360 - winIndex * segment) % 360;
+          var currentMod = ((current % 360) + 360) % 360;
+          var delta = (stopAngle - currentMod + 360) % 360;
+          var target = current + 360 * 5 + delta;
+
+          $(ring).data("rotation", target);
+          ring.style.transition =
+            "transform 3.2s cubic-bezier(0.17, 0.67, 0.12, 0.99)";
+          ring.style.transform = "rotate(" + target + "deg)";
+
+          ring.addEventListener(
+            "transitionend",
+            function onEnd(e) {
+              if (e.propertyName !== "transform") return;
+              ring.removeEventListener("transitionend", onEnd);
+              showRewardResult(rewardWinPrize);
+            },
+            { once: false }
+          );
+        }
+
+        function showRewardResult(prize) {
+          var enriched = enrichPrizeWithCode(prize, rewardCurrentDay);
+          renderRewardResultIcon(enriched);
+          $(".reward-modal__sub").text(
+            rewardViewMode
+              ? "以下為你已獲得的優惠券"
+              : "已為你抽出專屬優惠"
+          );
+          $("#reward-result-text").text(enriched.label);
+          $("#reward-result-desc").text(enriched.desc || "");
+          $("#reward-result-code").text(enriched.code || "");
+          if (enriched.code) {
+            $("#reward-code-wrap").removeAttr("hidden");
+          } else {
+            $("#reward-code-wrap").attr("hidden", true);
+          }
+          resetCopyCodeButton();
+          if (rewardViewMode) {
+            $("#reward-modal-result").addClass("reward-modal__result--view");
+          } else {
+            $("#reward-modal-result").removeClass("reward-modal__result--view");
+            persistRewardPrize();
+            rewardWheelSpinning = false;
+            $(".reward-wheel").removeClass("reward-wheel--spinning");
+          }
+          $(".reward-wheel__stage").attr("hidden", true);
+          $("#reward-modal-result").removeAttr("hidden");
+        }
+
+        $(document).on("click", ".checkin-dot--claimable", function (e) {
+          e.stopPropagation();
+          var day = parseInt($(this).attr("data-gift-day"), 10);
+          if (day) openRewardWheel(day);
+        });
+
+        $(document).on("click", ".checkin-dot--viewable", function (e) {
+          e.stopPropagation();
+          var day = parseInt($(this).attr("data-gift-day"), 10);
+          if (!day) return;
+          var prize = getGiftPrize(day);
+          if (!prize) {
+            openRewardWheel(day);
+            return;
+          }
+          openRewardView(day, prize);
+        });
+
+        $(document).on("click", "#reward-wheel-spin", spinRewardWheel);
+        $(document).on("click", "#reward-copy-code", copyRewardCode);
+        $(document).on("click", "#checkin-reward-close, .reward-modal__backdrop", function () {
+          if (rewardWheelSpinning) return;
+          closeRewardWheel();
+        });
+
+        function showCheckinToast(toast) {
+          var $t = $("#checkin-toast");
+          if (checkinToastTimer) clearTimeout(checkinToastTimer);
+          $t.text(toast.message)
+            .toggleClass("is-gift", !!toast.gift)
+            .addClass("is-visible");
+          checkinToastTimer = setTimeout(function () {
+            $t.removeClass("is-visible");
+          }, 2600);
+        }
+
+        function checkinDebugPad2(n) {
+          return String(n).padStart(2, "0");
+        }
+
+        function checkinDebugDateStr(offsetDays) {
+          var d = new Date();
+          d.setDate(d.getDate() + (offsetDays || 0));
+          return (
+            d.getFullYear() +
+            "-" +
+            checkinDebugPad2(d.getMonth() + 1) +
+            "-" +
+            checkinDebugPad2(d.getDate())
+          );
+        }
+
+        function checkinDebugStorageKey(brand) {
+          return "INFS_CHECKIN_" + brand;
+        }
+
+        function getCheckinDebugBrand() {
+          if (checkinLastData && checkinLastData.brand) return checkinLastData.brand;
+          if (window.__checkinDebugBrand) return window.__checkinDebugBrand;
+          try {
+            for (var i = 0; i < localStorage.length; i++) {
+              var key = localStorage.key(i);
+              if (
+                key &&
+                key.indexOf("INFS_CHECKIN_") === 0 &&
+                key !== "INFS_CHECKIN_COLLAPSED"
+              ) {
+                return key.replace("INFS_CHECKIN_", "");
+              }
+            }
+          } catch (_) {}
+          return "";
+        }
+
+        function loadCheckinDebugState() {
+          var brand = getCheckinDebugBrand();
+          if (!brand) return null;
+          try {
+            var raw = localStorage.getItem(checkinDebugStorageKey(brand));
+            if (raw) {
+              var s = JSON.parse(raw);
+              if (!s.claimedGifts) s.claimedGifts = [];
+              if (!s.giftPrizes) s.giftPrizes = {};
+              return s;
+            }
+          } catch (_) {}
+          return {
+            streak: 0,
+            cycle: 0,
+            lastDate: null,
+            claimedGifts: [],
+            giftPrizes: {},
+          };
+        }
+
+        function saveCheckinDebugState(state) {
+          var brand = getCheckinDebugBrand();
+          if (!brand || !state) return false;
+          try {
+            localStorage.setItem(
+              checkinDebugStorageKey(brand),
+              JSON.stringify(state)
+            );
+          } catch (_) {
+            return false;
+          }
+          refreshCheckinDebugState();
+          return true;
+        }
+
+        function clearCheckinDebugGiftPrizes(brand) {
+          if (!brand) return;
+          [3, 5, 7].forEach(function (day) {
+            try {
+              localStorage.removeItem(parentPrizeKey(brand, day));
+            } catch (_) {}
+            delete checkinGiftPrizesCache[brand + ":" + day];
+          });
+        }
+
+        function refreshCheckinDebugState() {
+          var iframe = document.getElementById("inffits_tryon_window");
+          if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage({ type: "checkin:request" }, "*");
+          }
+          updateCheckinDebugPanel();
+        }
+
+        function updateCheckinDebugPanel() {
+          var brand = getCheckinDebugBrand();
+          if (!brand) {
+            $("#checkin-debug-status").text("尚未載入打卡狀態\n請先傳送參數到 Iframe");
+            return;
+          }
+          var state = loadCheckinDebugState();
+          var today = checkinDebugDateStr(0);
+          var lines = [
+            "brand: " + brand,
+            "cycle: " + (state.cycle || 0) + " / 7",
+            "streak: " + (state.streak || 0),
+            "lastDate: " + (state.lastDate || "—"),
+            "doneToday: " + (state.lastDate === today ? "是" : "否"),
+            "claimedGifts: " + JSON.stringify(state.claimedGifts || []),
+            "giftPrizes: " + JSON.stringify(state.giftPrizes || {}),
+          ];
+          $("#checkin-debug-status").text(lines.join("\n"));
+          $("#checkin-debug-day-input").val(state.cycle || 0);
+        }
+
+        function triggerCheckinDebugMarkComplete() {
+          var iframe = document.getElementById("inffits_tryon_window");
+          if (!iframe || !iframe.contentWindow) return;
+          var win = iframe.contentWindow;
+          if (typeof win.markCheckinComplete === "function") {
+            win.markCheckinComplete();
+          } else {
+            refreshCheckinDebugState();
+          }
+        }
+
+        $(document).on("click", "#checkin-debug-toggle", function () {
+          var $body = $("#checkin-debug-body");
+          var open = $body.attr("hidden") != null;
+          $body.attr("hidden", open ? null : true);
+          $(this).attr("aria-expanded", open ? "true" : "false");
+          if (open) updateCheckinDebugPanel();
+        });
+
+        $(document).on("click", "#checkin-debug-trigger", triggerCheckinDebugMarkComplete);
+
+        $(document).on("click", "#checkin-debug-allow-retoday", function () {
+          var state = loadCheckinDebugState();
+          if (!state) return;
+          state.lastDate = checkinDebugDateStr(-1);
+          saveCheckinDebugState(state);
+        });
+
+        $(document).on("click", "#checkin-debug-plus-day", function () {
+          var state = loadCheckinDebugState();
+          if (!state) return;
+          state.cycle = Math.min(7, (state.cycle || 0) + 1);
+          state.streak = (state.streak || 0) + 1;
+          state.lastDate = checkinDebugDateStr(0);
+          saveCheckinDebugState(state);
+        });
+
+        $(document).on("click", "#checkin-debug-undo-today", function () {
+          var state = loadCheckinDebugState();
+          if (!state) return;
+          var today = checkinDebugDateStr(0);
+          if (state.lastDate === today) {
+            state.cycle = Math.max(0, (state.cycle || 0) - 1);
+            state.streak = Math.max(0, (state.streak || 0) - 1);
+            state.lastDate = checkinDebugDateStr(-1);
+            saveCheckinDebugState(state);
+          }
+        });
+
+        $(document).on("click", "#checkin-debug-set-day", function () {
+          var state = loadCheckinDebugState();
+          if (!state) return;
+          var day = parseInt($("#checkin-debug-day-input").val(), 10);
+          if (isNaN(day)) day = 0;
+          state.cycle = Math.max(0, Math.min(7, day));
+          state.lastDate = checkinDebugDateStr(0);
+          saveCheckinDebugState(state);
+        });
+
+        $(document).on("click", "#checkin-debug-clear-gifts", function () {
+          var brand = getCheckinDebugBrand();
+          var state = loadCheckinDebugState();
+          if (!brand || !state) return;
+          state.claimedGifts = [];
+          state.giftPrizes = {};
+          clearCheckinDebugGiftPrizes(brand);
+          saveCheckinDebugState(state);
+        });
+
+        $(document).on("click", "#checkin-debug-reset", function () {
+          var brand = getCheckinDebugBrand();
+          if (!brand) return;
+          if (!window.confirm("確定重置「" + brand + "」的打卡資料？")) return;
+          try {
+            localStorage.removeItem(checkinDebugStorageKey(brand));
+          } catch (_) {}
+          clearCheckinDebugGiftPrizes(brand);
+          refreshCheckinDebugState();
+        });
+
         // 添加 html template
         var aiSearchPdTemplate = `
             <div class="ai-pd-container">
@@ -193,6 +1246,82 @@
                 <div class="ai-pd-container__icon"></div>
                 <img class="ai-pd-container__icon--alert" src="https://raw.githubusercontent.com/infFITSDevelopment/pop-ad/refs/heads/main/icon-alert.svg"></img>
             </button>
+
+            <!-- 每日打卡：獨立元件，浮於彈窗外上方，不屬於彈窗結構 -->
+            <div id="checkin-bubble" class="checkin-bubble" hidden aria-label="每日打卡">
+              <div class="checkin-card">
+                <button type="button" class="checkin-card__head" id="checkin-toggle" aria-expanded="true" aria-label="收合每日打卡">
+                  <span class="checkin-card__flame" aria-hidden="true">
+                    <svg viewBox="0 0 16 16" fill="none">
+                      <path d="M8 1.5s3.6 2.6 3.6 6.1a3.6 3.6 0 0 1-7.2 0c0-1 .4-1.8.9-2.4.1 1 .8 1.6 1.4 1.6.7 0 1-.6.8-1.5C7.2 4.3 8 2.7 8 1.5Z" fill="currentColor"/>
+                    </svg>
+                  </span>
+                  <div class="checkin-card__titles">
+                    <p class="checkin-card__title">每日打卡</p>
+                    <p class="checkin-card__streak">連續 <b id="checkin-streak-text">0</b> 天</p>
+                  </div>
+                  <span class="checkin-card__badge">7 天集點</span>
+                  <span class="checkin-card__chevron" aria-hidden="true">
+                    <svg viewBox="0 0 12 12" fill="none">
+                      <path d="M2.5 7.5 6 4l3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </span>
+                </button>
+                <div class="checkin-card__collapse">
+                  <div class="checkin-card__body">
+                    <div class="checkin-card__track" id="checkin-dots"></div>
+                    <p class="checkin-card__status" id="checkin-status"></p>
+                  </div>
+                </div>
+              </div>
+              <div class="checkin-toast" id="checkin-toast"></div>
+            </div>
+
+            <!-- 打卡禮物轉盤：獨立彈窗，不影響原彈窗 -->
+            <div id="checkin-reward-modal" class="reward-modal" hidden>
+              <div class="reward-modal__backdrop"></div>
+              <div class="reward-modal__sheet" role="dialog" aria-modal="true" aria-labelledby="reward-modal-title">
+                <button type="button" class="reward-modal__close" id="checkin-reward-close" aria-label="關閉">×</button>
+                <h3 class="reward-modal__title" id="reward-modal-title">專屬優惠轉盤</h3>
+                <p class="reward-modal__sub">點擊中心按鈕，抽取你的專屬優惠</p>
+                <div class="reward-wheel__stage">
+                  <div class="reward-wheel reward-wheel--ready">
+                    <div class="reward-wheel__rim" aria-hidden="true"></div>
+                    <div class="reward-wheel__disc" aria-hidden="true">
+                      <div class="reward-wheel__segments" aria-hidden="true"></div>
+                      <div class="reward-wheel__hub" aria-hidden="true"></div>
+                    </div>
+                    <div class="reward-wheel__pointer" aria-hidden="true">
+                      <svg class="reward-wheel__pointer-arrow" viewBox="0 0 20 14" width="20" height="14" aria-hidden="true">
+                        <path d="M10 14 0 0h20L10 14Z" fill="#dbff94"/>
+                      </svg>
+                    </div>
+                    <div class="reward-wheel__ring" id="reward-wheel-ring"></div>
+                    <button type="button" class="reward-wheel__spin" id="reward-wheel-spin">
+                      <span class="reward-wheel__spin-text">抽優惠</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="reward-modal__result" id="reward-modal-result" hidden>
+                  <div class="reward-modal__result-hero">
+                    <div class="reward-modal__result-visual reward-modal__result-visual--coupon" id="reward-result-visual" aria-hidden="true">
+                      <div class="reward-modal__result-icon"></div>
+                    </div>
+                    <p class="reward-modal__result-label" id="reward-result-label">恭喜獲得</p>
+                    <p class="reward-modal__result-prize" id="reward-result-text"></p>
+                    <p class="reward-modal__result-desc" id="reward-result-desc"></p>
+                  </div>
+                  <div class="reward-modal__code" id="reward-code-wrap" hidden>
+                    <div class="reward-modal__code-box">
+                      <span class="reward-modal__code-label">優惠碼</span>
+                      <code class="reward-modal__code-text" id="reward-result-code"></code>
+                    </div>
+                  </div>
+                  <button type="button" class="reward-modal__copy" id="reward-copy-code">複製優惠碼</button>
+                </div>
+              </div>
+            </div>
+
                 <div
       style="
         display: none;
@@ -266,6 +1395,894 @@
         width: 365px !important;
       }
     </style>
+
+    <style>
+      /* ===== 每日打卡對話框：獨立 fixed 元件，浮於彈窗外上方（不影響彈窗結構） ===== */
+      .checkin-bubble {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1000;
+        box-sizing: border-box;
+        width: 320px;
+        max-width: calc(100vw - 16px);
+        opacity: 0;
+        transform: translateY(6px) scale(0.98);
+        transform-origin: bottom center;
+        transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        pointer-events: none;
+        font-family: "Noto Sans TC", "Figtree", -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      @media screen and (min-width: 480px) {
+        .checkin-bubble {
+          width: 340px;
+        }
+      }
+
+      .checkin-bubble.checkin-bubble--visible {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+      }
+
+      .checkin-card {
+        position: relative;
+        box-sizing: border-box;
+        padding: 12px 14px 13px;
+        border-radius: 18px;
+        border: 0.5px solid rgba(255, 255, 255, 0.85);
+        background: rgba(250, 250, 252, 0.82);
+        -webkit-backdrop-filter: blur(26px) saturate(190%);
+        backdrop-filter: blur(26px) saturate(190%);
+        box-shadow: 0 12px 34px rgba(0, 0, 0, 0.14),
+          0 2px 8px rgba(0, 0, 0, 0.06),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.95);
+        contain: layout style paint;
+      }
+
+      .checkin-bubble.is-animating .checkin-card {
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        background: rgba(250, 250, 252, 0.96);
+      }
+
+      /* 對話框箭頭：指向下方彈窗中心（位置由 JS 設定 --arrow-x） */
+      .checkin-card::before,
+      .checkin-card::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: var(--arrow-x, 50%);
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-style: solid;
+      }
+
+      .checkin-card::before {
+        border-width: 9px 8px 0 8px;
+        border-color: rgba(0, 0, 0, 0.06) transparent transparent transparent;
+      }
+
+      .checkin-card::after {
+        margin-top: -1px;
+        border-width: 8px 7px 0 7px;
+        border-color: rgba(250, 250, 252, 0.95) transparent transparent transparent;
+        -webkit-backdrop-filter: blur(26px);
+        backdrop-filter: blur(26px);
+      }
+
+      .checkin-card__head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 11px;
+        width: 100%;
+        padding: 0;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+        -webkit-tap-highlight-color: transparent;
+        font-family: inherit;
+        transition: margin-bottom 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+          transform 0.2s ease, opacity 0.2s ease;
+      }
+
+      .checkin-card__head:active {
+        transform: scale(0.985);
+        opacity: 0.85;
+      }
+
+      .checkin-card__chevron {
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #b0b0b6;
+        transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+      }
+
+      .checkin-card__chevron svg {
+        width: 12px;
+        height: 12px;
+      }
+
+      /* 收合：Grid 動畫取代 max-height，避免 layout thrashing */
+      .checkin-card__collapse {
+        display: grid;
+        grid-template-rows: 1fr;
+        transition: grid-template-rows 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+      }
+
+      .checkin-bubble.is-collapsed .checkin-card__collapse {
+        grid-template-rows: 0fr;
+      }
+
+      .checkin-card__body {
+        overflow: hidden;
+        min-height: 0;
+      }
+
+      .checkin-bubble.is-collapsed .checkin-card__head {
+        margin-bottom: 0;
+      }
+
+      .checkin-bubble.is-collapsed .checkin-card__chevron {
+        transform: rotate(180deg);
+      }
+
+      .checkin-card__flame {
+        flex-shrink: 0;
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9px;
+        background: linear-gradient(160deg, #3a3a3c 0%, #1d1d1f 100%);
+        color: #fff;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.18);
+      }
+
+      .checkin-card__flame svg {
+        width: 15px;
+        height: 15px;
+      }
+
+      .checkin-card__titles {
+        flex: 1;
+        min-width: 0;
+        line-height: 1.25;
+      }
+
+      .checkin-card__title {
+        margin: 0;
+        color: #1d1d1f;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: -0.1px;
+      }
+
+      .checkin-card__streak {
+        margin: 1px 0 0;
+        color: #86868b;
+        font-size: 11px;
+        font-weight: 500;
+      }
+
+      .checkin-card__streak b {
+        color: #1d1d1f;
+        font-weight: 700;
+        font-size: 13px;
+      }
+
+      .checkin-card__badge {
+        flex-shrink: 0;
+        padding: 3px 8px;
+        border-radius: 100px;
+        background: rgba(0, 0, 0, 0.05);
+        color: #6e6e73;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+
+      .checkin-card__track {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 5px;
+      }
+
+      .checkin-dot {
+        position: relative;
+        flex: 1;
+        aspect-ratio: 1;
+        max-width: 30px;
+        border-radius: 50%;
+        background: rgba(120, 120, 128, 0.14);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #c0c0c6;
+        transition: background 0.4s ease, color 0.4s ease,
+          transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      .checkin-dot svg {
+        width: 55%;
+        height: 55%;
+      }
+
+      .checkin-dot__num {
+        font-size: 15px;
+        font-weight: 600;
+        color: #c7c7cc;
+        line-height: 1;
+        letter-spacing: -0.3px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .checkin-dot--gift:not(.checkin-dot--filled) {
+        color: #8e8e93;
+        background: rgba(120, 120, 128, 0.08);
+        box-shadow: inset 0 0 0 1.5px rgba(29, 29, 31, 0.16);
+      }
+
+      .checkin-dot--filled {
+        background: #1d1d1f;
+        color: #fff;
+        box-shadow: 0 2px 6px rgba(29, 29, 31, 0.26);
+      }
+
+      .checkin-dot--gift.checkin-dot--filled {
+        background: #1d1d1f;
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28),
+          inset 0 0 0 1.5px rgba(255, 255, 255, 0.22);
+      }
+
+      .checkin-dot--claimable {
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        animation: giftPulse 2.2s ease-in-out infinite;
+      }
+
+      .checkin-dot--claimable::after {
+        content: "";
+        position: absolute;
+        inset: -3px;
+        border-radius: 50%;
+        border: 1.5px solid rgba(29, 29, 31, 0.25);
+        animation: giftRing 2.2s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      .checkin-dot--claimable:active {
+        transform: scale(0.92);
+      }
+
+      .checkin-dot--viewable {
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .checkin-dot--viewable:hover {
+        transform: scale(1.06);
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+      }
+
+      .checkin-dot--viewable:active {
+        transform: scale(0.94);
+      }
+
+      .checkin-dot--claimed.checkin-dot--gift.checkin-dot--filled {
+        opacity: 1;
+      }
+
+      @keyframes giftPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.08); }
+      }
+
+      @keyframes giftRing {
+        0%, 100% { opacity: 0.6; transform: scale(1); }
+        50% { opacity: 0; transform: scale(1.35); }
+      }
+
+      .checkin-bubble.has-claimable-gift .checkin-card__status {
+        color: #1d1d1f;
+        font-weight: 600;
+      }
+
+      /* ===== 禮物轉盤彈窗（Apple 風格） ===== */
+      .reward-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 1100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        pointer-events: none;
+      }
+
+      .reward-modal:not([hidden]) {
+        pointer-events: auto;
+      }
+
+      .reward-modal__backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.38);
+        -webkit-backdrop-filter: blur(10px) saturate(120%);
+        backdrop-filter: blur(10px) saturate(120%);
+        opacity: 0;
+        transition: opacity 0.18s ease-out;
+        will-change: opacity;
+      }
+
+      .reward-modal--visible .reward-modal__backdrop {
+        opacity: 1;
+      }
+
+      .reward-modal__sheet {
+        position: relative;
+        width: min(352px, 100%);
+        padding: 28px 24px 24px;
+        border-radius: 28px;
+        background: rgba(255, 255, 255, 0.78);
+        -webkit-backdrop-filter: blur(40px) saturate(185%);
+        backdrop-filter: blur(40px) saturate(185%);
+        border: 0.5px solid rgba(255, 255, 255, 0.72);
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.18),
+          0 8px 24px rgba(0, 0, 0, 0.06),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.95);
+        opacity: 0;
+        transform: scale(0.96) translateY(10px);
+        transition: opacity 0.24s ease-out,
+          transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+        text-align: center;
+        font-family: "Noto Sans TC", "Figtree", -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      .reward-modal--visible .reward-modal__sheet {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+
+      .reward-modal__close {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        width: 30px;
+        height: 30px;
+        border: none;
+        border-radius: 50%;
+        background: rgba(120, 120, 128, 0.12);
+        color: #6e6e73;
+        font-size: 17px;
+        font-weight: 400;
+        line-height: 1;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .reward-modal__close:hover {
+        background: rgba(120, 120, 128, 0.18);
+      }
+
+      .reward-modal__close:active {
+        transform: scale(0.94);
+      }
+
+      .reward-modal__title {
+        margin: 0 0 5px;
+        color: #1d1d1f;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.35px;
+      }
+
+      .reward-modal__sub {
+        margin: 0 0 22px;
+        color: #86868b;
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1.4;
+        letter-spacing: -0.1px;
+      }
+
+      .reward-wheel__stage {
+        padding: 4px 0 8px;
+      }
+
+      .reward-wheel {
+        position: relative;
+        width: 268px;
+        height: 268px;
+        margin: 0 auto;
+        opacity: 0;
+        transform: scale(0.96);
+        transition: opacity 0.24s ease, transform 0.28s ease;
+      }
+
+      .reward-wheel--ready {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      .reward-wheel__rim {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.75);
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04),
+          0 14px 26px rgba(0, 0, 0, 0.08);
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .reward-wheel__disc {
+        position: absolute;
+        inset: 7px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: radial-gradient(
+          circle at 50% 38%,
+          rgba(255, 255, 255, 0.98) 0%,
+          rgba(243, 243, 246, 0.97) 54%,
+          rgba(232, 232, 236, 0.95) 100%
+        );
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92),
+          inset 0 -1px 0 rgba(0, 0, 0, 0.02);
+      }
+
+      .reward-wheel__segments {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: conic-gradient(
+          from -60deg,
+          rgba(255, 255, 255, 0.9) 0deg 60deg,
+          rgba(240, 240, 243, 0.9) 60deg 120deg,
+          rgba(255, 255, 255, 0.9) 120deg 180deg,
+          rgba(240, 240, 243, 0.9) 180deg 240deg,
+          rgba(255, 255, 255, 0.9) 240deg 300deg,
+          rgba(240, 240, 243, 0.9) 300deg 360deg
+        );
+      }
+
+      .reward-wheel__segments::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: repeating-conic-gradient(
+          from -60deg,
+          transparent 0deg 59.2deg,
+          rgba(0, 0, 0, 0.04) 59.2deg 60deg
+        );
+      }
+
+      .reward-wheel__hub {
+        display: none;
+      }
+
+      .reward-wheel__spin {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 5;
+        width: 74px;
+        height: 74px;
+        border: 8px solid #fff;
+        border-radius: 50%;
+        box-sizing: border-box;
+        background: #dbff94;
+        color: #1d1d1f;
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: 0;
+        cursor: pointer;
+        box-shadow: none;
+        transition: opacity 0.15s ease;
+        -webkit-tap-highlight-color: transparent;
+        backface-visibility: hidden;
+      }
+
+      .reward-wheel__spin-text {
+        position: relative;
+        z-index: 1;
+        display: block;
+        line-height: 1.2;
+      }
+
+      .reward-wheel__spin:hover:not(:disabled) {
+        opacity: 0.88;
+      }
+
+      .reward-wheel__spin:active:not(:disabled) {
+        opacity: 0.78;
+      }
+
+      .reward-wheel__spin:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
+      .reward-wheel__pointer {
+        position: absolute;
+        top: 5px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 0;
+      }
+
+      .reward-wheel__pointer-arrow {
+        display: block;
+        width: 20px;
+        height: 14px;
+        flex-shrink: 0;
+      }
+
+      .reward-wheel__ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        will-change: transform;
+        z-index: 3;
+      }
+
+      .reward-wheel__slot {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 58px;
+        height: 58px;
+        margin: -29px 0 0 -29px;
+        transform: rotate(var(--angle)) translateY(-97px)
+          rotate(calc(-1 * var(--angle)));
+      }
+
+      .reward-wheel__slot-inner {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06),
+          inset 0 1px 0 rgba(255, 255, 255, 0.98);
+        padding: 3px;
+        box-sizing: border-box;
+      }
+
+      .reward-wheel__slot-inner--mystery {
+        padding: 0;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .reward-wheel__slot-inner--coupon {
+        background: linear-gradient(165deg, #ffffff 0%, #f5f5f8 100%);
+      }
+
+      .reward-wheel__slot-inner--gift {
+        background: linear-gradient(165deg, #ffffff 0%, #f8faf3 100%);
+        border-color: rgba(219, 255, 148, 0.38);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06),
+          inset 0 1px 0 rgba(255, 255, 255, 0.98);
+      }
+
+      .reward-wheel__slot-inner--shipping {
+        background: linear-gradient(165deg, #ffffff 0%, #f3f3f6 100%);
+        border-color: rgba(0, 0, 0, 0.06);
+      }
+
+      .reward-wheel__slot-mystery-wrap {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .reward-wheel__slot-mystery-icon {
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #2e2e33;
+        opacity: 0.92;
+      }
+
+      .reward-wheel__slot-inner--gift .reward-wheel__slot-mystery-icon {
+        color: #1d1d1f;
+        opacity: 0.86;
+      }
+
+      .reward-wheel__slot-mystery-icon svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .reward-wheel__slot-label {
+        color: #1d1d1f;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1.2;
+        white-space: nowrap;
+        letter-spacing: -0.1px;
+      }
+
+      .reward-wheel__slot-desc {
+        color: #86868b;
+        font-size: 8px;
+        font-weight: 500;
+        line-height: 1.2;
+        white-space: nowrap;
+      }
+
+      .reward-modal__result {
+        padding: 8px 0 4px;
+        animation: rewardResultIn 0.48s cubic-bezier(0.32, 0.72, 0, 1);
+      }
+
+      @keyframes rewardResultIn {
+        from { opacity: 0; transform: scale(0.94) translateY(6px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+      }
+
+      .reward-modal__result-hero {
+        margin-bottom: 2px;
+      }
+
+      .reward-modal__result-visual {
+        position: relative;
+        width: 92px;
+        height: 92px;
+        margin: 0 auto 16px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1d1d1f;
+        background: linear-gradient(
+          155deg,
+          rgba(255, 255, 255, 0.95) 0%,
+          rgba(235, 235, 240, 0.88) 100%
+        );
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08),
+          inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+        animation: rewardIconPop 0.55s cubic-bezier(0.34, 1.4, 0.64, 1) 0.05s both;
+      }
+
+      .reward-modal__result-visual::after {
+        content: "";
+        position: absolute;
+        inset: -4px;
+        border-radius: 50%;
+        border: 1px solid rgba(0, 0, 0, 0.04);
+        pointer-events: none;
+      }
+
+      .reward-modal__result-visual--coupon {
+        background: linear-gradient(
+          155deg,
+          #ffffff 0%,
+          rgba(245, 245, 247, 0.95) 100%
+        );
+      }
+
+      .reward-modal__result-visual--gift {
+        color: #fff;
+        background: linear-gradient(155deg, #1d1d1f 0%, #3a3a3c 100%);
+        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.18);
+      }
+
+      .reward-modal__result-visual--gift::after {
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+
+      .reward-modal__result-visual--shipping {
+        color: #1d1d1f;
+        background: linear-gradient(
+          155deg,
+          rgba(243, 243, 246, 0.9) 0%,
+          rgba(232, 232, 236, 0.95) 100%
+        );
+      }
+
+      .reward-modal__result-icon {
+        width: 52px;
+        height: 52px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .reward-modal__result-icon svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      @keyframes rewardIconPop {
+        from {
+          opacity: 0;
+          transform: scale(0.72);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      .reward-modal__result-label {
+        margin: 0 0 6px;
+        color: #86868b;
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: -0.1px;
+      }
+
+      .reward-modal__result-prize {
+        margin: 0 0 5px;
+        color: #1d1d1f;
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -0.8px;
+        line-height: 1.15;
+      }
+
+      .reward-modal__result-desc {
+        margin: 0 0 16px;
+        color: #6e6e73;
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: -0.1px;
+      }
+
+      .reward-modal__code {
+        margin: 0 0 14px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(120, 120, 128, 0.08);
+        border: 0.5px solid rgba(0, 0, 0, 0.05);
+      }
+
+      .reward-modal__code-box {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .reward-modal__code-label {
+        flex-shrink: 0;
+        color: #86868b;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+
+      .reward-modal__code-text {
+        flex: 1;
+        min-width: 0;
+        text-align: right;
+        color: #1d1d1f;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        font-family: "SF Mono", "Menlo", "Figtree", monospace;
+        word-break: break-all;
+      }
+
+      .reward-modal__copy {
+        width: 100%;
+        margin: 0 0 10px;
+        padding: 14px;
+        border: none;
+        border-radius: 14px;
+        background: #1d1d1f;
+        color: #fff;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: -0.2px;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.15);
+        transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease,
+          background 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .reward-modal__copy:hover {
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.15);
+      }
+
+      .reward-modal__copy:active {
+        opacity: 0.88;
+      }
+
+      .reward-modal__copy.is-copied {
+        background: #3a3a3c;
+        color: #fff;
+      }
+
+      .reward-modal__result--view .reward-modal__copy {
+        margin-bottom: 0;
+      }
+
+      .checkin-card__status {
+        margin: 10px 0 0;
+        color: #86868b;
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 1.4;
+        letter-spacing: 0.1px;
+      }
+
+      .checkin-bubble.is-done .checkin-card__status {
+        color: #1d1d1f;
+        font-weight: 600;
+      }
+
+      .checkin-toast {
+        position: absolute;
+        left: 50%;
+        top: -8px;
+        transform: translate(-50%, -100%) scale(0.96);
+        opacity: 0;
+        pointer-events: none;
+        white-space: nowrap;
+        padding: 7px 14px;
+        border-radius: 100px;
+        background: rgba(29, 29, 31, 0.92);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
+        transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      .checkin-toast.is-visible {
+        opacity: 1;
+        transform: translate(-50%, -100%) scale(1);
+      }
+
+      .checkin-toast.is-gift {
+        background: rgba(29, 29, 31, 0.96);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+      }
+    </style>
       `;
         document.body.insertAdjacentHTML("beforeend", aiSearchPdTemplate);
 
@@ -320,6 +2337,7 @@
             iframeElement.src = "./iframe_container_module.html";
 
             iframeElement.onload = () => {
+              window.__checkinDebugBrand = brand;
               const iframe_container = iframeElement.contentWindow;
               const iframe_preview_obj = {
                 id: id,
@@ -364,8 +2382,10 @@
         $(".ai-pd-container__trigger").on("pointerdown", function (event) {
           if ($(this).hasClass("ai-pd-container__trigger--search")) {
             $("#inffits_cblock--overlay").fadeIn();
+            showCheckinBubble();
           } else {
             $("#inffits_cblock--overlay").fadeOut();
+            hideCheckinBubble();
           }
           $(this).toggleClass(
             "ai-pd-container__trigger--search ai-pd-container__trigger--close"
@@ -373,6 +2393,7 @@
         });
         $("#inffits_cblock--overlay").on("pointerdown", function (event) {
           $("#inffits_cblock--overlay").fadeOut();
+          hideCheckinBubble();
           $(".ai-pd-container__trigger").toggleClass(
             "ai-pd-container__trigger--search ai-pd-container__trigger--close"
           );

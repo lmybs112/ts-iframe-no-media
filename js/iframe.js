@@ -417,6 +417,9 @@ const getEmbeddedForBackup = () => {
       $("#recommend-btn").text("刷新推薦");
       show_results(formatData);
       $("#container-recom").show();
+      if (typeof window.markCheckinComplete === "function") {
+        window.markCheckinComplete();
+      }
       localStorage.setItem(
         `INFS_ROUTE_RES_${Brand}`,
         JSON.stringify([])
@@ -678,6 +681,9 @@ const show_results = (response, isFirst = false) => {
   }
 
   $("#container-recom").show();
+  if (typeof window.markCheckinComplete === "function") {
+    window.markCheckinComplete();
+  }
   capsulePools = pools;
   resList = [].concat(pools.Tops, pools.Bottoms, pools.Dresses);
 
@@ -967,6 +973,10 @@ const fetchCoupon = async () => {
     window.addEventListener("resize", sendHeight);
     // 定期检查高度变化
     setInterval(sendHeight, 500);
+
+    if (typeof window.initCheckin === "function") {
+      window.initCheckin(Brand);
+    }
   // } else {
   //   alert.log('沒有設置模組');
   //   $(".intro-content.intro-coupon-modal__content").show();
