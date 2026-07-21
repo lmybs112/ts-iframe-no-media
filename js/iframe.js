@@ -1058,12 +1058,19 @@ function getRouteTagElements(targetRoute) {
   const container = document.querySelector(`#container-${targetRoute}`);
   if (!container) return [];
 
-  const slots = container.querySelectorAll(".axd_tag-slot:not(.axd_tag-slot--inactive)");
+  // >8 標籤：使用卡槽模式
+  const slots = container.querySelectorAll(
+    ".axd_tag-slot:not(.axd_tag-slot--inactive)"
+  );
   if (slots.length > 0) return Array.from(slots);
 
-  return Array.from(
-    container.querySelectorAll('.axd_selection.axd_tag[data-group="0"]')
+  // ≤8 標籤：舊 DOM 無 axd_tag-slot / data-group，改抓全部標籤
+  const grouped = container.querySelectorAll(
+    '.axd_selection.axd_tag[data-group="0"]'
   );
+  if (grouped.length > 0) return Array.from(grouped);
+
+  return Array.from(container.querySelectorAll(".axd_selection.axd_tag"));
 }
 
 const tagFlipLock = {};
