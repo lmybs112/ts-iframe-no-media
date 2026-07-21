@@ -702,7 +702,7 @@
 
         function getBrandFromUrl() {
           var params = new URLSearchParams(window.location.search);
-          return (params.get("brand") || "").trim().toUpperCase();
+          return (params.get("brand") || "OB91").trim().toUpperCase();
         }
 
         function getGaKeyFromUrl() {
@@ -715,6 +715,35 @@
           var ga = getGaKeyFromUrl();
           if (ga) src += "?ga=" + encodeURIComponent(ga);
           return src;
+        }
+
+        // 依 URL ?ga= 動態載入父頁 gtag，才能把 iframe 的 GA4Event 轉成真正的 GA 請求
+        function initGtagFromUrl() {
+          var measurementId = getGaKeyFromUrl();
+          if (!measurementId) return;
+
+          window.dataLayer = window.dataLayer || [];
+          window.gtag =
+            window.gtag ||
+            function () {
+              window.dataLayer.push(arguments);
+            };
+          window.gtag("js", new Date());
+          window.gtag("config", measurementId);
+
+          if (!document.querySelector('script[data-demo-gtag="1"]')) {
+            var script = document.createElement("script");
+            script.async = true;
+            script.src =
+              "https://www.googletagmanager.com/gtag/js?id=" +
+              encodeURIComponent(measurementId);
+            script.setAttribute("data-demo-gtag", "1");
+            document.head.appendChild(script);
+          }
+
+          try {
+            console.log("[demo] gtag loaded for", measurementId);
+          } catch (_) {}
         }
 
         function applyBrandToPage(brand) {
@@ -1178,23 +1207,14 @@
             }
           });
 
-          if (!initBrand()) {
-            $("#demo-mode-lists")
-              .removeClass("demo-mode-lists--loading")
-              .html(
-                '<p class="demo-mode-lists__empty">請在網址指定 brand 參數<br>例如 ob_test.html?brand=OB91</p>'
-              );
-            return;
-          }
-
+          initBrand();
+          initGtagFromUrl();
           fetchRoutes();
         });
 
         function initBrand() {
           DEMO_BRAND = getBrandFromUrl();
-          if (!DEMO_BRAND) return false;
           applyBrandToPage(DEMO_BRAND);
-          return true;
         }
       })(jQuery);
     </script>
