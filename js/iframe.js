@@ -116,7 +116,7 @@ const get_recom_res = () => {
       Brand: Brand,
       Tags: tags_chosen,
       NUM: 8,
-      capsule: true,
+      capsule: Brand === "AURASTRO" ? "材質" : true,
       SpecifyTags: {},
       SpecifyKeywords: [],
     }),
