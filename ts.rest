@@ -19,3 +19,7 @@ Content-Type: application/json
     "SpecifyTags": {},
     "SpecifyKeywords": []
 }
+
+
+###
+GET https://xjsoc4o2ci.execute-api.ap-northeast-1.amazonaws.com/v0/extension/get_routes?Brand=OB91&Per_Page=100&Page=1

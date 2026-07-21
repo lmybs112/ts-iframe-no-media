@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 導購體驗 Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" type="text/css" href="./css/iframe_ai_pd_style.css" />
+    <style>
+      :root {
+        --demo-bg: #f5f5f7;
+        --demo-surface: #ffffff;
+        --demo-text: #1d1d1f;
+        --demo-text-secondary: #6e6e73;
+        --demo-text-tertiary: #86868b;
+        --demo-border: rgba(0, 0, 0, 0.08);
+        --demo-border-strong: rgba(0, 0, 0, 0.16);
+        --demo-fill: #f2f2f4;
+        --demo-fill-hover: #e8e8ed;
+        --demo-fill-active: #e3e3e8;
+        --demo-ink: #1d1d1f;
+        --demo-ink-muted: #aeaeb2;
+        --demo-online-solid: #34c759;
+        --demo-offline-solid: #aeaeb2;
+        --demo-radius-lg: 20px;
+        --demo-radius-md: 14px;
+        --demo-radius-sm: 10px;
+        --demo-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+        --demo-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1);
+        --demo-font: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text",
+          "Helvetica Neue", sans-serif;
+        --demo-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        height: 100%;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        font-family: var(--demo-font);
+        color: var(--demo-text);
+        background: var(--demo-bg);
+        line-height: 1.35;
+        letter-spacing: -0.022em;
+      }
+
+      .demo-page {
+        height: 100%;
+        height: 100dvh;
+        padding: 10px 16px 12px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .demo-page__inner {
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        max-width: min(1080px, 100%);
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* Header */
+      .demo-header {
+        flex-shrink: 0;
+        text-align: center;
+        margin-bottom: 8px;
+        animation: demo-fade-up 0.6s var(--demo-ease) both;
+      }
+
+      .demo-header__current {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        max-width: 720px;
+        margin: 0 auto 10px;
+        padding: 14px 20px;
+        font-size: 15px;
+        color: var(--demo-text-secondary);
+        text-align: center;
+        background: var(--demo-surface);
+        border: 1px solid var(--demo-border);
+        border-radius: 16px;
+        box-shadow: var(--demo-shadow);
+      }
+
+      .demo-header__current-label {
+        flex-shrink: 0;
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 0.01em;
+      }
+
+      .demo-header__current-name {
+        font-size: clamp(17px, 2.8vw, 20px);
+        font-weight: 700;
+        color: var(--demo-text);
+        line-height: 1.35;
+        letter-spacing: -0.02em;
+        max-width: 100%;
+      }
+
+      .demo-header__current-mode {
+        display: inline-block;
+        margin-top: 2px;
+        padding: 4px 11px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        line-height: 1.3;
+        border-radius: 100px;
+        border: 1px solid transparent;
+      }
+
+      .demo-header__current-mode--nomedia {
+        color: #3a3a3c;
+        background: #f2f2f4;
+        border-color: rgba(0, 0, 0, 0.08);
+      }
+
+      .demo-header__current-mode--nomedia-v2 {
+        color: #1d1d1f;
+        background: #e8e8ed;
+        border-color: rgba(0, 0, 0, 0.1);
+      }
+
+      .demo-header__current-mode--media {
+        color: #1d1d1f;
+        background: #d1d1d6;
+        border-color: rgba(0, 0, 0, 0.12);
+      }
+
+      .demo-header__current-mode--unknown {
+        color: var(--demo-text-secondary);
+        background: var(--demo-fill);
+        border-color: var(--demo-border);
+      }
+
+      .demo-header__title {
+        margin: 0 0 4px;
+        font-size: clamp(22px, 5vw, 26px);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+      }
+
+      .demo-header__subtitle {
+        margin: 0;
+        font-size: 14px;
+        color: var(--demo-text-secondary);
+        font-weight: 400;
+      }
+
+      /* Mode lists — 一排三個白底獨立欄 */
+      .demo-board {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .demo-board__head {
+        flex-shrink: 0;
+        margin-bottom: 8px;
+        animation: demo-fade-up 0.6s var(--demo-ease) 0.12s both;
+      }
+
+      .demo-board__label {
+        margin: 0 0 2px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--demo-text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .demo-board__heading {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      .demo-mode-lists {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        align-items: stretch;
+        overflow: hidden;
+        animation: demo-fade-up 0.6s var(--demo-ease) 0.16s both;
+      }
+
+      .demo-mode-lists--loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 0;
+        color: var(--demo-text-tertiary);
+        font-size: 13px;
+        background: var(--demo-surface);
+        border: 1px solid var(--demo-border);
+        border-radius: var(--demo-radius-lg);
+        box-shadow: var(--demo-shadow);
+      }
+
+      .demo-mode-lists__empty {
+        grid-column: 1 / -1;
+        margin: 0;
+        padding: 32px 12px;
+        text-align: center;
+        font-size: 13px;
+        color: var(--demo-text-tertiary);
+        background: var(--demo-surface);
+        border: 1px solid var(--demo-border);
+        border-radius: var(--demo-radius-lg);
+      }
+
+      .demo-mode-list {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+        height: 100%;
+        padding: 12px 10px;
+        background: var(--demo-surface);
+        border: 1px solid var(--demo-border);
+        border-radius: var(--demo-radius-lg);
+        box-shadow: var(--demo-shadow);
+        overflow: hidden;
+      }
+
+      .demo-mode-list__header {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--demo-border);
+      }
+
+      .demo-mode-list__title {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--demo-text);
+        line-height: 1.3;
+      }
+
+      .demo-mode-list__count {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--demo-text-tertiary);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .demo-mode-list__routes {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: #c7c7cc transparent;
+      }
+
+      .demo-mode-list__routes::-webkit-scrollbar {
+        width: 4px;
+      }
+
+      .demo-mode-list__routes::-webkit-scrollbar-thumb {
+        background: #c7c7cc;
+        border-radius: 4px;
+      }
+
+      .demo-mode-list__empty {
+        margin: auto 0;
+        padding: 24px 8px;
+        text-align: center;
+        font-size: 12px;
+        color: var(--demo-text-tertiary);
+      }
+
+      @media (max-width: 860px) {
+        .demo-mode-lists {
+          grid-template-columns: 1fr;
+          grid-template-rows: repeat(3, minmax(0, 1fr));
+        }
+      }
+
+      /* Card */
+      .demo-card {
+        background: var(--demo-surface);
+        border: 1px solid var(--demo-border);
+        border-radius: var(--demo-radius-lg);
+        box-shadow: var(--demo-shadow);
+        overflow: hidden;
+        animation: demo-fade-up 0.6s var(--demo-ease) 0.16s both;
+      }
+
+      .demo-card__section {
+        padding: 14px 16px;
+      }
+
+      .demo-card__section + .demo-card__section {
+        border-top: 1px solid var(--demo-border);
+      }
+
+      .demo-card__label {
+        margin: 0 0 2px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--demo-text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .demo-card__heading {
+        margin: 0 0 10px;
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      /* Route options */
+      .demo-route {
+        position: relative;
+        display: block;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .demo-route__input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+        pointer-events: none;
+      }
+
+      .demo-route__body {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        background: var(--demo-fill);
+        border: 1.5px solid transparent;
+        border-radius: 12px;
+        transition: background 0.2s var(--demo-ease),
+          border-color 0.2s var(--demo-ease),
+          box-shadow 0.2s var(--demo-ease),
+          transform 0.15s var(--demo-ease);
+      }
+
+      .demo-route:hover .demo-route__body {
+        background: var(--demo-fill-hover);
+      }
+
+      .demo-route__input:focus-visible + .demo-route__body {
+        outline: 2px solid var(--demo-ink);
+        outline-offset: 2px;
+      }
+
+      .demo-route__input:checked + .demo-route__body {
+        background: var(--demo-surface);
+        border-color: var(--demo-ink);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      }
+
+      .demo-route__input:active + .demo-route__body {
+        transform: scale(0.985);
+      }
+
+      .demo-route__lead {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+      }
+
+      .demo-route__index {
+        flex-shrink: 0;
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+        border-radius: 6px;
+        color: var(--demo-text);
+        background: rgba(0, 0, 0, 0.06);
+        border: 1px solid var(--demo-border);
+      }
+
+      .demo-route__status-dot {
+        flex-shrink: 0;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+
+      .demo-route__status-dot--online {
+        background: var(--demo-online-solid);
+      }
+
+      .demo-route__status-dot--offline {
+        background: var(--demo-offline-solid);
+      }
+
+      .demo-route__input:checked + .demo-route__body .demo-route__index {
+        color: var(--demo-surface);
+        background: var(--demo-ink);
+        border-color: var(--demo-ink);
+      }
+
+      .demo-route__content {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .demo-route__title {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--demo-text);
+        line-height: 1.3;
+      }
+
+      .demo-route__meta {
+        margin-top: 6px;
+        padding-top: 6px;
+        border-top: 1px dashed var(--demo-border);
+        min-width: 0;
+      }
+
+      .demo-route__question-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .demo-route__question {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .demo-route__question-num {
+        flex-shrink: 0;
+        min-width: 18px;
+        margin-top: 1px;
+        padding: 1px 4px;
+        font-size: 9px;
+        font-weight: 700;
+        line-height: 1.3;
+        text-align: center;
+        color: var(--demo-text-secondary);
+        background: rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--demo-border);
+        border-radius: 4px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .demo-route__question-text {
+        margin: 0;
+        flex: 1;
+        min-width: 0;
+        font-size: 10px;
+        font-weight: 400;
+        color: var(--demo-text-secondary);
+        line-height: 1.45;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .demo-route__check {
+        flex-shrink: 0;
+        margin-top: 2px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 1.5px solid var(--demo-ink-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: border-color 0.2s var(--demo-ease),
+          background 0.2s var(--demo-ease);
+      }
+
+      .demo-route__input:checked + .demo-route__body .demo-route__check {
+        border-color: var(--demo-ink);
+        background: var(--demo-ink);
+      }
+
+      .demo-route__check-icon {
+        width: 12px;
+        height: 12px;
+        opacity: 0;
+        transform: scale(0.5);
+        transition: opacity 0.2s var(--demo-ease),
+          transform 0.2s var(--demo-ease);
+      }
+
+      .demo-route__input:checked + .demo-route__body .demo-route__check-icon {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      /* Footer hint */
+      .demo-footer {
+        flex-shrink: 0;
+        margin-top: 6px;
+        text-align: center;
+        font-size: 11px;
+        color: var(--demo-text-tertiary);
+        animation: demo-fade-up 0.6s var(--demo-ease) 0.24s both;
+      }
+
+      .demo-footer__brand {
+        font-weight: 600;
+        color: var(--demo-text-secondary);
+      }
+
+      /* Toast */
+      .demo-toast {
+        position: fixed;
+        bottom: 32px;
+        left: 50%;
+        transform: translateX(-50%) translateY(80px);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 20px;
+        background: rgba(29, 29, 31, 0.92);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        color: #fff;
+        font-size: 15px;
+        font-weight: 500;
+        border-radius: 14px;
+        box-shadow: var(--demo-shadow-lg);
+        opacity: 0;
+        pointer-events: none;
+        transition: transform 0.4s var(--demo-ease), opacity 0.4s var(--demo-ease);
+        z-index: 10000;
+      }
+
+      .demo-toast--visible {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+
+      .demo-toast__icon {
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      /* Animations */
+      @keyframes demo-fade-up {
+        from {
+          opacity: 0;
+          transform: translateY(16px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes demo-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      @keyframes demo-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="demo-page">
+      <div class="demo-page__inner">
+        <header class="demo-header">
+          <p class="demo-header__current" id="demo-current-plan">
+            <span class="demo-header__current-label">當前導購計劃：</span>
+            <span class="demo-header__current-name" id="demo-current-plan-name"
+              >尚未選擇</span
+            >
+            <span
+              class="demo-header__current-mode"
+              id="demo-current-plan-mode"
+              hidden
+            ></span>
+          </p>
+        </header>
+
+        <div class="demo-board">
+          <div class="demo-board__head">
+            <p class="demo-board__label">
+              品牌 · <span id="demo-brand-label">—</span>
+            </p>
+            <h2 class="demo-board__heading">選擇導購計劃</h2>
+          </div>
+
+          <div
+            class="demo-mode-lists demo-mode-lists--loading"
+            id="demo-mode-lists"
+          >
+            載入計劃中…
+          </div>
+        </div>
+
+        <p class="demo-footer">
+          Powered by <span class="demo-footer__brand">InfFITS</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="demo-toast" id="demo-toast" role="alert" aria-live="polite">
+      <span class="demo-toast__icon" id="demo-toast-icon">✓</span>
+      <span id="demo-toast-text"></span>
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script>
+      (function ($) {
+        var DEMO_BRAND = "";
+        var ROUTES_API =
+          "https://xjsoc4o2ci.execute-api.ap-northeast-1.amazonaws.com/v0/extension/get_routes";
+        var routes = [];
+        var currentLoadedRouteId = "";
+        var isLoadingRoute = false;
+        var onRouteSelected = function () {};
+        var toastTimer = null;
+        var ROUTE_MODE_GROUPS = [
+          { mode: "nomedia", label: "敘述導覽版" },
+          { mode: "nomedia-v2", label: "釘選互動版" },
+          { mode: "media", label: "圖示標籤版" },
+        ];
+        var checkIconSvg =
+          '<svg class="demo-route__check-icon" viewBox="0 0 12 12" fill="none">' +
+          '<path d="M2.5 6L5 8.5L9.5 3.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+          "</svg>";
+
+        function getBrandFromUrl() {
+          var params = new URLSearchParams(window.location.search);
+          return (params.get("brand") || "").trim().toUpperCase();
+        }
+
+        function getGaKeyFromUrl() {
+          var params = new URLSearchParams(window.location.search);
+          return (params.get("ga") || "").trim();
+        }
+
+        function getIframeContainerSrc() {
+          var src = "./iframe_container_module.html";
+          var ga = getGaKeyFromUrl();
+          if (ga) src += "?ga=" + encodeURIComponent(ga);
+          return src;
+        }
+
+        function applyBrandToPage(brand) {
+          document.title = brand + " · AI 導購體驗 Demo";
+          $("#demo-brand-label").text(brand);
+        }
+
+        function escapeHtml(str) {
+          return String(str || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        function escapeAttr(str) {
+          return escapeHtml(str).replace(/'/g, "&#39;");
+        }
+
+        function normalizeQuestions(descriptions) {
+          if (!Array.isArray(descriptions) || !descriptions.length) return [];
+          return descriptions
+            .map(function (text) {
+              return String(text).trim();
+            })
+            .filter(Boolean);
+        }
+
+        function buildQuestionsMetaHtml(questions) {
+          if (!questions || !questions.length) return "";
+          var items = questions
+            .map(function (text, index) {
+              return (
+                '<li class="demo-route__question">' +
+                '<span class="demo-route__question-num">Q' +
+                (index + 1) +
+                "</span>" +
+                '<p class="demo-route__question-text" title="' +
+                escapeAttr(text) +
+                '">' +
+                escapeHtml(text) +
+                "</p>" +
+                "</li>"
+              );
+            })
+            .join("");
+
+          return (
+            '<div class="demo-route__meta">' +
+            '<ul class="demo-route__question-list">' +
+            items +
+            "</ul>" +
+            "</div>"
+          );
+        }
+
+        var MODE_TAG_CLASSES =
+          "demo-header__current-mode--nomedia demo-header__current-mode--nomedia-v2 demo-header__current-mode--media demo-header__current-mode--unknown";
+
+        function getRouteModeTagClass(displayMode) {
+          if (displayMode === "nomedia") return "demo-header__current-mode--nomedia";
+          if (displayMode === "nomedia-v2") {
+            return "demo-header__current-mode--nomedia-v2";
+          }
+          if (displayMode === "media") return "demo-header__current-mode--media";
+          return "demo-header__current-mode--unknown";
+        }
+
+        function getRouteModeLabel(displayMode) {
+          for (var i = 0; i < ROUTE_MODE_GROUPS.length; i++) {
+            if (ROUTE_MODE_GROUPS[i].mode === displayMode) {
+              return ROUTE_MODE_GROUPS[i].label;
+            }
+          }
+          return displayMode ? String(displayMode) : "";
+        }
+
+        function updateCurrentPlan(planName, displayMode) {
+          var name = planName ? String(planName).trim() : "";
+          var $name = $("#demo-current-plan-name");
+          var $mode = $("#demo-current-plan-mode");
+
+          if (!name) {
+            $name.text("尚未選擇");
+            $mode.attr("hidden", true).text("").removeClass(MODE_TAG_CLASSES);
+            return;
+          }
+
+          $name.text(name);
+          var modeLabel = getRouteModeLabel(displayMode);
+          if (modeLabel) {
+            $mode
+              .removeAttr("hidden")
+              .removeClass(MODE_TAG_CLASSES)
+              .addClass(getRouteModeTagClass(displayMode))
+              .text(modeLabel);
+          } else {
+            $mode.attr("hidden", true).text("").removeClass(MODE_TAG_CLASSES);
+          }
+        }
+
+        function getSelectedRoute() {
+          var id = $('input[name="param-option"]:checked').val();
+          if (!id) return null;
+          for (var i = 0; i < routes.length; i++) {
+            if (routes[i].id === id) return routes[i];
+          }
+          return null;
+        }
+
+        function bindRouteChange() {
+          $('input[name="param-option"]')
+            .off("change.demo")
+            .on("change.demo", function () {
+              onRouteSelected();
+            });
+        }
+
+        function getRouteModeClass(displayMode) {
+          if (displayMode === "nomedia") return "demo-route--nomedia";
+          if (displayMode === "nomedia-v2") return "demo-route--nomedia-v2";
+          if (displayMode === "media") return "demo-route--media";
+          return "demo-route--unknown";
+        }
+
+        function getMktOnlineStatusClass(mktOnline) {
+          return mktOnline
+            ? "demo-route__status-dot--online"
+            : "demo-route__status-dot--offline";
+        }
+
+        function buildRouteItemHtml(item, checked, index) {
+          var statusLabel = item.mktOnline ? "已上線" : "未上線";
+          return (
+            '<label class="demo-route ' +
+            getRouteModeClass(item.displayMode) +
+            '">' +
+            '<input class="demo-route__input" type="radio" name="param-option" value="' +
+            escapeAttr(item.id) +
+            '"' +
+            (checked ? " checked" : "") +
+            " />" +
+            '<span class="demo-route__body">' +
+            '<span class="demo-route__lead">' +
+            '<span class="demo-route__index" aria-hidden="true">' +
+            index +
+            "</span>" +
+            '<span class="demo-route__status-dot ' +
+            getMktOnlineStatusClass(item.mktOnline) +
+            '" title="' +
+            escapeAttr(statusLabel) +
+            '" aria-label="' +
+            escapeAttr(statusLabel) +
+            '"></span>' +
+            "</span>" +
+            '<span class="demo-route__content">' +
+            '<span class="demo-route__title">' +
+            escapeHtml(item.description) +
+            "</span>" +
+            (item.questions && item.questions.length
+              ? buildQuestionsMetaHtml(item.questions)
+              : "") +
+            "</span>" +
+            '<span class="demo-route__check" aria-hidden="true">' +
+            checkIconSvg +
+            "</span>" +
+            "</span>" +
+            "</label>"
+          );
+        }
+
+        function getRoutesByMode(mode) {
+          return routes.filter(function (item) {
+            return item.displayMode === mode;
+          });
+        }
+
+        function buildModeListsShell() {
+          return ROUTE_MODE_GROUPS.map(function (group) {
+            return (
+              '<section class="demo-mode-list demo-mode-list--' +
+              escapeAttr(group.mode) +
+              '" id="demo-list-' +
+              escapeAttr(group.mode) +
+              '">' +
+              '<div class="demo-mode-list__header">' +
+              '<h3 class="demo-mode-list__title">' +
+              escapeHtml(group.label) +
+              "</h3>" +
+              '<span class="demo-mode-list__count">0 個計劃</span>' +
+              "</div>" +
+              '<div class="demo-mode-list__routes" role="radiogroup" aria-label="' +
+              escapeAttr(group.label) +
+              '">' +
+              '<p class="demo-mode-list__empty">暫無計劃</p>' +
+              "</div>" +
+              "</section>"
+            );
+          }).join("");
+        }
+
+        function showListsEmpty(message) {
+          $("#demo-mode-lists")
+            .removeClass("demo-mode-lists--loading")
+            .html(
+              '<p class="demo-mode-lists__empty">' +
+                escapeHtml(message) +
+                "</p>"
+            );
+        }
+
+        function renderRoutes(autoLoad) {
+          var $wrapper = $("#demo-mode-lists");
+          $wrapper.removeClass("demo-mode-lists--loading");
+
+          if (!routes.length) {
+            showListsEmpty("目前沒有可用的導購計劃");
+            updateCurrentPlan("");
+            return;
+          }
+
+          if (!$wrapper.find(".demo-mode-list").length) {
+            $wrapper.html(buildModeListsShell());
+          }
+
+          var hasAny = false;
+          var isFirstRoute = true;
+
+          ROUTE_MODE_GROUPS.forEach(function (group) {
+            var $section = $("#demo-list-" + group.mode);
+            var items = getRoutesByMode(group.mode);
+            var countLabel = items.length + " 個計劃";
+
+            $section.find(".demo-mode-list__count").text(countLabel);
+
+            if (!items.length) {
+              $section
+                .find(".demo-mode-list__routes")
+                .html('<p class="demo-mode-list__empty">暫無計劃</p>');
+              return;
+            }
+
+            hasAny = true;
+
+            var html = items
+              .map(function (item, index) {
+                var checked = isFirstRoute;
+                if (isFirstRoute) isFirstRoute = false;
+                return buildRouteItemHtml(item, checked, index + 1);
+              })
+              .join("");
+
+            $section.find(".demo-mode-list__routes").html(html);
+          });
+
+          if (!hasAny) {
+            showListsEmpty("目前沒有可用的導購計劃");
+            updateCurrentPlan("");
+            return;
+          }
+
+          bindRouteChange();
+          if (autoLoad) onRouteSelected();
+        }
+
+        function fetchRoutes() {
+          return $.ajax({
+            url: ROUTES_API,
+            method: "GET",
+            dataType: "json",
+            data: {
+              Brand: DEMO_BRAND,
+              Per_Page: 100,
+              Page: 1,
+            },
+          })
+            .done(function (data) {
+              if (
+                !data ||
+                data.status !== "success" ||
+                !Array.isArray(data.models)
+              ) {
+                showListsEmpty("計劃資料格式異常");
+                showToast("無法載入計劃列表", "!");
+                return;
+              }
+
+              routes = data.models
+                .filter(function (item) {
+                  return item && item.Route;
+                })
+                .map(function (item) {
+                  return {
+                    id: item.Route,
+                    brand: DEMO_BRAND,
+                    displayMode: item.RouteDisplayMode || "",
+                    mktOnline: !!item.mktOnline,
+                    questions: normalizeQuestions(item.TagGroups_Description),
+                    description:
+                      (item.Description && String(item.Description).trim()) ||
+                      (item.Name && String(item.Name).trim()) ||
+                      item.Route,
+                  };
+                });
+
+              renderRoutes(true);
+            })
+            .fail(function () {
+              showListsEmpty("計劃載入失敗，請重新整理頁面");
+              showToast("無法載入計劃列表", "!");
+            });
+        }
+
+        function showToast(message, icon) {
+          var $toast = $("#demo-toast");
+          $("#demo-toast-text").text(message);
+          $("#demo-toast-icon").text(icon || "✓");
+          $toast.addClass("demo-toast--visible");
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(function () {
+            $toast.removeClass("demo-toast--visible");
+          }, 3200);
+        }
+
+        $(function () {
+          $(window).on("message", function (event) {
+            var data = event.originalEvent.data || {};
+
+            if (data.header === "GA4Event") {
+              try {
+                console.log("[GA4Event from iframe]", data);
+              } catch (_) {}
+              if (typeof gtag === "function" && data.event_action) {
+                var gaPayload = {
+                  event_category: data.event_category || "inffits_route",
+                  event_label: data.event_label || "",
+                  value: typeof data.value === "number" ? data.value : 1,
+                };
+                if (data.measurement_id) gaPayload.send_to = data.measurement_id;
+                try {
+                  gtag("event", data.event_action, gaPayload);
+                } catch (_) {}
+              }
+              return;
+            }
+
+            if (data.type === "result") {
+              if (data.value) {
+                $(".ai-pd-container__trigger").addClass(
+                  "ai-pd-container__trigger--result"
+                );
+              } else {
+                $(".ai-pd-container__trigger").removeClass(
+                  "ai-pd-container__trigger--result"
+                );
+              }
+            }
+
+            if (data.type === "closeModal") {
+              if (data.value) {
+                $("#inffits_cblock--overlay").fadeOut();
+                $(".ai-pd-container__trigger").toggleClass(
+                  "ai-pd-container__trigger--search ai-pd-container__trigger--close"
+                );
+              }
+            }
+
+            if (data.type === "removeLoading") {
+              isLoadingRoute = false;
+            }
+          });
+
+          var aiSearchPdTemplate =
+            '<div class="ai-pd-container">' +
+            '<button class="ai-pd-container__trigger ai-pd-container__trigger--search" type="button">' +
+            '<div class="ai-pd-container__icon"></div>' +
+            '<img class="ai-pd-container__icon--alert" src="https://raw.githubusercontent.com/infFITSDevelopment/pop-ad/refs/heads/main/icon-alert.svg" alt="">' +
+            "</button>" +
+            '<div style="display:none;position:fixed;width:100%;height:100%;top:0;left:0;z-index:999;background:rgba(0,0,0,0.5);" id="inffits_cblock--overlay">' +
+            '<div id="inffits_cblock" style="z-index:60;display:block;position:absolute;inset:0;">' +
+            '<div id="tryon" style="height:100%;width:100%;display:flex;justify-content:center;align-items:center;">' +
+            '<iframe id="inffits_tryon_window" style="height:100%;width:100%;visibility:visible;position:relative;border:none;outline:none;z-index:14;max-width:95vw;margin:0 auto;" src="' + getIframeContainerSrc() + '"></iframe>' +
+            "</div></div></div></div>" +
+            '<style media="screen and (min-width: 480px)">' +
+            "#inffits_cblock{position:fixed;right:0;bottom:0;height:700px;width:480px!important;}" +
+            "#tryon{margin:auto;height:700px;width:480px!important;}" +
+            "</style>" +
+            '<style media="screen and (min-width: 365px) and (max-width: 479px)">' +
+            "#inffits_cblock{position:fixed;right:0;bottom:0;}" +
+            "#tryon{margin:auto;width:365px!important;}" +
+            "</style>";
+
+          document.body.insertAdjacentHTML("beforeend", aiSearchPdTemplate);
+
+          var iframeContainerDiv = document.getElementById("tryon");
+
+          function recreateIframe(id, brand, planLabel) {
+            var oldIframe = document.getElementById("inffits_tryon_window");
+            if (oldIframe) oldIframe.remove();
+
+            isLoadingRoute = true;
+            currentLoadedRouteId = id;
+
+            var iframeElement = document.createElement("iframe");
+            iframeElement.id = "inffits_tryon_window";
+            iframeElement.style.cssText =
+              "height:100%;width:100%;visibility:visible;position:relative;border:none;outline:none;z-index:14;max-width:95vw;margin:0 auto;";
+            iframeElement.src = getIframeContainerSrc();
+
+            iframeElement.onload = function () {
+              var iframe_container = iframeElement.contentWindow;
+              iframe_container.postMessage(
+                {
+                  id: id,
+                  header: "from_preview",
+                  brand: brand,
+                  MRID: "",
+                  GVID: "",
+                  LGVID: "",
+                },
+                "*"
+              );
+
+              isLoadingRoute = false;
+              showToast(planLabel + " 載入完成，可以開始體驗");
+            };
+
+            iframeContainerDiv.appendChild(iframeElement);
+          }
+
+          onRouteSelected = function () {
+            var selected = getSelectedRoute();
+            if (!selected || !selected.id || !selected.brand) return;
+            updateCurrentPlan(selected.description, selected.displayMode);
+            if (isLoadingRoute) return;
+            if (currentLoadedRouteId === selected.id) return;
+            recreateIframe(
+              selected.id,
+              selected.brand,
+              selected.description
+            );
+          };
+
+          $(".ai-pd-container__trigger").on("pointerdown", function () {
+            if ($(this).hasClass("ai-pd-container__trigger--search")) {
+              $("#inffits_cblock--overlay").fadeIn(200);
+            } else {
+              $("#inffits_cblock--overlay").fadeOut(200);
+            }
+            $(this).toggleClass(
+              "ai-pd-container__trigger--search ai-pd-container__trigger--close"
+            );
+          });
+
+          $("#inffits_cblock--overlay").on("pointerdown", function (e) {
+            if (e.target === this) {
+              $(this).fadeOut(200);
+              $(".ai-pd-container__trigger").removeClass(
+                "ai-pd-container__trigger--close"
+              ).addClass("ai-pd-container__trigger--search");
+            }
+          });
+
+          if (!initBrand()) {
+            $("#demo-mode-lists")
+              .removeClass("demo-mode-lists--loading")
+              .html(
+                '<p class="demo-mode-lists__empty">請在網址指定 brand 參數<br>例如 ob_test.html?brand=OB91</p>'
+              );
+            return;
+          }
+
+          fetchRoutes();
+        });
+
+        function initBrand() {
+          DEMO_BRAND = getBrandFromUrl();
+          if (!DEMO_BRAND) return false;
+          applyBrandToPage(DEMO_BRAND);
+          return true;
+        }
+      })(jQuery);
+    </script>
+  </body>
+</html>

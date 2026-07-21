@@ -98,6 +98,17 @@
     var test = "A";
     var GA4Key = "";
 
+    function getGa4KeyFromUrl() {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        return (params.get("ga") || "").trim();
+      } catch (_) {
+        return "";
+      }
+    }
+
+    GA4Key = getGa4KeyFromUrl();
+
     // 移除全局模块注册代码
 
     function member_id_91APP() {

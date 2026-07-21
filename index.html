@@ -166,9 +166,31 @@
         $(window).on("message", function (event) {
           var origin = event.originalEvent.origin;
           // if (origin !== 'https://iframe所在的網址') return; // 避免跨域攻擊
+          var data = event.originalEvent.data || {};
+
+          // 對齊 shirt-component / GTM：iframe 送來的 GA4 事件
+          // 正式環境由 gtm_*.js 轉發 gtag；此處供本機除錯
+          if (data.header === "GA4Event") {
+            try {
+              console.log("[GA4Event from iframe]", data);
+            } catch (_) {}
+            if (typeof gtag === "function" && data.event_action) {
+              var gaPayload = {
+                event_category: data.event_category || "inffits_route",
+                event_label: data.event_label || "",
+                value: typeof data.value === "number" ? data.value : 1,
+              };
+              if (data.measurement_id) gaPayload.send_to = data.measurement_id;
+              try {
+                gtag("event", data.event_action, gaPayload);
+              } catch (_) {}
+            }
+            return;
+          }
+
           // 處理從 <iframe> 來的訊息
-          if (event.originalEvent.data.type === "result") {
-            if (event.originalEvent.data.value) {
+          if (data.type === "result") {
+            if (data.value) {
               $(".ai-pd-container__trigger").addClass(
                 "ai-pd-container__trigger--result"
               );
@@ -178,8 +200,8 @@
               );
             }
           }
-          if (event.originalEvent.data.type === "closeModal") {
-            if (event.originalEvent.data.value) {
+          if (data.type === "closeModal") {
+            if (data.value) {
               $("#inffits_cblock--overlay").fadeOut();
               $(".ai-pd-container__trigger").toggleClass(
                 "ai-pd-container__trigger--search ai-pd-container__trigger--close"

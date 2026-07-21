@@ -25,6 +25,100 @@ let isForReferral = window.location.href
   .includes("referral");
 let firstResult = {};
 
+// ===== GA4 事件追蹤（對齊 shirt-component：iframe 內不直接呼叫 gtag）=====
+// 僅 postMessage 給父頁，由父頁 GTM（如 gtm_*.js）轉發 gtag
+var GA4Key = ""; // measurement_id；空字串則交給父頁 GTM 預設 GA4KEY
+var TRACK_EVENT_PREFIX = "no-media_v2_";
+var TRACK_EVENT_CATEGORY = "inffits_route";
+var TRACK_EVENT_DEBOUNCE_MS = 800; // 同一事件防連擊時間窗
+var trackEventLastSent = {};
+
+function getGa4KeyFromUrl() {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    return (params.get("ga") || "").trim();
+  } catch (_) {
+    return "";
+  }
+}
+
+GA4Key = getGa4KeyFromUrl();
+
+function isNoMediaGaDebug() {
+  try {
+    if (window.__NO_MEDIA_GA_DEBUG === true) return true;
+    if (localStorage.getItem("NO_MEDIA_GA_DEBUG") === "1") return true;
+  } catch (_) {}
+  return false;
+}
+
+function isEmbeddedInIframe() {
+  try {
+    return window.parent && window.parent !== window;
+  } catch (_) {
+    return true;
+  }
+}
+
+function getTrackEventDedupeKey(eventName, params) {
+  var p = params || {};
+  return [
+    eventName,
+    p.action || "",
+    p.event_label || "",
+    p.event_value || "",
+    p.category || "",
+    p.tag_group || "",
+    p.step != null ? String(p.step) : "",
+  ].join("|");
+}
+
+function trackInffitsEvent(eventName, params) {
+  var p = params || {};
+  var fullEventName =
+    eventName.indexOf(TRACK_EVENT_PREFIX) === 0
+      ? eventName
+      : TRACK_EVENT_PREFIX + eventName;
+
+  var now = Date.now();
+  var dedupeKey = getTrackEventDedupeKey(fullEventName, p);
+  var last = trackEventLastSent[dedupeKey] || 0;
+  if (now - last < TRACK_EVENT_DEBOUNCE_MS) return; // 防連擊
+  trackEventLastSent[dedupeKey] = now;
+
+  var eventLabel =
+    p.event_label != null && p.event_label !== ""
+      ? String(p.event_label)
+      : "Track/NoMediaV2";
+
+  var message = {
+    header: "GA4Event",
+    measurement_id: GA4Key || "",
+    event_action: fullEventName,
+    event_category: TRACK_EVENT_CATEGORY,
+    event_label: eventLabel,
+    value: typeof p.value === "number" ? p.value : 1,
+  };
+
+  // 開發對照用（父頁 GTM 若未接則不影響正式上報）
+  if (p.action) message.action = p.action;
+  if (Brand) message.brand = Brand;
+  if (Route || current_Route) message.route = Route || current_Route || "";
+
+  if (isNoMediaGaDebug()) {
+    try {
+      console.log("[NO_MEDIA_GA]", message, p);
+    } catch (_) {}
+  }
+
+  // 非 iframe 嵌入：不送 GA（僅 debug log），對齊 shirt-component
+  if (!isEmbeddedInIframe()) return;
+
+  try {
+    window.parent.postMessage(message, "*");
+  } catch (_) {}
+}
+
 function throttle(fn, delay) {
   let isFirstCall = true; // 用來判斷是否是第一次調用
   return function (...args) {
@@ -625,6 +719,17 @@ function spinCapsuleReels(cats) {
   if (active.length === 0) return;
   isSpinning = true;
 
+  trackInffitsEvent("spin_capsule", {
+    action: "spin_reels",
+    event_label: "拉霸轉動",
+    categories: active.join(","),
+    pinned: cats
+      .filter(function (c) {
+        return capsulePinned[c];
+      })
+      .join(","),
+  });
+
   let pending = active.length;
   const onOne = () => {
     pending -= 1;
@@ -644,6 +749,12 @@ function toggleCapsulePin(cat) {
     "reel-pinned",
     capsulePinned[cat]
   );
+  trackInffitsEvent("click_reel_pin", {
+    action: capsulePinned[cat] ? "pin" : "unpin",
+    event_label: cat,
+    event_value: capsulePinned[cat] ? "pin" : "unpin",
+    pinned: capsulePinned[cat],
+  });
 }
 
 // 釘選按鈕事件 (事件委託；button 在 <a> 之外，不會觸發跳轉)
@@ -652,6 +763,22 @@ $(document).on("click", "#container-recom .reel-pin-btn", function (e) {
   e.stopPropagation();
   const cat = $(this).attr("data-cat");
   if (cat) toggleCapsulePin(cat);
+});
+
+// 點擊拉霸商品
+$(document).on("click", "#container-recom .reel-link", function () {
+  const $slot = $(this).closest(".reel-slot");
+  const cat = $slot.attr("data-cat") || "";
+  const title = $slot.find(".recom-text").text() || "";
+  const link = $(this).attr("href") || "";
+  const price = $slot.find(".recom-price").text() || "";
+  trackInffitsEvent("click_reel_item", {
+    action: "reel_item_click",
+    event_label: title,
+    event_value: link,
+    category: cat,
+    price: price,
+  });
 });
 
 const show_results = async (response, isFirst = false) => {
@@ -1567,6 +1694,11 @@ const fetchData = async () => {
           `container-${r.replaceAll(/[\s\.]/g, "")}-backarrow`
         )
         $(backarrow).on(tap, function () {
+          trackInffitsEvent("click_back", {
+            action: "back_to_intro",
+            event_label: "返回介紹頁",
+            event_value: all_Route[0] || "",
+          });
           $("#intro-page").show();
           $("#container-" + all_Route[0]).hide();
           tags_chosen = {};
@@ -1745,6 +1877,12 @@ const fetchData = async () => {
             .off(mytap)
             .on(mytap, function (e) {
               // if ($(this).text() == "略過") {
+              trackInffitsEvent("click_skip", {
+                action: "skip_step",
+                event_label: all_Route[fs],
+                event_value: currentRoute,
+                step: fs + 1,
+              });
               var tag = `c-${all_Route[fs]}`;
               $(`.${tag}.tag-selected`).removeClass("tag-selected");
               $(".tag-selected").removeClass("tag-selected");
@@ -1814,6 +1952,13 @@ const fetchData = async () => {
               var tag = `c-${all_Route[fs]}`;
               $(`.${tag}.tag-selected`).removeClass("tag-selected");
               $(this).addClass("tag-selected");
+              trackInffitsEvent("click_tag", {
+                action: "select_tag",
+                event_label: $(this).find("p").text() || "",
+                event_value: tagid,
+                tag_group: all_Route[fs],
+                step: fs + 1,
+              });
               if (fs == all_Route.length - 1) {
                 $("#container-" + currentRoute).hide();
 
@@ -1880,6 +2025,12 @@ const fetchData = async () => {
             mytap,
             function (e) {
               if (fs != 0) {
+                trackInffitsEvent("click_back", {
+                  action: "back_to_prev_step",
+                  event_label: all_Route[fs - 1],
+                  event_value: all_Route[fs],
+                  step: fs + 1,
+                });
                 $("#container-" + currentRoute).hide();
                 $("#container-" + all_Route[fs - 1].replaceAll(/[\s\.]/g, "")).show();
                 // 啟動上一個容器的打字效果
@@ -1949,6 +2100,14 @@ $(document).on(tap, ".change-group-btn", function () {
   const totalGroups = parseInt($btn.data("total-groups"), 10);
   const nextGroup = (currentGroup + 1) % totalGroups;
 
+  trackInffitsEvent("click_change_group", {
+    action: "change_tag_group",
+    event_label: target,
+    event_value: String(nextGroup),
+    from_group: currentGroup,
+    to_group: nextGroup,
+  });
+
   $btn.addClass("rotating change-group-btn--hidden");
   $btn.attr("data-current-group", nextGroup);
 
@@ -1989,6 +2148,10 @@ function copyCoupon(couponCode, btn) {
 
 // 使用事件委託來處理動態創建的元素
 $(document).on(tap, "#start-button", function () {
+  trackInffitsEvent("click_start", {
+    action: "start_button",
+    event_label: "開始導購",
+  });
   $("#recommend-title").text("專屬商品推薦");
   $("#recommend-desc").text("根據您的偏好，精選以下單品。"); // 使用淡入動畫
   $("#recommend-btn").text("刷新推薦");
@@ -2033,6 +2196,10 @@ $(document).on(tap, "#start-button", function () {
 
 
 $("#coupon-btn").on(tap, function () {
+  trackInffitsEvent("click_coupon", {
+    action: "open_coupon",
+    event_label: "開啟優惠券",
+  });
   $("#loadingbar_recom").show();
   const $couponOverlay = $(`<div id="coupon-overlay"></div>`)
     .css({
@@ -2116,6 +2283,11 @@ $("#coupon-btn").on(tap, function () {
 })
 
 $("#coupon-recommend-btn").on(tap, function () {
+  trackInffitsEvent("click_coupon_recommend", {
+    action: "open_coupon_recommend",
+    event_label: "優惠推薦",
+    event_value: String((resList && resList.length) || 0),
+  });
   const messageData = {
     type: "openCouponDialog",
     list: resList,
@@ -2126,6 +2298,12 @@ $("#coupon-recommend-btn").on(tap, function () {
 
 // 刷新推薦 = SPIN：重新轉動未釘選的拉霸欄位
 $("#recommend-btn").on(tap, function () {
+  trackInffitsEvent("click_refresh_recommend", {
+    action: "refresh_recommend_btn",
+    event_label: "刷新推薦",
+    event_value: "spin",
+    categories: (reelCats || []).join(","),
+  });
   $("#loadingbar_recom").hide();
 
   window.parent.postMessage({ type: "result", value: true }, "*");
@@ -2143,6 +2321,10 @@ $(document).on("click", function (event) {
 });
 
 $("#startover").on(tap, function () {
+  trackInffitsEvent("click_startover", {
+    action: "startover_btn",
+    event_label: "重新開始",
+  });
   $("#loadingbar_recom").hide();
   Initial();
   reset();
