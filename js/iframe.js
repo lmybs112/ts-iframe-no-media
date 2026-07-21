@@ -229,80 +229,154 @@ const analyzeGenderInTags = (tags_chosen) => {
   };
 }
 
-const getEmbedded = async () => {
-  let requestData = {
+function getRandomElements(arr, count) {
+  const result = [];
+  const usedIndexes = new Set();
+  if (!arr || arr.length === 0 || count <= 0) return result;
+
+  while (result.length < count && result.length < arr.length) {
+    const randomIndex = Math.floor(Math.random() * arr.length);
+    if (!usedIndexes.has(randomIndex)) {
+      result.push(arr[randomIndex]);
+      usedIndexes.add(randomIndex);
+    }
+  }
+
+  return result;
+}
+
+// 將第二支推薦 API（CDP）商品轉成拉霸用的格式
+function formatCdpItemsToCapsule(dataSource) {
+  if (!dataSource || dataSource.length === 0) return [];
+  const pickCount = dataSource.length < 6 ? dataSource.length : 6;
+  return getRandomElements(dataSource, pickCount).map(function (item) {
+    var newItem = Object.assign({}, item);
+    newItem.sale_price = item.sale_price
+      ? parseInt(item.sale_price.replace(/\D/g, ""), 10).toLocaleString("en-US", {
+          style: "currency",
+          currency: "TWD",
+          minimumFractionDigits: 0,
+        })
+      : "";
+    newItem.price = parseInt(item.price.replace(/\D/g, ""), 10).toLocaleString(
+      "en-US",
+      {
+        style: "currency",
+        currency: "TWD",
+        minimumFractionDigits: 0,
+      }
+    );
+    return {
+      Imgsrc: newItem.image_link,
+      Link: newItem.link,
+      ItemName: newItem.title,
+      sale_price: newItem.sale_price,
+      price: newItem.price,
+      ...newItem,
+    };
+  });
+}
+
+function buildCdpRecommendRequest(isBackup) {
+  var requestData = {
     Brand: Brand,
     LGVID: LGVID || "",
     MRID: MRID || "",
     GVID: GVID || "",
     recom_num: "12",
-    PID: "",
-    SP_PID:'skip'
   };
-  const api_recom_product_url = Brand.toLocaleUpperCase() === 'VER' ? 'HTTP_stock_cdp_product_recommendation' : 'HTTP_inf_bhv_cdp_product_recommendation';
-  const apiUrl = `https://api.inffits.com/${api_recom_product_url}/extension/recom_product`;
+  if (isBackup) {
+    requestData.PID = "搭配商品的pid";
+    requestData.SP_PID = "xxSOCIAL PROOF";
+  } else {
+    requestData.PID = "";
+    requestData.SP_PID = "skip";
+  }
+  if (Brand.toLocaleUpperCase() === "VER") {
+    var series_in = analyzeGenderInTags(tags_chosen).result;
+    if (series_in) requestData.series_in = series_in;
+  }
+  return requestData;
+}
 
-  if(Brand.toLocaleUpperCase() === 'VER'){
-    const series_in = analyzeGenderInTags(tags_chosen).result;
-    if(series_in){
-      requestData.series_in = series_in;
-    }
+function getCdpRecommendApiUrl() {
+  var api_recom_product_url =
+    Brand.toLocaleUpperCase() === "VER"
+      ? "HTTP_stock_cdp_product_recommendation"
+      : "HTTP_inf_bhv_cdp_product_recommendation";
+  return (
+    "https://api.inffits.com/" + api_recom_product_url + "/extension/recom_product"
+  );
+}
+
+// 呼叫第二支推薦 API，回傳拉霸可用的商品陣列
+async function fetchFallbackRecommendItems() {
+  async function requestOnce(isBackup) {
+    var response = await fetch(getCdpRecommendApiUrl(), {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(buildCdpRecommendRequest(isBackup)),
+    });
+    var data = await response.json();
+    var dataSource =
+      data["bhv"] && data["bhv"].length > 0 ? data["bhv"] : data["sp_atc"];
+    return formatCdpItemsToCapsule(dataSource);
   }
 
-  const options = {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(requestData),
-  };
+  try {
+    var primary = await requestOnce(false);
+    if (primary.length > 0) return primary;
+  } catch (_) {}
 
   try {
-    const response = await fetch(
-      apiUrl,
-      options
+    return await requestOnce(true);
+  } catch (_) {
+    return [];
+  }
+}
+
+// 空的分類池改用第二支推薦 API 補齊；補不到則移除該欄，避免出現空卡
+async function fillEmptyCapsulePools(pools) {
+  var cats = Object.keys(pools);
+  var emptyCats = cats.filter(function (c) {
+    return !pools[c] || pools[c].length === 0;
+  });
+  if (emptyCats.length === 0) return pools;
+
+  var fallbackItems = await fetchFallbackRecommendItems();
+  var next = {};
+  cats.forEach(function (c) {
+    if (pools[c] && pools[c].length > 0) next[c] = pools[c];
+  });
+
+  if (fallbackItems.length === 0) return next;
+
+  var cursor = 0;
+  emptyCats.forEach(function (cat) {
+    var need = Math.max(
+      1,
+      Math.floor(fallbackItems.length / emptyCats.length)
     );
-    const data = await response.json();
-    
-    // 檢查 bhv 是否為空陣列，如果是則使用 sp_atc
-    const dataSource = (data["bhv"] && data["bhv"].length > 0) ? data["bhv"] : data["sp_atc"];
-    
-    // 如果兩個資料源都為空，則呼叫 getEmbeddedForBackup
-    if (!dataSource || dataSource.length === 0) {
-      getEmbeddedForBackup();
+    var chunk = [];
+    for (var i = 0; i < need; i++) {
+      chunk.push(fallbackItems[cursor % fallbackItems.length]);
+      cursor += 1;
+    }
+    next[cat] = chunk;
+  });
+  return next;
+}
+
+const getEmbedded = async () => {
+  try {
+    const formatItems = await fetchFallbackRecommendItems();
+    if (!formatItems || formatItems.length === 0) {
+      $("#startover").click();
       return;
     }
-    
-    let jsonData = getRandomElements(dataSource, dataSource.length < 6 ? dataSource.length : 6).map((item) => {
-      let newItem = Object.assign({}, item);
-      newItem.sale_price = item.sale_price
-        ? parseInt(item.sale_price.replace(/\D/g, "")).toLocaleString("en-US", {
-            style: "currency",
-            currency: "TWD",
-            minimumFractionDigits: 0,
-          })
-        : "";
-      newItem.price = parseInt(item.price.replace(/\D/g, "")).toLocaleString(
-        "en-US",
-        {
-          style: "currency",
-          currency: "TWD",
-          minimumFractionDigits: 0,
-        }
-      );
-      return newItem;
-    });
-
-    const formatItems = jsonData.map((jsonDataItem) => ({
-      Imgsrc: jsonDataItem.image_link,
-      Link: jsonDataItem.link,
-      ItemName: jsonDataItem.title,
-      sale_price: jsonDataItem.sale_price,
-      price: jsonDataItem.price,
-      ...jsonDataItem,
-    }));
-
 
     const formatData = {
       Item: formatItems,
@@ -313,142 +387,48 @@ const getEmbedded = async () => {
     $("#recommend-btn").text("刷新推薦");
     show_results(formatData);
   } catch (err) {
-    getEmbeddedForBackup();
+    $("#startover").click();
   }
-};
-
-function getRandomElements(arr, count) {
-  const result = [];
-  const usedIndexes = new Set();
-
-  while (result.length < count) {
-    const randomIndex = Math.floor(Math.random() * arr.length);
-    if (!usedIndexes.has(randomIndex)) {
-      result.push(arr[randomIndex]);
-      usedIndexes.add(randomIndex);
-    }
-  }
-
-  return result;
-}
-const getEmbeddedForBackup = () => {
-  let requestData = {
-    Brand: Brand,
-    LGVID: LGVID || "",
-    MRID: MRID || "",
-    GVID: GVID || "",
-    PID:"搭配商品的pid",
-    recom_num: "12",
-    SP_PID:"xxSOCIAL PROOF"
-  };
-
-  const api_recom_product_url = Brand.toLocaleUpperCase() === 'VER' ? 'HTTP_stock_cdp_product_recommendation' : 'HTTP_inf_bhv_cdp_product_recommendation';
-  const apiUrl = `https://api.inffits.com/${api_recom_product_url}/extension/recom_product`;
-
-  if(Brand.toLocaleUpperCase() === 'VER'){
-    const series_in = analyzeGenderInTags(tags_chosen).result;
-    if(series_in){
-      requestData.series_in = series_in;
-    }
-  }
-  const options = {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(requestData),
-  };
-  fetch(
-    apiUrl,
-    options
-  )
-    .then((response) => response.json())
-    .then((response) => {
-      // 檢查 bhv 是否為空陣列，如果是則使用 sp_atc
-      const dataSource = (response["bhv"] && response["bhv"].length > 0) ? response["bhv"] : response["sp_atc"];
-      
-      // 如果兩個資料源都為空，則點擊重新開始按鈕
-      if (!dataSource || dataSource.length === 0) {
-        // 點擊重新開始按鈕
-        $("#startover").click();
-        return;
-      }
-      
-      let jsonData = getRandomElements(dataSource, dataSource.length < 6 ? dataSource.length : 6).map((item) => {
-        let newItem = Object.assign({}, item);
-        newItem.sale_price = item.sale_price
-          ? parseInt(item.sale_price.replace(/\D/g, "")).toLocaleString(
-              "en-US",
-              {
-                style: "currency",
-                currency: "TWD",
-                minimumFractionDigits: 0,
-              }
-            )
-          : "";
-        newItem.price = parseInt(item.price.replace(/\D/g, "")).toLocaleString(
-          "en-US",
-          {
-            style: "currency",
-            currency: "TWD",
-            minimumFractionDigits: 0,
-          }
-        );
-        return newItem;
-      });
-      const formatItems = jsonData.map((jsonDataItem) => {
-        return {
-          Imgsrc: jsonDataItem.image_link,
-          Link: jsonDataItem.link,
-          ItemName: jsonDataItem.title,
-          sale_price: jsonDataItem.sale_price,
-          price: jsonDataItem.price,
-          ...jsonDataItem,
-        };
-      });
-
-
-      const formatData = {
-        Item: formatItems,
-      };
-      $("#recommend-title").text("猜你可能喜歡");
-      $("#recommend-desc").text("目前無符合結果，推薦熱門商品給你。");
-      $("#recommend-btn").text("刷新推薦");
-      show_results(formatData);
-      $("#container-recom").show();
-      localStorage.setItem(
-        `INFS_ROUTE_RES_${Brand}`,
-        JSON.stringify([])
-      );
-    })
-    .catch(() => {});
 };
 
 // ===== 拉霸結果頁 (capsule slot machine) =====
-const REEL_CATS = ["Tops", "Bottoms", "Dresses"];
-let capsulePools = { Tops: [], Bottoms: [], Dresses: [] };
-let capsuleIndex = { Tops: 0, Bottoms: 0, Dresses: 0 };
-let capsulePinned = { Tops: false, Bottoms: false, Dresses: false };
+// 預設三欄（capsule: true）；AURASTRO 等會改為 API 回傳的動態 key（如材質）
+const DEFAULT_REEL_CATS = ["Tops", "Bottoms", "Dresses"];
+let reelCats = DEFAULT_REEL_CATS.slice();
+let capsulePools = {};
+let capsuleIndex = {};
+let capsulePinned = {};
 let isSpinning = false;
 
-// 將 API 回傳整理成三類商品池；若為扁平陣列(備援熱門商品)則平均分配到三欄
+// 判斷 Item 是否為「分類 → 商品陣列」的分組結構
+function isGroupedCapsuleItem(item) {
+  if (!item || Array.isArray(item) || typeof item !== "object") return false;
+  const keys = Object.keys(item);
+  if (keys.length === 0) return false;
+  return keys.every(function (k) {
+    return Array.isArray(item[k]);
+  });
+}
+
+// 將 API 回傳整理成分類商品池；支援 Tops/Bottoms/Dresses 或動態材質 key
+// 若為扁平陣列（備援熱門商品）則平均分配到預設三欄
 function normalizeCapsulePools(response) {
   const item = response && response.Item;
-  if (
-    item &&
-    !Array.isArray(item) &&
-    (item.Tops || item.Bottoms || item.Dresses)
-  ) {
-    return {
-      Tops: item.Tops || [],
-      Bottoms: item.Bottoms || [],
-      Dresses: item.Dresses || [],
-    };
+  if (isGroupedCapsuleItem(item)) {
+    const pools = {};
+    Object.keys(item).forEach(function (k) {
+      pools[k] = item[k] || [];
+    });
+    return pools;
   }
   const arr = Array.isArray(item) ? item : [];
-  const pools = { Tops: [], Bottoms: [], Dresses: [] };
-  arr.forEach((it, idx) => pools[REEL_CATS[idx % 3]].push(it));
+  const pools = {};
+  DEFAULT_REEL_CATS.forEach(function (c) {
+    pools[c] = [];
+  });
+  arr.forEach(function (it, idx) {
+    pools[DEFAULT_REEL_CATS[idx % DEFAULT_REEL_CATS.length]].push(it);
+  });
   return pools;
 }
 
@@ -499,18 +479,24 @@ function renderCapsuleReel(cat) {
   $slot.find(".recom-price").text(priceText);
 }
 
-// 建立三個拉霸欄位
+// 建立拉霸欄位（欄位數與標題依 reelCats 動態決定）
 function buildCapsuleReels() {
   const $sel = $("#container-recom").find(".axd_selections");
   $sel.html("");
-  REEL_CATS.forEach((cat) => {
+  reelCats.forEach((cat) => {
     const pinned = capsulePinned[cat] ? " reel-pinned" : "";
+    const safeCat = String(cat)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
     $sel.append(`
-      <div class="axd_selection cursor-pointer update_delete reel-slot${pinned}" data-cat="${cat}">
-        <button type="button" class="reel-pin-btn" data-cat="${cat}" title="固定此欄" aria-label="固定此欄">
+      <div class="axd_selection cursor-pointer update_delete reel-slot${pinned}" data-cat="${safeCat}">
+        <button type="button" class="reel-pin-btn" data-cat="${safeCat}" title="固定此欄" aria-label="固定此欄">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76V6a3 3 0 0 1 6 0v4.76a2 2 0 0 0 .55 1.38l1.94 2.06A1 1 0 0 1 16.77 17H7.23a1 1 0 0 1-.72-1.8l1.94-2.06A2 2 0 0 0 9 10.76z"/></svg>
         </button>
         <a href="javascript:void(0)" target="_blank" class="update_delete reel-link" style="text-decoration: none;" onclick="openDetailDialog()">
+          <p class="reel-cat-label">${safeCat}</p>
           <div class="reel-window">
             <div class="reel-roller"></div>
           </div>
@@ -525,12 +511,14 @@ function buildCapsuleReels() {
     `);
   });
 
-  REEL_CATS.forEach((cat) => renderCapsuleReel(cat));
+  reelCats.forEach((cat) => renderCapsuleReel(cat));
 
   const selectionContainer = document.querySelector(
     `#container-recom .selection`
   );
-  if (selectionContainer) selectionContainer.classList.add("three-elements");
+  if (selectionContainer) {
+    selectionContainer.classList.toggle("three-elements", reelCats.length === 3);
+  }
 }
 
 // Apple 風格的減速曲線 (easeOutExpo)，末段以近乎靜止的速度落定
@@ -662,14 +650,16 @@ function toggleCapsulePin(cat) {
 $(document).on("click", "#container-recom .reel-pin-btn", function (e) {
   e.preventDefault();
   e.stopPropagation();
-  const cat = $(this).data("cat");
+  const cat = $(this).attr("data-cat");
   if (cat) toggleCapsulePin(cat);
 });
 
-const show_results = (response, isFirst = false) => {
-  const pools = normalizeCapsulePools(response);
-  const total =
-    pools.Tops.length + pools.Bottoms.length + pools.Dresses.length;
+const show_results = async (response, isFirst = false) => {
+  let pools = normalizeCapsulePools(response);
+  let cats = Object.keys(pools);
+  let total = cats.reduce(function (sum, c) {
+    return sum + (pools[c] || []).length;
+  }, 0);
 
   if (total === 0 || !response) {
     getEmbedded();
@@ -677,14 +667,38 @@ const show_results = (response, isFirst = false) => {
     return;
   }
 
-  $("#container-recom").show();
-  capsulePools = pools;
-  resList = [].concat(pools.Tops, pools.Bottoms, pools.Dresses);
-
-  REEL_CATS.forEach((cat) => {
-    capsuleIndex[cat] = 0;
-    if (isFirst) capsulePinned[cat] = false;
+  // 任一分類為空：用第二支推薦 API 補齊；仍空則不顯示該欄
+  const hasEmpty = cats.some(function (c) {
+    return !pools[c] || pools[c].length === 0;
   });
+  if (hasEmpty) {
+    pools = await fillEmptyCapsulePools(pools);
+    cats = Object.keys(pools);
+    total = cats.reduce(function (sum, c) {
+      return sum + (pools[c] || []).length;
+    }, 0);
+    if (total === 0) {
+      getEmbedded();
+      localStorage.setItem(`INFS_ROUTE_RES_${Brand}`, JSON.stringify([]));
+      return;
+    }
+  }
+
+  $("#container-recom").show();
+  reelCats = cats;
+  capsulePools = pools;
+  resList = cats.reduce(function (list, c) {
+    return list.concat(pools[c] || []);
+  }, []);
+
+  const nextIndex = {};
+  const nextPinned = {};
+  cats.forEach(function (cat) {
+    nextIndex[cat] = 0;
+    nextPinned[cat] = isFirst ? false : !!capsulePinned[cat];
+  });
+  capsuleIndex = nextIndex;
+  capsulePinned = nextPinned;
 
   buildCapsuleReels();
 };
@@ -2116,7 +2130,7 @@ $("#recommend-btn").on(tap, function () {
 
   window.parent.postMessage({ type: "result", value: true }, "*");
 
-  spinCapsuleReels(REEL_CATS);
+  spinCapsuleReels(reelCats);
 });
 
 $(document).on("click", function (event) {
