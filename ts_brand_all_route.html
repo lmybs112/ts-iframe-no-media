@@ -711,10 +711,17 @@
         }
 
         function getIframeContainerSrc() {
-          var src = "./iframe_container_module.html";
+          var selected = getSelectedRoute();
+          var displayMode = selected && selected.displayMode;
+          var base =
+            displayMode === "media"
+              ? "https://ts-iframe-v2.vercel.app/iframe_container_module.html"
+              : displayMode === "nomedia-v2"
+                ? "https://ts-iframe-no-media-git-feature-tagrandom-meis-projects-cf7f7626.vercel.app/iframe_container_module.html"
+                : "https://ts-iframe-no-media.vercel.app/iframe_container_module.html";
           var ga = getGaKeyFromUrl();
-          if (ga) src += "?ga=" + encodeURIComponent(ga);
-          return src;
+          if (ga) base += "?ga=" + encodeURIComponent(ga);
+          return base;
         }
 
         // 依 URL ?ga= 動態載入父頁 gtag，才能把 iframe 的 GA4Event 轉成真正的 GA 請求
