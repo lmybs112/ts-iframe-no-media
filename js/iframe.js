@@ -4,6 +4,7 @@ var Brand = "";
 var MRID = "";
 var GVID = "";
 var LGVID = "";
+var showOriginPrice = false;
 var SpecifyTags = [];
 var SpecifyKeywords = [];
 var themeBackgroundImages = [];
@@ -542,6 +543,12 @@ function setReelImage($img, src) {
     });
 }
 
+function formatRecomPrice(item) {
+  if (!item) return "-";
+  if (showOriginPrice) return item.price || item.sale_price || "-";
+  return item.sale_price || item.price || "-";
+}
+
 // 渲染單一欄位目前選中的商品
 function renderCapsuleReel(cat) {
   const $slot = $(`#container-recom .reel-slot[data-cat="${cat}"]`);
@@ -560,7 +567,7 @@ function renderCapsuleReel(cat) {
   }
 
   const item = pool[capsuleIndex[cat]] || pool[0];
-  const priceText = item.sale_price || item.price || "-";
+  const priceText = formatRecomPrice(item);
   const imgSrc = (item.Imgsrc || item.image_link || "").trim();
   const link = item.Link || item.link || "javascript:void(0)";
 
@@ -655,7 +662,7 @@ function animateReel(cat, finalIdx, done) {
 
   // 轉動一開始就把名稱/價格換成最終商品 (趁模糊過程中切換)
   $slot.find(".recom-text").text(fin.ItemName || "");
-  $slot.find(".recom-price").text(fin.sale_price || fin.price || "-");
+  $slot.find(".recom-price").text(formatRecomPrice(fin));
   $slot
     .find(".reel-link")
     .attr("href", fin.Link || fin.link || "javascript:void(0)");
@@ -2345,6 +2352,7 @@ window.addEventListener("message", async (event) => {
     MRID = event.data.MRID || "";
     GVID = event.data.GVID || "";
     LGVID = event.data.LGVID || "";
+    showOriginPrice = !!event.data.show_origin_price;
     await Initial();
     await fetchData();
     await fetchCoupon();
