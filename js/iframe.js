@@ -1126,7 +1126,9 @@ const fetchCoupon = async () => {
   // }
 };
 
-const CHANGE_GROUP_BTN_DELAY_MS = 800;
+const CHANGE_GROUP_BTN_DELAY_MS = 0;
+/** 與 CSS `tagFadeInSmooth` 時長一致 */
+const TAG_FADE_IN_ANIMATION_MS = 400;
 const changeGroupBtnTimers = {};
 
 function hideChangeGroupBtn(target) {
@@ -1138,7 +1140,7 @@ function hideChangeGroupBtn(target) {
   if (btn) btn.classList.add("change-group-btn--hidden");
 }
 
-function showChangeGroupBtn(target) {
+function showChangeGroupBtn(target, delayMs = CHANGE_GROUP_BTN_DELAY_MS) {
   if (changeGroupBtnTimers[target]) {
     clearTimeout(changeGroupBtnTimers[target]);
   }
@@ -1146,7 +1148,48 @@ function showChangeGroupBtn(target) {
     delete changeGroupBtnTimers[target];
     const btn = document.querySelector(`#container-${target} .change-group-btn`);
     if (btn) btn.classList.remove("change-group-btn--hidden");
-  }, CHANGE_GROUP_BTN_DELAY_MS);
+  }, delayMs);
+}
+
+/** 等最後一個標籤淡入動畫結束後再顯示「換一組試試」 */
+function revealChangeGroupBtnAfterTagsVisible(targetRoute, tagElements) {
+  const lastTag =
+    Array.isArray(tagElements) && tagElements.length > 0
+      ? tagElements[tagElements.length - 1]
+      : null;
+
+  if (!lastTag) {
+    showChangeGroupBtn(targetRoute);
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      lastTag.removeEventListener("animationend", onAnimationEnd);
+      showChangeGroupBtn(targetRoute);
+      resolve();
+    };
+
+    const onAnimationEnd = (event) => {
+      if (event.target !== lastTag && !lastTag.contains(event.target)) {
+        return;
+      }
+      if (
+        event.animationName &&
+        event.animationName !== "tagFadeInSmooth"
+      ) {
+        return;
+      }
+      finish();
+    };
+
+    lastTag.addEventListener("animationend", onAnimationEnd);
+    // animationend 未觸發時的後備（例如動畫已結束或被取消）
+    setTimeout(finish, TAG_FADE_IN_ANIMATION_MS + 80);
+  });
 }
 
 function formatCssBackgroundUrl(url) {
@@ -1353,8 +1396,9 @@ function fadeInTagsSequentially(targetRoute, tagElements, delay = TAG_FADE_IN_DE
         if (typeof window.refreshScrollDownArrow === "function") {
           setTimeout(() => window.refreshScrollDownArrow(), 100);
         }
-        showChangeGroupBtn(targetRoute);
-        resolve();
+        revealChangeGroupBtnAfterTagsVisible(targetRoute, tagElements).then(
+          resolve
+        );
       }
     }
     fadeInNext();
@@ -1417,6 +1461,7 @@ function startTypewriterEffect(containerRoute) {
     // 確保有內容才啟動打字效果
     if (content && content.trim() !== '' && content !== 'undefined') {
       // 只有在動畫未完成時才重置狀態
+      hideChangeGroupBtn(targetRoute);
       
       // 清空容器內容，準備重新打字
       typewriterContainer.innerHTML = '';
@@ -1499,6 +1544,7 @@ function startTypewriterEffect(containerRoute) {
       }
       
       // 如果動畫未完成，直接顯示空內容並顯示 swiper-slide 元素和標籤
+      hideChangeGroupBtn(targetRoute);
       typewriterContainer.innerHTML = '';
       
       const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
