@@ -5,6 +5,8 @@ var MRID = "";
 var GVID = "";
 var LGVID = "";
 var showOriginPrice = false;
+/** true：features 選完依 RouteLinkedTags 過濾下一題；false：維持原本顯示全部 */
+var useRouteLinkedTags = false;
 var SpecifyTags = [];
 var SpecifyKeywords = [];
 var themeBackgroundImages = [];
@@ -1173,6 +1175,30 @@ function buildTagGroups(routeItems) {
   return groups;
 }
 
+/** 解析 RouteConfig.RouteLinkedTags（DynamoDB 字串，如 "['1','2','10']"） */
+function parseRouteLinkedTags(raw) {
+  if (raw == null || raw === "") return [];
+  const str = typeof raw === "string" ? raw : String(raw);
+  try {
+    const parsed = JSON.parse(str.replace(/'/g, '"'));
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(String).filter(Boolean);
+  } catch (_) {
+    return [];
+  }
+}
+
+function filterItemsByLinkedTags(items, linkedIds) {
+  if (!Array.isArray(items) || items.length === 0) return [];
+  if (!Array.isArray(linkedIds) || linkedIds.length === 0) return items.slice();
+  const byTag = new Map(
+    items.map((item) => [String(item?.Tag?.S ?? ""), item])
+  );
+  return linkedIds
+    .map((id) => byTag.get(String(id)))
+    .filter(Boolean);
+}
+
 function buildTagSlotHtml(target, slotIndex, tag) {
   const inactiveClass = tag ? "" : " axd_tag-slot--inactive";
   const innerClass = tag
@@ -1627,13 +1653,49 @@ const fetchData = async () => {
     }
 
     let Route_in_frame = {};
+    let Route_in_frame_all = {};
     for (var n = 0; n < all_Route.length; n++) {
       Route_in_frame[all_Route[n]] = [];
+      Route_in_frame_all[all_Route[n]] = [];
     }
     for (var j = 0; j < obj.RouteConfig.length; j++) {
       let item = obj.RouteConfig[j];
       // let idx = all_Route.indexOf(item.TagGroup.S)
+      if (!Route_in_frame[item.TagGroup.S]) {
+        Route_in_frame[item.TagGroup.S] = [];
+        Route_in_frame_all[item.TagGroup.S] = [];
+      }
       Route_in_frame[item.TagGroup.S].push(item);
+      Route_in_frame_all[item.TagGroup.S].push(item);
+    }
+
+    /** features 選完後，依 RouteLinkedTags 過濾下一題可選標籤；略過或無連結則還原全部 */
+    function prepareNextRouteOptions(selectedGroup, tagId, nextGroup, options = {}) {
+      if (!nextGroup || !Route_in_frame_all[nextGroup]) return;
+
+      const restoreAll = options.restoreAll === true || selectedGroup !== "features";
+      if (restoreAll) {
+        Route_in_frame[nextGroup] = Route_in_frame_all[nextGroup].slice();
+        return;
+      }
+
+      const selectedItem = Route_in_frame_all[selectedGroup]?.find(
+        (item) => String(item?.Tag?.S) === String(tagId)
+      );
+      const linked = parseRouteLinkedTags(selectedItem?.RouteLinkedTags?.S);
+      if (linked.length === 0) {
+        Route_in_frame[nextGroup] = Route_in_frame_all[nextGroup].slice();
+        return;
+      }
+
+      const filtered = filterItemsByLinkedTags(
+        Route_in_frame_all[nextGroup],
+        linked
+      );
+      Route_in_frame[nextGroup] =
+        filtered.length > 0
+          ? filtered
+          : Route_in_frame_all[nextGroup].slice();
     }
     const userAgent = navigator.userAgent.toLowerCase();
     const isMobile = /mobile|android|iphone|ipod|phone/.test(userAgent);
@@ -1641,6 +1703,63 @@ const fetchData = async () => {
     const iconNext = isMobile
       ? "data:image/svg+xml;charset=UTF-8,%3csvg width='36' height='37' viewBox='0 0 36 37' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M18 11.0264L10.8 18.2264L18 25.4264' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3cpath d='M25.2 18.2266H10.8' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e"
       : "data:image/svg+xml;charset=UTF-8,%3csvg width='36' height='37' viewBox='0 0 36 37' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M18 11.0264L10.8 18.2264L18 25.4264' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3cpath d='M25.2 18.2266H10.8' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e";
+
+    function renderRouteTags(tar) {
+      var target = tar.replaceAll(/[\s\.]/g, "");
+      $(`#container-${target}`).find(".selection").remove();
+      $(`#container-${target}`).find(".remove-button").remove();
+      $(`#container-${target}`).find(`.pagination-${target}`).empty();
+      $(`#container-${target}`).find(`.change-group-btn`).remove();
+
+      const items = Route_in_frame[tar] || [];
+      const itemCount = items.length;
+      const useTagSlots = itemCount > 8;
+
+      $(`#container-${target}`)
+        .find(".swiper-wrapper")
+        .append(
+          '<div class="selection swiper-slide"><div class="axd_selections selection"></div></div>'
+        );
+
+      if (useTagSlots) {
+        const groups = buildTagGroups(items);
+        $(`#container-${target}`).data("tag-groups", groups);
+
+        for (let slot = 0; slot < 8; slot++) {
+          $(`#container-${target}`)
+            .find(".axd_selections")
+            .append(buildTagSlotHtml(target, slot, groups[0][slot]));
+        }
+      } else {
+        for (let rr = 0; rr < itemCount; rr++) {
+          $(`#container-${target}`).find(".axd_selections").append(`
+                             <div class="axd_selection axd_tag">
+                                 <div class="axd_tag_inner c-${target} tagId-${items[rr].Tag.S}">
+                                     <p>${items[rr].Name.S}</p>
+                                 </div>
+                             </div>
+                         `);
+        }
+      }
+
+      if (useTagSlots) {
+        $(`#container-${target}`).find(`.swiper-container-${target}`).append(`
+            <div class="change-group-btn change-group-btn--hidden" data-current-group="0" data-total-groups="${Math.ceil(itemCount / 8)}" data-target="${target}">
+              <svg class="change-group-btn__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <path d="M15.2 2.8V6.8H11.2" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2.8 15.2V11.2H6.8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2.8 8.3C2.8 5.2 5.3 2.8 8.4 2.8C10.6 2.8 12.5 4.2 13.4 6.2" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M15.2 9.7C15.2 12.8 12.7 15.2 9.6 15.2C7.4 15.2 5.5 13.8 4.6 11.8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="change-group-btn__text">換一組試試</span>
+            </div>
+          `);
+      }
+    }
+
+    function init(tar) {
+      renderRouteTags(tar);
+    }
 
     for (var r in Route_in_frame) {
       document.getElementById("pback").insertAdjacentHTML(
@@ -1712,71 +1831,24 @@ const fetchData = async () => {
         });
       }
 
-      const mediaQuery = window.matchMedia("(max-width: 400px)");
-      function handleMediaQueryChange(mediaQuery, tar) {
-        init(tar);
-      }
-
-      // 初始檢查
-      function init(tar) {
-        var target = tar.replaceAll(/[\s\.]/g, "");
-        $(`#container-${target}`).find(".selection").remove();
-        $(`#container-${target}`).find(".remove-button").remove();
-        $(`#container-${target}`).find(`.pagination-${target}`).empty();
-        $(`#container-${target}`).find(`.change-group-btn`).remove(); // 清除舊按鈕
-
-        const itemCount = Route_in_frame[tar].length;
-        const render_num = itemCount;
-        const useTagSlots = itemCount > 8;
-
-        $(`#container-${target}`)
-          .find(".swiper-wrapper")
-          .append(
-            '<div class="selection swiper-slide"><div class="axd_selections selection"></div></div>'
-          );
-
-        if (useTagSlots) {
-          const groups = buildTagGroups(Route_in_frame[tar]);
-          $(`#container-${target}`).data("tag-groups", groups);
-
-          for (let slot = 0; slot < 8; slot++) {
-            $(`#container-${target}`)
-              .find(".axd_selections")
-              .append(buildTagSlotHtml(target, slot, groups[0][slot]));
-          }
-        } else {
-          for (let rr = 0; rr < render_num; rr++) {
-            $(`#container-${target}`).find(".axd_selections").append(`
-                             <div class="axd_selection axd_tag">
-                                 <div class="axd_tag_inner c-${target} tagId-${Route_in_frame[tar][rr].Tag.S}">
-                                     <p>${Route_in_frame[tar][rr].Name.S}</p>
-                                 </div>
-                             </div>
-                         `);
-          }
-        }
-
-        // 當選項數量大於 8 個時，新增「換一組試試」按鈕
-        if (useTagSlots) {
-          $(`#container-${target}`).find(`.swiper-container-${target}`).append(`
-            <div class="change-group-btn change-group-btn--hidden" data-current-group="0" data-total-groups="${Math.ceil(itemCount / 8)}" data-target="${target}">
-              <svg class="change-group-btn__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                <path d="M15.2 2.8V6.8H11.2" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2.8 15.2V11.2H6.8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2.8 8.3C2.8 5.2 5.3 2.8 8.4 2.8C10.6 2.8 12.5 4.2 13.4 6.2" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M15.2 9.7C15.2 12.8 12.7 15.2 9.6 15.2C7.4 15.2 5.5 13.8 4.6 11.8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span class="change-group-btn__text">換一組試試</span>
-            </div>
-          `);
-        }
-        
-        bind();
-      }
       init(r);
     }
 
     var mytap = window.ontouchstart === null ? "touchend" : "click";
+
+    var suppressPresetResume = false;
+
+    function refreshNextRouteAfterSelection(fs, tagId, options = {}) {
+      if (!useRouteLinkedTags) return;
+      if (fs >= all_Route.length - 1) return;
+      const nextGroup = all_Route[fs + 1];
+      prepareNextRouteOptions(all_Route[fs], tagId, nextGroup, options);
+      renderRouteTags(nextGroup);
+      // 重綁事件；略過 resume 自動點擊，避免遞迴
+      suppressPresetResume = true;
+      bind();
+      suppressPresetResume = false;
+    }
 
     function bind() {
       // 檢查是否所有問題都已完成，如果是則直接跳到結果頁面
@@ -1788,7 +1860,7 @@ const fetchData = async () => {
       );
       const skipShowResult = isForPreview || isForReferral;
       
-      if (match && !skipShowResult) {
+      if (match && !skipShowResult && !suppressPresetResume) {
         tags_chosen = match.Record;
         
         // 檢查是否所有路由都有有效的選擇
@@ -1824,7 +1896,7 @@ const fetchData = async () => {
             deepEqualWithoutKey(item, current_route_path, ["Record"])
           );
           const skipShowResult = isForPreview || isForReferral;
-          if (match && !skipShowResult) {
+          if (match && !skipShowResult && !suppressPresetResume) {
             tags_chosen = match.Record;
           }
           if (skipShowResult) {
@@ -1837,8 +1909,9 @@ const fetchData = async () => {
                                       tags_chosen[currentRoute][0].Name !== "example";
           
           if (
-            (Object.keys(tags_chosen).length > 0 && !isForPreview) ||
-            (Object.keys(tags_chosen).length > 0 && !isForReferral)
+            !suppressPresetResume &&
+            ((Object.keys(tags_chosen).length > 0 && !isForPreview) ||
+            (Object.keys(tags_chosen).length > 0 && !isForReferral))
           ) {
             if (currentRouteCompleted) {
               // 如果當前路由已完成，跳過顯示，直接觸發點擊
@@ -1942,6 +2015,7 @@ const fetchData = async () => {
                 }
                 get_recom_res();
               } else {
+                refreshNextRouteAfterSelection(fs, null, { restoreAll: true });
                 $("#container-" + currentRoute).hide();
                 $("#container-" + all_Route[fs + 1].replaceAll(/[\s\.]/g, "")).show();
                 // 啟動下一個容器的打字效果
@@ -1991,6 +2065,7 @@ const fetchData = async () => {
                   get_recom_res_throttled();
                 }
               } else {
+                refreshNextRouteAfterSelection(fs, tagid);
                 $("#container-" + currentRoute).hide();
                 $("#container-" + all_Route[fs + 1].replaceAll(/[\s\.]/g, "")).show();
                 // 啟動下一個容器的打字效果
@@ -2028,9 +2103,9 @@ const fetchData = async () => {
                 );
               }
             });
-          $(`#container-${all_Route[fs].replaceAll(/[\s\.]/g, "")}-backarrow`).on(
-            mytap,
-            function (e) {
+          $(`#container-${all_Route[fs].replaceAll(/[\s\.]/g, "")}-backarrow`)
+            .off(mytap)
+            .on(mytap, function (e) {
               if (fs != 0) {
                 trackInffitsEvent("click_back", {
                   action: "back_to_prev_step",
@@ -2043,8 +2118,7 @@ const fetchData = async () => {
                 // 啟動上一個容器的打字效果
                 startTypewriterEffect(all_Route[fs - 1]);
               }
-            }
-          );
+            });
 
           if (fs == 0) {
             reset = async function () {
@@ -2353,6 +2427,7 @@ window.addEventListener("message", async (event) => {
     GVID = event.data.GVID || "";
     LGVID = event.data.LGVID || "";
     showOriginPrice = !!event.data.show_origin_price;
+    useRouteLinkedTags = !!event.data.use_route_linked_tags;
     await Initial();
     await fetchData();
     await fetchCoupon();
