@@ -1130,6 +1130,19 @@ const CHANGE_GROUP_BTN_DELAY_MS = 0;
 /** 與 CSS `tagFadeInSmooth` 時長一致 */
 const TAG_FADE_IN_ANIMATION_MS = 400;
 const changeGroupBtnTimers = {};
+/** 重新開始／重渲染時遞增，讓過期 timer／animationend 失效 */
+let changeGroupBtnGeneration = 0;
+
+function clearAllChangeGroupBtnState() {
+  Object.keys(changeGroupBtnTimers).forEach((key) => {
+    clearTimeout(changeGroupBtnTimers[key]);
+    delete changeGroupBtnTimers[key];
+  });
+  changeGroupBtnGeneration += 1;
+  document.querySelectorAll(".change-group-btn").forEach((btn) => {
+    btn.classList.add("change-group-btn--hidden");
+  });
+}
 
 function hideChangeGroupBtn(target) {
   if (changeGroupBtnTimers[target]) {
@@ -1140,12 +1153,29 @@ function hideChangeGroupBtn(target) {
   if (btn) btn.classList.add("change-group-btn--hidden");
 }
 
+/** 僅在選項已淡入且打字區已顯示時才允許出現按鈕 */
+function canShowChangeGroupBtn(target) {
+  const container = document.querySelector(`#container-${target}`);
+  if (!container) return false;
+  if (!container.querySelector(".change-group-btn")) return false;
+
+  const slide = container.querySelector(".swiper-wrapper .swiper-slide");
+  if (slide && !slide.classList.contains("typewriter-complete")) return false;
+
+  const tags = getRouteTagElements(target);
+  if (tags.length === 0) return false;
+  return tags.every((tag) => tag.classList.contains("tag-fade-in"));
+}
+
 function showChangeGroupBtn(target, delayMs = CHANGE_GROUP_BTN_DELAY_MS) {
   if (changeGroupBtnTimers[target]) {
     clearTimeout(changeGroupBtnTimers[target]);
   }
+  const generation = changeGroupBtnGeneration;
   changeGroupBtnTimers[target] = setTimeout(() => {
     delete changeGroupBtnTimers[target];
+    if (generation !== changeGroupBtnGeneration) return;
+    if (!canShowChangeGroupBtn(target)) return;
     const btn = document.querySelector(`#container-${target} .change-group-btn`);
     if (btn) btn.classList.remove("change-group-btn--hidden");
   }, delayMs);
@@ -1157,9 +1187,11 @@ function revealChangeGroupBtnAfterTagsVisible(targetRoute, tagElements) {
     Array.isArray(tagElements) && tagElements.length > 0
       ? tagElements[tagElements.length - 1]
       : null;
+  const generation = changeGroupBtnGeneration;
 
   if (!lastTag) {
-    showChangeGroupBtn(targetRoute);
+    // 沒有可顯示選項時維持隱藏
+    hideChangeGroupBtn(targetRoute);
     return Promise.resolve();
   }
 
@@ -1169,6 +1201,10 @@ function revealChangeGroupBtnAfterTagsVisible(targetRoute, tagElements) {
       if (done) return;
       done = true;
       lastTag.removeEventListener("animationend", onAnimationEnd);
+      if (generation !== changeGroupBtnGeneration) {
+        resolve();
+        return;
+      }
       showChangeGroupBtn(targetRoute);
       resolve();
     };
@@ -1187,7 +1223,19 @@ function revealChangeGroupBtnAfterTagsVisible(targetRoute, tagElements) {
     };
 
     lastTag.addEventListener("animationend", onAnimationEnd);
-    // animationend 未觸發時的後備（例如動畫已結束或被取消）
+
+    // 若動畫已跑完（例如 listener 掛上前就結束），立即顯示
+    const opacity = parseFloat(window.getComputedStyle(lastTag).opacity);
+    if (
+      lastTag.classList.contains("tag-fade-in") &&
+      !Number.isNaN(opacity) &&
+      opacity >= 0.99
+    ) {
+      finish();
+      return;
+    }
+
+    // animationend 未觸發時的後備
     setTimeout(finish, TAG_FADE_IN_ANIMATION_MS + 80);
   });
 }
@@ -1346,7 +1394,7 @@ function fadeInTagsSequentially(targetRoute, tagElements, delay = TAG_FADE_IN_DE
 
   return new Promise((resolve) => {
     if (tagElements.length === 0) {
-      showChangeGroupBtn(targetRoute);
+      hideChangeGroupBtn(targetRoute);
       resolve();
       return;
     }
@@ -1409,6 +1457,8 @@ function fadeInTagsSequentially(targetRoute, tagElements, delay = TAG_FADE_IN_DE
 function startTypewriterEffect(containerRoute) {
   const targetRoute = containerRoute.replaceAll(/[\s\.]/g, "");
   const typewriterContainer = document.querySelector(`.typewriter-${targetRoute}`);
+  // 進場／重播時先藏按鈕，避免舊 timer 或未淡入完成就露出
+  hideChangeGroupBtn(targetRoute);
   
   if (typewriterContainer && typeof Typewriter !== 'undefined') {
     // 獲取要顯示的內容
@@ -2175,6 +2225,8 @@ const fetchData = async () => {
                 MRID: MRID,
                 GVID: GVID,
                 LGVID: LGVID,
+                show_origin_price: showOriginPrice,
+                use_route_linked_tags: useRouteLinkedTags,
               };
 
               // 發送消息到接收窗口
@@ -2458,6 +2510,7 @@ $("#startover").on(tap, function () {
 });
 
 const Initial = () => {
+  clearAllChangeGroupBtnState();
   $(".update_delete").remove();
   $("#container-recom").hide();
 
@@ -2472,8 +2525,13 @@ window.addEventListener("message", async (event) => {
     MRID = event.data.MRID || "";
     GVID = event.data.GVID || "";
     LGVID = event.data.LGVID || "";
-    showOriginPrice = !!event.data.show_origin_price;
-    useRouteLinkedTags = !!event.data.use_route_linked_tags;
+    // 僅在明確傳入時更新，避免重新開始未帶欄位時被重設成 false
+    if (Object.prototype.hasOwnProperty.call(event.data, "show_origin_price")) {
+      showOriginPrice = !!event.data.show_origin_price;
+    }
+    if (Object.prototype.hasOwnProperty.call(event.data, "use_route_linked_tags")) {
+      useRouteLinkedTags = !!event.data.use_route_linked_tags;
+    }
     await Initial();
     await fetchData();
     await fetchCoupon();
