@@ -6,7 +6,7 @@ var GVID = "";
 var LGVID = "";
 var showOriginPrice = false;
 /** true：features 選完依 RouteLinkedTags 過濾下一題；false：維持原本顯示全部 */
-var useRouteLinkedTags = false;
+var useRouteLinkedTags = true;
 var SpecifyTags = [];
 var SpecifyKeywords = [];
 var themeBackgroundImages = [];
