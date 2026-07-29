@@ -646,7 +646,19 @@ function animateReel(cat, finalIdx, done) {
   const h = $window[0].getBoundingClientRect().height;
   if (!h || pool.length === 0) {
     capsuleIndex[cat] = finalIdx;
-    renderCapsuleReel(cat);
+    // 直接設圖、不 fade-in，確保圖片立即可見（高度為 0 時跳過動畫）
+    const fallbackItem = pool[finalIdx] || pool[0];
+    if (fallbackItem) {
+      const fallbackSrc = (fallbackItem.Imgsrc || fallbackItem.image_link || "").trim();
+      $roller.html(
+        `<img class="c-recom reel-img" style="width:100%;height:auto;opacity:1" src="${fallbackSrc}" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`
+      );
+      $slot.find(".recom-text").text(fallbackItem.ItemName || "");
+      $slot.find(".recom-price").text(formatRecomPrice(fallbackItem));
+      $slot.find(".reel-link").attr("href", fallbackItem.Link || fallbackItem.link || "javascript:void(0)");
+    } else {
+      renderCapsuleReel(cat);
+    }
     done && done();
     return;
   }
@@ -942,29 +954,34 @@ const show_results = async (response, isFirst = false) => {
     // 等所有欄動畫 settle（圖片落定）後，才隱藏 loadingbar_recom 揭開結果頁。
     $("#container-recom").show();
 
-    // 等一個 rAF，讓 Safari layout 跑完，reel-window 取得真實高度
-    requestAnimationFrame(function () {
-      let allSettled = 0;
-      const totalActive = reelCats.filter(function (c) {
-        return !capsulePinned[c] && (capsulePools[c] || []).length > 0;
-      }).length;
+    // 等多幀讓 Safari three-column layout 完全算好，再取 reel-window 高度
+    // 用 setTimeout(0) + 多重 rAF 確保跨裝置 layout 穩定
+    setTimeout(function () {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          let allSettled = 0;
+          const totalActive = reelCats.filter(function (c) {
+            return !capsulePinned[c] && (capsulePools[c] || []).length > 0;
+          }).length;
 
-      function onOneCatSettled() {
-        allSettled++;
-        if (allSettled >= totalActive) {
-          // 所有欄動畫落定、圖片就位，才揭開 loading
-          $("#loadingbar_recom").hide();
-        }
-      }
+          function onOneCatSettled() {
+            allSettled++;
+            if (allSettled >= totalActive) {
+              // 所有欄動畫落定、圖片就位，才揭開 loading
+              $("#loadingbar_recom").hide();
+            }
+          }
 
-      // 若沒有任何欄要動畫（全釘選或 pool 空），直接揭開
-      if (totalActive === 0) {
-        $("#loadingbar_recom").hide();
-        return;
-      }
+          // 若沒有任何欄要動畫（全釘選或 pool 空），直接揭開
+          if (totalActive === 0) {
+            $("#loadingbar_recom").hide();
+            return;
+          }
 
-      spinCapsuleReelsWithIdx(reelCats, finalIdxMap, onOneCatSettled);
-    });
+          spinCapsuleReelsWithIdx(reelCats, finalIdxMap, onOneCatSettled);
+        });
+      });
+    }, 0);
   });
 };
 
