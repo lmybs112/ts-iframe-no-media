@@ -823,7 +823,8 @@ const show_results = async (response, isFirst = false) => {
     }
   }
 
-  $("#container-recom").show();
+  // container-recom 暫不顯示，等 preload 完成後再一起 show
+  $("#container-recom").hide();
   reelCats = cats;
   capsulePools = pools;
   resList = cats.reduce(function (list, c) {
@@ -841,11 +842,47 @@ const show_results = async (response, isFirst = false) => {
 
   buildCapsuleReels();
 
-  // 翻箱倒櫃 loading 結束後進結果頁，自動拉霸轉動
-  $("#loadingbar_recom").hide();
-  requestAnimationFrame(function () {
+  // 預載各欄商品圖片，確保進入結果頁時已有圖可用
+  const PRELOAD_PER_CAT = 12; // FILLERS(10) + 最終圖(1) + 1 緩衝
+  const MAX_WAIT_MS = 4000;   // 最長等待，避免網路慢時卡住
+
+  const imgUrls = [];
+  reelCats.forEach(function (cat) {
+    const pool = capsulePools[cat] || [];
+    pool.slice(0, PRELOAD_PER_CAT).forEach(function (item) {
+      const src = (item.Imgsrc || item.image_link || "").trim();
+      if (src) imgUrls.push(src);
+    });
+  });
+
+  // 去重
+  const uniqueUrls = [...new Set(imgUrls)];
+
+  const preloadOne = function (src) {
+    return new Promise(function (resolve) {
+      const img = new Image();
+      img.onload = resolve;
+      img.onerror = resolve; // 失敗也繼續，不阻塞
+      img.src = src;
+      if (img.complete) resolve();
+    });
+  };
+
+  const timeoutPromise = new Promise(function (resolve) {
+    setTimeout(resolve, MAX_WAIT_MS);
+  });
+
+  Promise.race([
+    Promise.all(uniqueUrls.map(preloadOne)),
+    timeoutPromise,
+  ]).then(function () {
+    // 圖片就緒後才切換：隱藏 loading、顯示結果頁、啟動拉霸
+    $("#loadingbar_recom").hide();
+    $("#container-recom").show();
     requestAnimationFrame(function () {
-      spinCapsuleReels(reelCats);
+      requestAnimationFrame(function () {
+        spinCapsuleReels(reelCats);
+      });
     });
   });
 };
