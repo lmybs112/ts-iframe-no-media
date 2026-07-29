@@ -350,9 +350,11 @@
           transform: none !important;
         }
 
-        /* 補上 overflow-y 防止其他子元素意外溢出 */
+        /* overflow-y 防溢出；padding-top 留給釘選外圈 box-shadow（1.5px），避免上緣被裁切 */
         #container-recom .axd_selections {
           overflow-y: hidden !important;
+          padding-top: 4px;
+          box-sizing: border-box;
         }
       }
 
