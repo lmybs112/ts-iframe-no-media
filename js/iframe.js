@@ -876,7 +876,20 @@ const show_results = async (response, isFirst = false) => {
     Promise.all(uniqueUrls.map(preloadOne)),
     timeoutPromise,
   ]).then(function () {
-    // 圖片就緒後才切換：隱藏 loading、顯示結果頁、啟動拉霸
+    // 圖片就緒後：把 setReelImage 產生的靜態預覽圖強制顯示（跳過 600ms fade-in）
+    // 因為此時 loading 畫面還蓋著，不需要 fade-in 視覺效果
+    reelCats.forEach(function (cat) {
+      const item = (capsulePools[cat] || [])[capsuleIndex[cat]] || (capsulePools[cat] || [])[0];
+      if (!item) return;
+      const src = (item.Imgsrc || item.image_link || "").trim();
+      if (!src) return;
+      const $slot = $(`#container-recom .reel-slot[data-cat="${cat}"]`);
+      const $img = $slot.find("img.reel-img");
+      // 直接套上真實圖、停掉任何進行中的 animate、設 opacity:1
+      $img.stop(true).attr("src", src).css("opacity", 1);
+    });
+
+    // 切換畫面：隱藏 loading、顯示結果頁、啟動拉霸
     $("#loadingbar_recom").hide();
     $("#container-recom").show();
     requestAnimationFrame(function () {
