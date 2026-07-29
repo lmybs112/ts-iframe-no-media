@@ -534,18 +534,21 @@ function normalizeCapsulePools(response) {
 
 // 以淡入方式載入圖片 (沿用原本 c-recom 淡入邏輯)
 function setReelImage($img, src) {
-  $img.css("opacity", 0);
+  // 直接設圖，不做 fade-in。
+  // 之前的 opacity:0 + 600ms animate 會造成 loading 消失後圖片仍透明的視覺 bug。
   const realImg = new Image();
   realImg.src = src;
-  $(realImg)
-    .on("load", function () {
-      $img.attr("src", src);
-      $img.stop(true).animate({ opacity: 1 }, 600);
-    })
-    .on("error", function () {
-      $img.attr("src", "./../../img/img-default-large.png");
-      $img.stop(true).animate({ opacity: 1 }, 600);
-    });
+  if (realImg.complete) {
+    $img.attr("src", src).css("opacity", 1);
+  } else {
+    $(realImg)
+      .on("load", function () {
+        $img.attr("src", src).css("opacity", 1);
+      })
+      .on("error", function () {
+        $img.attr("src", "./../../img/img-default-large.png").css("opacity", 1);
+      });
+  }
 }
 
 function formatRecomPrice(item) {
@@ -730,11 +733,18 @@ function animateReel(cat, finalIdx, done) {
 // 轉動拉霸 (略過已釘選的欄位)；三欄略微錯開落定，做出 Apple 式層次感
 // idxMap 選填；onOneSettled 選填（每欄 settle 後呼叫一次）
 function spinCapsuleReels(cats, idxMap, onOneSettled) {
-  if (isSpinning) return;
+  if (isSpinning) {
+    // 前次動畫未結束，直接通知 caller 可以揭開 loading
+    onOneSettled && onOneSettled();
+    return;
+  }
   const active = cats.filter(
     (c) => !capsulePinned[c] && (capsulePools[c] || []).length > 0
   );
-  if (active.length === 0) return;
+  if (active.length === 0) {
+    onOneSettled && onOneSettled();
+    return;
+  }
   isSpinning = true;
 
   trackInffitsEvent("spin_capsule", {
@@ -957,21 +967,44 @@ const show_results = async (response, isFirst = false) => {
             return !capsulePinned[c] && (capsulePools[c] || []).length > 0;
           }).length;
 
+          function revealResult() {
+            $("#loadingbar_recom").hide();
+          }
+
           function onOneCatSettled() {
             allSettled++;
             if (allSettled >= totalActive) {
-              // 所有欄動畫落定、圖片就位，才揭開 loading
-              $("#loadingbar_recom").hide();
+              revealResult();
             }
           }
 
+          // 安全 timeout：最多等 3 秒，無論如何都揭開 loading
+          const safetyTimer = setTimeout(revealResult, 3000);
+          const origReveal = revealResult;
+          // 覆寫 revealResult 讓它只執行一次並清掉 timer
+          var revealed = false;
+          function revealOnce() {
+            if (revealed) return;
+            revealed = true;
+            clearTimeout(safetyTimer);
+            origReveal();
+          }
+          // 把 onOneCatSettled 改用 revealOnce
+          function onOneCatSettledSafe() {
+            allSettled++;
+            if (allSettled >= totalActive) revealOnce();
+          }
+          // safety timer 也用 revealOnce
+          clearTimeout(safetyTimer);
+          setTimeout(revealOnce, 3000);
+
           // 若沒有任何欄要動畫（全釘選或 pool 空），直接揭開
           if (totalActive === 0) {
-            $("#loadingbar_recom").hide();
+            revealOnce();
             return;
           }
 
-          spinCapsuleReelsWithIdx(reelCats, finalIdxMap, onOneCatSettled);
+          spinCapsuleReelsWithIdx(reelCats, finalIdxMap, onOneCatSettledSafe);
         });
       });
     }, 0);
