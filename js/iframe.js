@@ -499,6 +499,7 @@ let capsulePools = {};
 let capsuleIndex = {};
 let capsulePinned = {};
 let isSpinning = false;
+let reelImgCache = {}; // src -> HTMLImageElement，跨函式共享已下載的 img 物件
 
 // 判斷 Item 是否為「分類 → 商品陣列」的分組結構
 function isGroupedCapsuleItem(item) {
@@ -534,20 +535,25 @@ function normalizeCapsulePools(response) {
 
 // 以淡入方式載入圖片 (沿用原本 c-recom 淡入邏輯)
 function setReelImage($img, src) {
-  // 直接設圖，不做 fade-in。
-  // 之前的 opacity:0 + 600ms animate 會造成 loading 消失後圖片仍透明的視覺 bug。
-  const realImg = new Image();
-  realImg.src = src;
-  if (realImg.complete) {
+  if (!src) return;
+  // 優先用 reelImgCache 裡已下載的物件；若沒有則直接設 src 等瀏覽器快取
+  const cached = reelImgCache[src];
+  if (cached && cached.complete && cached.naturalWidth > 0) {
+    $img.attr("src", src).css("opacity", 1);
+    return;
+  }
+  // 加入快取並等待載入
+  if (!reelImgCache[src]) {
+    const imgObj = new Image();
+    imgObj.src = src;
+    reelImgCache[src] = imgObj;
+  }
+  const imgObj = reelImgCache[src];
+  if (imgObj.complete) {
     $img.attr("src", src).css("opacity", 1);
   } else {
-    $(realImg)
-      .on("load", function () {
-        $img.attr("src", src).css("opacity", 1);
-      })
-      .on("error", function () {
-        $img.attr("src", "./../../img/img-default-large.png").css("opacity", 1);
-      });
+    imgObj.onload = function () { $img.attr("src", src).css("opacity", 1); };
+    imgObj.onerror = function () { $img.attr("src", "./../../img/img-default-large.png").css("opacity", 1); };
   }
 }
 
@@ -580,10 +586,16 @@ function renderCapsuleReel(cat) {
   const link = item.Link || item.link || "javascript:void(0)";
 
   $slot.find(".reel-link").attr("href", link);
+
+  // 如果快取裡已有此圖，直接顯示；否則先放佔位圖
+  const _cached = reelImgCache[imgSrc];
+  const _immediateSrc = (_cached && _cached.complete && _cached.naturalWidth > 0) ? imgSrc : "./../../img/img-default-large.png";
   $roller.html(
-    `<img loading="lazy" class="c-recom reel-img" data-item="0" src="./../../img/img-default-large.png" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`
+    `<img class="c-recom reel-img" data-item="0" src="${_immediateSrc}" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`
   );
-  setReelImage($roller.find("img.reel-img"), imgSrc);
+  if (_immediateSrc !== imgSrc) {
+    setReelImage($roller.find("img.reel-img"), imgSrc);
+  }
   $slot.find(".recom-text").text(item.ItemName || "");
   $slot.find(".recom-price").text(priceText);
 }
@@ -638,6 +650,25 @@ function reelStripImg(src, tileH) {
   return `<img class="c-recom reel-img" style="height:${tileH}px;min-height:${tileH}px" src="${src}" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`;
 }
 
+// 建立 reel tile img 元素
+// 若 reelImgCache 裡已有此 src 的 img 物件且已載入完成，直接 clone 該物件的像素（cloneNode）
+// 確保像素不需重新 decode
+function reelStripImgEl(src, tileH) {
+  let el;
+  const cached = reelImgCache[src];
+  if (cached && cached.complete && cached.naturalWidth > 0) {
+    el = cached.cloneNode(false); // 淺 clone：src 相同，像素立即可用
+  } else {
+    el = document.createElement("img");
+    el.src = src;
+  }
+  el.className = "c-recom reel-img";
+  el.style.height = tileH + "px";
+  el.style.minHeight = tileH + "px";
+  el.onerror = function () { this.onerror = null; this.src = "./../../img/img-default-large.png"; };
+  return el;
+}
+
 // 單一欄位：以一次性減速動畫精準落定到 finalIdx，並做無縫收尾
 function animateReel(cat, finalIdx, done) {
   const $slot = $(`#container-recom .reel-slot[data-cat="${cat}"]`);
@@ -645,12 +676,12 @@ function animateReel(cat, finalIdx, done) {
   const $window = $slot.find(".reel-window");
   const $roller = $slot.find(".reel-roller");
 
-  // 優先用 getBoundingClientRect；若為 0（layout 尚未完成）則用 clientHeight，
-  // 再不行用 offsetHeight，最後 fallback 到 CSS 定義值（< 400px: 224, >= 400px: 280）
-  let h = $window[0].getBoundingClientRect().height
-    || $window[0].clientHeight
-    || $window[0].offsetHeight
-    || (window.innerWidth >= 400 ? 280 : 224);
+  const _bcr = $window[0].getBoundingClientRect().height;
+  const _ch  = $window[0].clientHeight;
+  const _oh  = $window[0].offsetHeight;
+  const _css = window.innerWidth >= 400 ? 280 : 224;
+  let h = _bcr || _ch || _oh || _css;
+  console.log(`[reel][${cat}] h=${h} (bcr=${_bcr} ch=${_ch} oh=${_oh} css=${_css})`);
 
   if (pool.length === 0) {
     capsuleIndex[cat] = finalIdx;
@@ -665,13 +696,8 @@ function animateReel(cat, finalIdx, done) {
   // 組合滾輪：前段隨機填充圖 + 最後一張為最終商品
   // 每格明確設定 height = h，確保 FILLERS × h 精準等於最終圖磚頂部距離
   const FILLERS = 10;
-  let html = "";
-  for (let k = 0; k < FILLERS; k++) {
-    const rnd = pool[Math.floor(Math.random() * pool.length)];
-    html += reelStripImg((rnd.Imgsrc || rnd.image_link || "").trim(), h);
-  }
   const fin = pool[finalIdx];
-  html += reelStripImg((fin.Imgsrc || fin.image_link || "").trim(), h);
+  const finSrc = (fin.Imgsrc || fin.image_link || "").trim();
 
   // 轉動一開始就把名稱/價格換成最終商品 (趁模糊過程中切換)
   $slot.find(".recom-text").text(fin.ItemName || "");
@@ -685,7 +711,15 @@ function animateReel(cat, finalIdx, done) {
   $link.css({ animation: "", filter: "" });
   $roller
     .css({ transition: "none", transform: "translate3d(0,0,0)", animation: "", filter: "" })
-    .html(html);
+    .empty();
+
+  // 用 reelStripImgEl 建立 DOM 節點（相同 src 不重下載）
+  for (let k = 0; k < FILLERS; k++) {
+    const rnd = pool[Math.floor(Math.random() * pool.length)];
+    $roller[0].appendChild(reelStripImgEl((rnd.Imgsrc || rnd.image_link || "").trim(), h));
+  }
+  $roller[0].appendChild(reelStripImgEl(finSrc, h));
+
   void $roller[0].offsetHeight;
 
   // 距離 = FILLERS × h (精確浮點)，每格已明確設 height:h，兩者完全對齊
@@ -708,7 +742,7 @@ function animateReel(cat, finalIdx, done) {
     $roller.off("transitionend.reel");
     capsuleIndex[cat] = finalIdx;
 
-    // 無縫收尾：保留最終圖、移除其餘圖磚並把位移歸零 (視覺位置不變、不閃爍)
+    // 無縫收尾：只保留最終圖磚，其餘移除，位移歸零
     const $imgs = $roller.children("img");
     const $finalImg = $imgs.last();
     $imgs.not($finalImg).remove();
@@ -717,8 +751,19 @@ function animateReel(cat, finalIdx, done) {
     $window.css("height", "");
     $slot.removeClass("reel-spinning");
 
-    // 還原成靜止商品樣式 (重用同一張已載入的圖，避免重新淡入)
-    $finalImg.css({ opacity: 1, height: "", minHeight: "" });
+    // 把 finalImg 的 src 換成已在 reelImgCache 裡的版本（確保像素就緒）
+    // 不重建 DOM，避免閃爍
+    const finSrcSettle = (fin.Imgsrc || fin.image_link || "").trim();
+    const cachedSettle = reelImgCache[finSrcSettle];
+    if (cachedSettle && cachedSettle.complete && cachedSettle.naturalWidth > 0) {
+      $finalImg.css({ opacity: 1, height: "", minHeight: "" }).attr("src", finSrcSettle);
+    } else {
+      $finalImg.css({ opacity: 1, height: "" });
+      if (!$finalImg.attr("src") || $finalImg.attr("src") !== finSrcSettle) {
+        $finalImg.attr("src", finSrcSettle);
+      }
+      $finalImg[0].onload = function () { $finalImg.css("minHeight", ""); };
+    }
 
     done && done();
   };
@@ -733,18 +778,11 @@ function animateReel(cat, finalIdx, done) {
 // 轉動拉霸 (略過已釘選的欄位)；三欄略微錯開落定，做出 Apple 式層次感
 // idxMap 選填；onOneSettled 選填（每欄 settle 後呼叫一次）
 function spinCapsuleReels(cats, idxMap, onOneSettled) {
-  if (isSpinning) {
-    // 前次動畫未結束，直接通知 caller 可以揭開 loading
-    onOneSettled && onOneSettled();
-    return;
-  }
+  if (isSpinning) return;
   const active = cats.filter(
     (c) => !capsulePinned[c] && (capsulePools[c] || []).length > 0
   );
-  if (active.length === 0) {
-    onOneSettled && onOneSettled();
-    return;
-  }
+  if (active.length === 0) return;
   isSpinning = true;
 
   trackInffitsEvent("spin_capsule", {
@@ -882,6 +920,7 @@ const show_results = async (response, isFirst = false) => {
       if (src && !previewImgMap[src]) {
         const imgObj = new Image();
         previewImgMap[src] = imgObj;
+        reelImgCache[src] = imgObj; // 同步寫入 module-level cache
         imgObj.src = src; // 開始載入，瀏覽器快取
       }
     });
@@ -952,49 +991,34 @@ const show_results = async (response, isFirst = false) => {
     Promise.all(uniqueFinalSrcs.map(waitForImg)),
     timeoutPromise,
   ]).then(function () {
-    // ── 策略：先 show container-recom（但 loadingbar_recom 繼續蓋在上面）──
-    // 這樣 reel-window 有真實高度，animateReel 才能正確取到 h；
-    // 等所有欄動畫 settle（圖片落定）後，才隱藏 loadingbar_recom 揭開結果頁。
+    // 把已 decode 的 finalIdx 圖寫進靜態預覽（直接用 reelImgCache 裡的物件）
+    previewSrcs.forEach(function (p) {
+      if (!p.src) return;
+      const $slot = $(`#container-recom .reel-slot[data-cat="${p.cat}"]`);
+      const $img = $slot.find("img.reel-img");
+      const cached = reelImgCache[p.src];
+      if (cached && cached.complete && cached.naturalWidth > 0) {
+        // 直接 clone 已下載的 img 節點，確保像素立即可用
+        const clone = cached.cloneNode(false);
+        clone.className = $img[0] ? $img[0].className : "c-recom reel-img";
+        clone.style.cssText = "";
+        clone.removeAttribute("loading");
+        $img.replaceWith(clone);
+      } else {
+        $img.attr("src", p.src).css("opacity", 1);
+      }
+    });
+
+    // 揭開：先顯示結果頁（此時靜態圖已就緒），再開始動畫
+    $("#loadingbar_recom").hide();
     $("#container-recom").show();
 
-    // 等多幀讓 Safari three-column layout 完全算好，再取 reel-window 高度
-    // 用 setTimeout(0) + 多重 rAF 確保跨裝置 layout 穩定
-    setTimeout(function () {
+    // 等兩個 rAF 讓圖片 paint 一幀，用戶先看到靜態圖，再啟動拉霸
+    requestAnimationFrame(function () {
       requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-          const totalActive = reelCats.filter(function (c) {
-            return !capsulePinned[c] && (capsulePools[c] || []).length > 0;
-          }).length;
-
-          // 只執行一次的揭開函式
-          var revealed = false;
-          var safetyTimer = null;
-          function revealOnce() {
-            if (revealed) return;
-            revealed = true;
-            clearTimeout(safetyTimer);
-            $("#loadingbar_recom").hide();
-          }
-
-          // 安全 timeout：最多等 3 秒
-          safetyTimer = setTimeout(revealOnce, 3000);
-
-          // 若沒有任何欄要動畫，直接揭開
-          if (totalActive === 0) {
-            revealOnce();
-            return;
-          }
-
-          var allSettled = 0;
-          function onOneCatSettled() {
-            allSettled++;
-            if (allSettled >= totalActive) revealOnce();
-          }
-
-          spinCapsuleReelsWithIdx(reelCats, finalIdxMap, onOneCatSettled);
-        });
+        spinCapsuleReelsWithIdx(reelCats, finalIdxMap);
       });
-    }, 0);
+    });
   });
 };
 
