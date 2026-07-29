@@ -645,12 +645,12 @@ function animateReel(cat, finalIdx, done) {
   const $window = $slot.find(".reel-window");
   const $roller = $slot.find(".reel-roller");
 
-  // 優先用 getBoundingClientRect；若為 0（layout 尚未完成）則用 clientHeight，
-  // 再不行用 offsetHeight，最後 fallback 到 CSS 定義值（< 400px: 224, >= 400px: 280）
-  let h = $window[0].getBoundingClientRect().height
-    || $window[0].clientHeight
-    || $window[0].offsetHeight
-    || (window.innerWidth >= 400 ? 280 : 224);
+  const _bcr = $window[0].getBoundingClientRect().height;
+  const _ch  = $window[0].clientHeight;
+  const _oh  = $window[0].offsetHeight;
+  const _css = window.innerWidth >= 400 ? 280 : 224;
+  let h = _bcr || _ch || _oh || _css;
+  console.log(`[reel][${cat}] h=${h} (bcr=${_bcr} ch=${_ch} oh=${_oh} css=${_css})`);
 
   if (pool.length === 0) {
     capsuleIndex[cat] = finalIdx;
@@ -717,8 +717,16 @@ function animateReel(cat, finalIdx, done) {
     $window.css("height", "");
     $slot.removeClass("reel-spinning");
 
-    // 還原成靜止商品樣式 (重用同一張已載入的圖，避免重新淡入)
-    $finalImg.css({ opacity: 1, height: "", minHeight: "" });
+    // 還原成靜止商品樣式
+    const _fi = $finalImg[0];
+    console.log(`[reel][${cat}] settle: src=${_fi && _fi.src} complete=${_fi && _fi.complete} naturalH=${_fi && _fi.naturalHeight}`);
+    $finalImg.css({ opacity: 1, height: "" });
+    if (_fi && _fi.complete && _fi.naturalHeight > 0) {
+      $finalImg.css("minHeight", "");
+    } else {
+      $finalImg.css("minHeight", h + "px"); // 保留 minHeight 直到圖片載入
+      if (_fi) _fi.onload = function () { $finalImg.css("minHeight", ""); };
+    }
 
     done && done();
   };
