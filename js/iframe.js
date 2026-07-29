@@ -723,7 +723,8 @@ function animateReel(cat, finalIdx, done) {
 }
 
 // 轉動拉霸 (略過已釘選的欄位)；三欄略微錯開落定，做出 Apple 式層次感
-function spinCapsuleReels(cats) {
+// idxMap 選填；傳入時直接用指定的 finalIdx（避免重新 random）
+function spinCapsuleReels(cats, idxMap) {
   if (isSpinning) return;
   const active = cats.filter(
     (c) => !capsulePinned[c] && (capsulePools[c] || []).length > 0
@@ -749,9 +750,16 @@ function spinCapsuleReels(cats) {
   };
 
   active.forEach((c, i) => {
-    const finalIdx = Math.floor(Math.random() * capsulePools[c].length);
+    const finalIdx = (idxMap && idxMap.hasOwnProperty(c))
+      ? idxMap[c]
+      : Math.floor(Math.random() * capsulePools[c].length);
     setTimeout(() => animateReel(c, finalIdx, onOne), i * 110);
   });
+}
+
+// 相容舊呼叫：帶預先決定的 finalIdx 版本
+function spinCapsuleReelsWithIdx(cats, idxMap) {
+  spinCapsuleReels(cats, idxMap);
 }
 
 // 釘選 / 取消釘選
@@ -868,8 +876,16 @@ const show_results = async (response, isFirst = false) => {
     previewSrcs.push({ cat, src: previewSrc });
   });
 
+  // 預先決定每欄拉霸的 finalIdx，這樣可以提前 decode 最終圖
+  const finalIdxMap = {};
+  reelCats.forEach(function (cat) {
+    const pool = capsulePools[cat] || [];
+    if (!capsulePinned[cat] && pool.length > 0) {
+      finalIdxMap[cat] = Math.floor(Math.random() * pool.length);
+    }
+  });
+
   // 等單張圖片「network 完成 + decode 完成」
-  // img.decode() 確保 Safari 也完整 decode，比 onload 更嚴格
   const waitForImg = function (src) {
     const imgObj = previewImgMap[src];
     if (!imgObj) return Promise.resolve();
@@ -880,25 +896,31 @@ const show_results = async (response, isFirst = false) => {
           imgObj.onerror = resolve;
         });
     return networkDone.then(function () {
-      // decode() 確保像素已備妥，Safari 支援
       return typeof imgObj.decode === "function"
         ? imgObj.decode().catch(function () {})
         : Promise.resolve();
     });
   };
 
-  // 只等靜態預覽那幾張（每欄一張）；拉霸隨機圖已在 previewImgMap 裡一併載入
-  const previewOnlyUrls = previewSrcs.map(function (p) { return p.src; }).filter(Boolean);
+  // 等每欄「最終落定圖」decode 完成（這才是用戶最終看到的圖）
+  const finalSrcs = reelCats.map(function (cat) {
+    const pool = capsulePools[cat] || [];
+    const idx = finalIdxMap.hasOwnProperty(cat)
+      ? finalIdxMap[cat]
+      : (capsuleIndex[cat] || 0);
+    const item = pool[idx] || pool[0];
+    return item ? (item.Imgsrc || item.image_link || "").trim() : "";
+  }).filter(Boolean);
 
   const timeoutPromise = new Promise(function (resolve) {
     setTimeout(resolve, MAX_WAIT_MS);
   });
 
   Promise.race([
-    Promise.all(previewOnlyUrls.map(waitForImg)),
+    Promise.all(finalSrcs.map(waitForImg)),
     timeoutPromise,
   ]).then(function () {
-    // 把已 decode 的靜態預覽圖直接寫進 DOM，不觸發任何新請求
+    // 把靜態預覽圖寫進 DOM（已 decode，直接顯示）
     previewSrcs.forEach(function (p) {
       if (!p.src) return;
       const $slot = $(`#container-recom .reel-slot[data-cat="${p.cat}"]`);
@@ -906,16 +928,12 @@ const show_results = async (response, isFirst = false) => {
       $img.stop(true).attr("src", p.src).css("opacity", 1);
     });
 
-    // 等瀏覽器 paint 一幀後再切換畫面，確保圖片像素已上螢幕
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        $("#loadingbar_recom").hide();
-        $("#container-recom").show();
-        requestAnimationFrame(function () {
-          spinCapsuleReels(reelCats);
-        });
-      });
-    });
+    // 切換畫面
+    $("#loadingbar_recom").hide();
+    $("#container-recom").show();
+
+    // 用已預先決定的 finalIdx 直接啟動拉霸，不再重新 random
+    spinCapsuleReelsWithIdx(reelCats, finalIdxMap);
   });
 };
 
