@@ -962,49 +962,36 @@ const show_results = async (response, isFirst = false) => {
     setTimeout(function () {
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
-          let allSettled = 0;
           const totalActive = reelCats.filter(function (c) {
             return !capsulePinned[c] && (capsulePools[c] || []).length > 0;
           }).length;
 
-          function revealResult() {
-            $("#loadingbar_recom").hide();
-          }
-
-          function onOneCatSettled() {
-            allSettled++;
-            if (allSettled >= totalActive) {
-              revealResult();
-            }
-          }
-
-          // 安全 timeout：最多等 3 秒，無論如何都揭開 loading
-          const safetyTimer = setTimeout(revealResult, 3000);
-          const origReveal = revealResult;
-          // 覆寫 revealResult 讓它只執行一次並清掉 timer
+          // 只執行一次的揭開函式
           var revealed = false;
+          var safetyTimer = null;
           function revealOnce() {
             if (revealed) return;
             revealed = true;
             clearTimeout(safetyTimer);
-            origReveal();
+            $("#loadingbar_recom").hide();
           }
-          // 把 onOneCatSettled 改用 revealOnce
-          function onOneCatSettledSafe() {
-            allSettled++;
-            if (allSettled >= totalActive) revealOnce();
-          }
-          // safety timer 也用 revealOnce
-          clearTimeout(safetyTimer);
-          setTimeout(revealOnce, 3000);
 
-          // 若沒有任何欄要動畫（全釘選或 pool 空），直接揭開
+          // 安全 timeout：最多等 3 秒
+          safetyTimer = setTimeout(revealOnce, 3000);
+
+          // 若沒有任何欄要動畫，直接揭開
           if (totalActive === 0) {
             revealOnce();
             return;
           }
 
-          spinCapsuleReelsWithIdx(reelCats, finalIdxMap, onOneCatSettledSafe);
+          var allSettled = 0;
+          function onOneCatSettled() {
+            allSettled++;
+            if (allSettled >= totalActive) revealOnce();
+          }
+
+          spinCapsuleReelsWithIdx(reelCats, finalIdxMap, onOneCatSettled);
         });
       });
     }, 0);
