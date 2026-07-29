@@ -853,17 +853,13 @@ const show_results = async (response, isFirst = false) => {
 
   reelCats.forEach(function (cat) {
     const pool = capsulePools[cat] || [];
-    // 全部 pool 圖片都預載並 decode（拉霸動畫隨機圖也需要）
+    // 靜態預覽圖：也預載全部 pool（供拉霸動畫隨機用）
     pool.forEach(function (item) {
       const src = (item.Imgsrc || item.image_link || "").trim();
       if (src && !previewImgMap[src]) {
         const imgObj = new Image();
         previewImgMap[src] = imgObj;
-        imgObj.src = src;
-        // 背景 decode，不阻塞主流程；iOS Safari 支援 decode()
-        if (typeof imgObj.decode === "function") {
-          imgObj.decode().catch(function () {});
-        }
+        imgObj.src = src; // 開始載入，瀏覽器快取
       }
     });
     // 記錄每欄靜態預覽圖的 src，方便等一下直接寫進 DOM
@@ -872,28 +868,26 @@ const show_results = async (response, isFirst = false) => {
     previewSrcs.push({ cat, src: previewSrc });
   });
 
-  // 等單張圖片 fetch 完成（load 事件），再用 decode() 確保 GPU decode 完畢
-  // decode() 讓後續 <img src="..."> 能直接 paint，不再需要重新 decode
-  const waitForImgDecoded = function (src) {
+  // 等單張圖片「network 完成 + decode 完成」
+  // img.decode() 確保 Safari 也完整 decode，比 onload 更嚴格
+  const waitForImg = function (src) {
     const imgObj = previewImgMap[src];
     if (!imgObj) return Promise.resolve();
-
-    const waitLoad = (imgObj.complete && imgObj.naturalWidth > 0)
+    const networkDone = imgObj.complete
       ? Promise.resolve()
       : new Promise(function (resolve) {
           imgObj.onload = resolve;
           imgObj.onerror = resolve;
         });
-
-    return waitLoad.then(function () {
-      // decode() 強制完成 GPU rasterize；不支援時靜默跳過
-      if (typeof imgObj.decode === "function") {
-        return imgObj.decode().catch(function () {});
-      }
+    return networkDone.then(function () {
+      // decode() 確保像素已備妥，Safari 支援
+      return typeof imgObj.decode === "function"
+        ? imgObj.decode().catch(function () {})
+        : Promise.resolve();
     });
   };
 
-  // 只等靜態預覽那幾張（每欄一張）decode 完成；拉霸隨機圖背景繼續載
+  // 只等靜態預覽那幾張（每欄一張）；拉霸隨機圖已在 previewImgMap 裡一併載入
   const previewOnlyUrls = previewSrcs.map(function (p) { return p.src; }).filter(Boolean);
 
   const timeoutPromise = new Promise(function (resolve) {
@@ -901,10 +895,10 @@ const show_results = async (response, isFirst = false) => {
   });
 
   Promise.race([
-    Promise.all(previewOnlyUrls.map(waitForImgDecoded)),
+    Promise.all(previewOnlyUrls.map(waitForImg)),
     timeoutPromise,
   ]).then(function () {
-    // 把已 decode 的靜態預覽圖直接寫進 DOM（不再觸發任何新的網路請求或 decode）
+    // 把已 decode 的靜態預覽圖直接寫進 DOM，不觸發任何新請求
     previewSrcs.forEach(function (p) {
       if (!p.src) return;
       const $slot = $(`#container-recom .reel-slot[data-cat="${p.cat}"]`);
@@ -912,12 +906,14 @@ const show_results = async (response, isFirst = false) => {
       $img.stop(true).attr("src", p.src).css("opacity", 1);
     });
 
-    // 切換畫面：隱藏 loading、顯示結果頁、啟動拉霸
-    $("#loadingbar_recom").hide();
-    $("#container-recom").show();
+    // 等瀏覽器 paint 一幀後再切換畫面，確保圖片像素已上螢幕
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
-        spinCapsuleReels(reelCats);
+        $("#loadingbar_recom").hide();
+        $("#container-recom").show();
+        requestAnimationFrame(function () {
+          spinCapsuleReels(reelCats);
+        });
       });
     });
   });
