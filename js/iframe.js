@@ -290,7 +290,10 @@ const get_recom_res = () => {
         window.parent.postMessage(messageData, "*");
       }
       setTimeout(() => {
-        // $("#loadingbar_recom").fadeOut(500);
+        // 若結果頁尚未把 loading 收掉（例如仍在備援），此處保險關閉
+        if ($("#container-recom").is(":visible")) {
+          $("#loadingbar_recom").hide();
+        }
         isFetching = false;
       }, 2200);
     });
@@ -837,6 +840,14 @@ const show_results = async (response, isFirst = false) => {
   capsulePinned = nextPinned;
 
   buildCapsuleReels();
+
+  // 翻箱倒櫃 loading 結束後進結果頁，自動拉霸轉動
+  $("#loadingbar_recom").hide();
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      spinCapsuleReels(reelCats);
+    });
+  });
 };
 
 function openDetailDialog (){
