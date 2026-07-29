@@ -642,23 +642,16 @@ function animateReel(cat, finalIdx, done) {
   const $window = $slot.find(".reel-window");
   const $roller = $slot.find(".reel-roller");
 
-  // getBoundingClientRect 回傳精確浮點數，避免 Math.round / offsetTop 造成的次像素誤差
-  const h = $window[0].getBoundingClientRect().height;
-  if (!h || pool.length === 0) {
+  // 優先用 getBoundingClientRect；若為 0（layout 尚未完成）則用 clientHeight，
+  // 再不行用 offsetHeight，最後 fallback 到 CSS 定義值（< 400px: 224, >= 400px: 280）
+  let h = $window[0].getBoundingClientRect().height
+    || $window[0].clientHeight
+    || $window[0].offsetHeight
+    || (window.innerWidth >= 400 ? 280 : 224);
+
+  if (pool.length === 0) {
     capsuleIndex[cat] = finalIdx;
-    // 直接設圖、不 fade-in，確保圖片立即可見（高度為 0 時跳過動畫）
-    const fallbackItem = pool[finalIdx] || pool[0];
-    if (fallbackItem) {
-      const fallbackSrc = (fallbackItem.Imgsrc || fallbackItem.image_link || "").trim();
-      $roller.html(
-        `<img class="c-recom reel-img" style="width:100%;height:auto;opacity:1" src="${fallbackSrc}" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`
-      );
-      $slot.find(".recom-text").text(fallbackItem.ItemName || "");
-      $slot.find(".recom-price").text(formatRecomPrice(fallbackItem));
-      $slot.find(".reel-link").attr("href", fallbackItem.Link || fallbackItem.link || "javascript:void(0)");
-    } else {
-      renderCapsuleReel(cat);
-    }
+    renderCapsuleReel(cat);
     done && done();
     return;
   }
