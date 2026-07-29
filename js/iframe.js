@@ -582,7 +582,7 @@ function renderCapsuleReel(cat) {
 
   $slot.find(".reel-link").attr("href", link);
   $roller.html(
-    `<img loading="lazy" class="c-recom reel-img" data-item="0" src="./../../img/img-default-large.png" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`
+    `<img class="c-recom reel-img" data-item="0" src="./../../img/img-default-large.png" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`
   );
   setReelImage($roller.find("img.reel-img"), imgSrc);
   $slot.find(".recom-text").text(item.ItemName || "");
@@ -764,18 +764,11 @@ function animateReel(cat, finalIdx, done) {
 // 轉動拉霸 (略過已釘選的欄位)；三欄略微錯開落定，做出 Apple 式層次感
 // idxMap 選填；onOneSettled 選填（每欄 settle 後呼叫一次）
 function spinCapsuleReels(cats, idxMap, onOneSettled) {
-  if (isSpinning) {
-    // 前次動畫未結束，直接通知 caller 可以揭開 loading
-    onOneSettled && onOneSettled();
-    return;
-  }
+  if (isSpinning) return;
   const active = cats.filter(
     (c) => !capsulePinned[c] && (capsulePools[c] || []).length > 0
   );
-  if (active.length === 0) {
-    onOneSettled && onOneSettled();
-    return;
-  }
+  if (active.length === 0) return;
   isSpinning = true;
 
   trackInffitsEvent("spin_capsule", {
@@ -984,49 +977,34 @@ const show_results = async (response, isFirst = false) => {
     Promise.all(uniqueFinalSrcs.map(waitForImg)),
     timeoutPromise,
   ]).then(function () {
-    // ── 策略：先 show container-recom（但 loadingbar_recom 繼續蓋在上面）──
-    // 這樣 reel-window 有真實高度，animateReel 才能正確取到 h；
-    // 等所有欄動畫 settle（圖片落定）後，才隱藏 loadingbar_recom 揭開結果頁。
+    // 把已 decode 的 finalIdx 圖寫進靜態預覽（直接用 reelImgCache 裡的物件）
+    previewSrcs.forEach(function (p) {
+      if (!p.src) return;
+      const $slot = $(`#container-recom .reel-slot[data-cat="${p.cat}"]`);
+      const $img = $slot.find("img.reel-img");
+      const cached = reelImgCache[p.src];
+      if (cached && cached.complete && cached.naturalWidth > 0) {
+        // 直接 clone 已下載的 img 節點，確保像素立即可用
+        const clone = cached.cloneNode(false);
+        clone.className = $img[0] ? $img[0].className : "c-recom reel-img";
+        clone.style.cssText = "";
+        clone.removeAttribute("loading");
+        $img.replaceWith(clone);
+      } else {
+        $img.attr("src", p.src).css("opacity", 1);
+      }
+    });
+
+    // 揭開：先顯示結果頁（此時靜態圖已就緒），再開始動畫
+    $("#loadingbar_recom").hide();
     $("#container-recom").show();
 
-    // 等多幀讓 Safari three-column layout 完全算好，再取 reel-window 高度
-    // 用 setTimeout(0) + 多重 rAF 確保跨裝置 layout 穩定
-    setTimeout(function () {
+    // 等兩個 rAF 讓圖片 paint 一幀，用戶先看到靜態圖，再啟動拉霸
+    requestAnimationFrame(function () {
       requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-          const totalActive = reelCats.filter(function (c) {
-            return !capsulePinned[c] && (capsulePools[c] || []).length > 0;
-          }).length;
-
-          // 只執行一次的揭開函式
-          var revealed = false;
-          var safetyTimer = null;
-          function revealOnce() {
-            if (revealed) return;
-            revealed = true;
-            clearTimeout(safetyTimer);
-            $("#loadingbar_recom").hide();
-          }
-
-          // 安全 timeout：最多等 3 秒
-          safetyTimer = setTimeout(revealOnce, 3000);
-
-          // 若沒有任何欄要動畫，直接揭開
-          if (totalActive === 0) {
-            revealOnce();
-            return;
-          }
-
-          var allSettled = 0;
-          function onOneCatSettled() {
-            allSettled++;
-            if (allSettled >= totalActive) revealOnce();
-          }
-
-          spinCapsuleReelsWithIdx(reelCats, finalIdxMap, onOneCatSettled);
-        });
+        spinCapsuleReelsWithIdx(reelCats, finalIdxMap);
       });
-    }, 0);
+    });
   });
 };
 
