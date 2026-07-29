@@ -499,6 +499,7 @@ let capsulePools = {};
 let capsuleIndex = {};
 let capsulePinned = {};
 let isSpinning = false;
+let reelImgCache = {}; // src -> HTMLImageElement，跨函式共享已下載的 img 物件
 
 // 判斷 Item 是否為「分類 → 商品陣列」的分組結構
 function isGroupedCapsuleItem(item) {
@@ -638,6 +639,25 @@ function reelStripImg(src, tileH) {
   return `<img class="c-recom reel-img" style="height:${tileH}px;min-height:${tileH}px" src="${src}" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`;
 }
 
+// 建立 reel tile img 元素
+// 若 reelImgCache 裡已有此 src 的 img 物件且已載入完成，直接 clone 該物件的像素（cloneNode）
+// 確保像素不需重新 decode
+function reelStripImgEl(src, tileH) {
+  let el;
+  const cached = reelImgCache[src];
+  if (cached && cached.complete && cached.naturalWidth > 0) {
+    el = cached.cloneNode(false); // 淺 clone：src 相同，像素立即可用
+  } else {
+    el = document.createElement("img");
+    el.src = src;
+  }
+  el.className = "c-recom reel-img";
+  el.style.height = tileH + "px";
+  el.style.minHeight = tileH + "px";
+  el.onerror = function () { this.onerror = null; this.src = "./../../img/img-default-large.png"; };
+  return el;
+}
+
 // 單一欄位：以一次性減速動畫精準落定到 finalIdx，並做無縫收尾
 function animateReel(cat, finalIdx, done) {
   const $slot = $(`#container-recom .reel-slot[data-cat="${cat}"]`);
@@ -665,13 +685,8 @@ function animateReel(cat, finalIdx, done) {
   // 組合滾輪：前段隨機填充圖 + 最後一張為最終商品
   // 每格明確設定 height = h，確保 FILLERS × h 精準等於最終圖磚頂部距離
   const FILLERS = 10;
-  let html = "";
-  for (let k = 0; k < FILLERS; k++) {
-    const rnd = pool[Math.floor(Math.random() * pool.length)];
-    html += reelStripImg((rnd.Imgsrc || rnd.image_link || "").trim(), h);
-  }
   const fin = pool[finalIdx];
-  html += reelStripImg((fin.Imgsrc || fin.image_link || "").trim(), h);
+  const finSrc = (fin.Imgsrc || fin.image_link || "").trim();
 
   // 轉動一開始就把名稱/價格換成最終商品 (趁模糊過程中切換)
   $slot.find(".recom-text").text(fin.ItemName || "");
@@ -685,7 +700,15 @@ function animateReel(cat, finalIdx, done) {
   $link.css({ animation: "", filter: "" });
   $roller
     .css({ transition: "none", transform: "translate3d(0,0,0)", animation: "", filter: "" })
-    .html(html);
+    .empty();
+
+  // 用 reelStripImgEl 建立 DOM 節點（相同 src 不重下載）
+  for (let k = 0; k < FILLERS; k++) {
+    const rnd = pool[Math.floor(Math.random() * pool.length)];
+    $roller[0].appendChild(reelStripImgEl((rnd.Imgsrc || rnd.image_link || "").trim(), h));
+  }
+  $roller[0].appendChild(reelStripImgEl(finSrc, h));
+
   void $roller[0].offsetHeight;
 
   // 距離 = FILLERS × h (精確浮點)，每格已明確設 height:h，兩者完全對齊
@@ -890,6 +913,7 @@ const show_results = async (response, isFirst = false) => {
       if (src && !previewImgMap[src]) {
         const imgObj = new Image();
         previewImgMap[src] = imgObj;
+        reelImgCache[src] = imgObj; // 同步寫入 module-level cache
         imgObj.src = src; // 開始載入，瀏覽器快取
       }
     });
