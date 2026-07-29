@@ -853,13 +853,17 @@ const show_results = async (response, isFirst = false) => {
 
   reelCats.forEach(function (cat) {
     const pool = capsulePools[cat] || [];
-    // 靜態預覽圖：也預載全部 pool（供拉霸動畫隨機用）
+    // 全部 pool 圖片都預載並 decode（拉霸動畫隨機圖也需要）
     pool.forEach(function (item) {
       const src = (item.Imgsrc || item.image_link || "").trim();
       if (src && !previewImgMap[src]) {
         const imgObj = new Image();
         previewImgMap[src] = imgObj;
-        imgObj.src = src; // 開始載入，瀏覽器快取
+        imgObj.src = src;
+        // 背景 decode，不阻塞主流程；iOS Safari 支援 decode()
+        if (typeof imgObj.decode === "function") {
+          imgObj.decode().catch(function () {});
+        }
       }
     });
     // 記錄每欄靜態預覽圖的 src，方便等一下直接寫進 DOM
@@ -868,28 +872,39 @@ const show_results = async (response, isFirst = false) => {
     previewSrcs.push({ cat, src: previewSrc });
   });
 
-  // 只等靜態預覽那幾張（每欄一張）真正載入完成；拉霸隨機圖從快取取，不阻塞
-  const previewOnlyUrls = previewSrcs.map(function (p) { return p.src; }).filter(Boolean);
-
-  const waitForImg = function (src) {
+  // 等單張圖片 fetch 完成（load 事件），再用 decode() 確保 GPU decode 完畢
+  // decode() 讓後續 <img src="..."> 能直接 paint，不再需要重新 decode
+  const waitForImgDecoded = function (src) {
     const imgObj = previewImgMap[src];
     if (!imgObj) return Promise.resolve();
-    if (imgObj.complete && imgObj.naturalWidth > 0) return Promise.resolve();
-    return new Promise(function (resolve) {
-      imgObj.onload = resolve;
-      imgObj.onerror = resolve;
+
+    const waitLoad = (imgObj.complete && imgObj.naturalWidth > 0)
+      ? Promise.resolve()
+      : new Promise(function (resolve) {
+          imgObj.onload = resolve;
+          imgObj.onerror = resolve;
+        });
+
+    return waitLoad.then(function () {
+      // decode() 強制完成 GPU rasterize；不支援時靜默跳過
+      if (typeof imgObj.decode === "function") {
+        return imgObj.decode().catch(function () {});
+      }
     });
   };
+
+  // 只等靜態預覽那幾張（每欄一張）decode 完成；拉霸隨機圖背景繼續載
+  const previewOnlyUrls = previewSrcs.map(function (p) { return p.src; }).filter(Boolean);
 
   const timeoutPromise = new Promise(function (resolve) {
     setTimeout(resolve, MAX_WAIT_MS);
   });
 
   Promise.race([
-    Promise.all(previewOnlyUrls.map(waitForImg)),
+    Promise.all(previewOnlyUrls.map(waitForImgDecoded)),
     timeoutPromise,
   ]).then(function () {
-    // 把已載入的靜態預覽圖直接寫進 DOM（不再觸發任何新的網路請求）
+    // 把已 decode 的靜態預覽圖直接寫進 DOM（不再觸發任何新的網路請求或 decode）
     previewSrcs.forEach(function (p) {
       if (!p.src) return;
       const $slot = $(`#container-recom .reel-slot[data-cat="${p.cat}"]`);
