@@ -1477,33 +1477,26 @@ function fadeInTagsSequentially(targetRoute, tagElements, delay = TAG_FADE_IN_DE
         currentTag.classList.add("tag-fade-in");
 
         if (optionsContainer && currentTag && index >= 2) {
+          // 用 rAF 批次讀 layout，避免在 setTimeout 內連續觸發 reflow
           setTimeout(() => {
-            const tagRect = currentTag.getBoundingClientRect();
-            const containerRect = optionsContainer.getBoundingClientRect();
-
-            const isTagVisible =
-              tagRect.top >= containerRect.top &&
-              tagRect.bottom <= containerRect.bottom;
-
-            if (!isTagVisible) {
+            requestAnimationFrame(() => {
               const tagOffsetTop = currentTag.offsetTop;
+              const tagOffsetBottom = tagOffsetTop + currentTag.offsetHeight;
               const containerHeight = optionsContainer.clientHeight;
-              const tagHeight = currentTag.offsetHeight;
-              let scrollPosition;
+              const scrollTop = optionsContainer.scrollTop;
 
-              if (tagRect.bottom > containerRect.bottom) {
-                scrollPosition = tagOffsetTop - containerHeight + tagHeight + 10;
-              } else if (tagRect.top < containerRect.top) {
-                scrollPosition = tagOffsetTop - 10;
-              }
-
-              if (scrollPosition !== undefined) {
+              if (tagOffsetBottom > scrollTop + containerHeight) {
                 optionsContainer.scrollTo({
-                  top: Math.max(0, scrollPosition),
+                  top: Math.max(0, tagOffsetTop - containerHeight + currentTag.offsetHeight + 10),
+                  behavior: "smooth",
+                });
+              } else if (tagOffsetTop < scrollTop) {
+                optionsContainer.scrollTo({
+                  top: Math.max(0, tagOffsetTop - 10),
                   behavior: "smooth",
                 });
               }
-            }
+            });
           }, 400);
         }
 
@@ -1596,14 +1589,22 @@ function startTypewriterEffect(containerRoute) {
         tag.classList.remove('tag-fade-in');
       });
       
+      // scroll 檢查以 rAF 節流，避免每字觸發 reflow
+      let scrollRafPending = false;
+      function scheduleScrollCheck() {
+        if (scrollRafPending) return;
+        scrollRafPending = true;
+        requestAnimationFrame(() => {
+          scrollRafPending = false;
+          checkAndScrollIfNeeded();
+        });
+      }
+
       // 創建打字機實例
       const typewriter = new Typewriter(typewriterContainer, {
         delay: 75,
         cursor: '',  // 不顯示游標
         loop: false,
-        // 自定義回調函數在每次字符輸入後檢查滾動
-        onPause: checkAndScrollIfNeeded,
-        onType: checkAndScrollIfNeeded
       });
       
       // 開始打字效果，並在完成後顯示 swiper-slide 元素和標籤依序淡入
@@ -1625,17 +1626,10 @@ function startTypewriterEffect(containerRoute) {
           fadeInTagsSequentially(targetRoute, tagElements, 200);
         })
         .start();
-        
-      // 監聽打字過程中的滾動事件
-      const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-          if (mutation.type === 'childList' || mutation.type === 'characterData') {
-            checkAndScrollIfNeeded();
-          }
-        });
-      });
-      
-      // 開始觀察
+
+      // 以 MutationObserver + rAF 節流取代直接在 onType 讀 layout
+      // 避免每字觸發 reflow 造成 iPhone Safari 卡頓
+      const observer = new MutationObserver(scheduleScrollCheck);
       observer.observe(typewriterContainer, {
         childList: true,
         subtree: true,
