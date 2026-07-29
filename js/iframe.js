@@ -534,18 +534,21 @@ function normalizeCapsulePools(response) {
 
 // 以淡入方式載入圖片 (沿用原本 c-recom 淡入邏輯)
 function setReelImage($img, src) {
-  $img.css("opacity", 0);
+  // 直接設圖，不做 fade-in。
+  // 之前的 opacity:0 + 600ms animate 會造成 loading 消失後圖片仍透明的視覺 bug。
   const realImg = new Image();
   realImg.src = src;
-  $(realImg)
-    .on("load", function () {
-      $img.attr("src", src);
-      $img.stop(true).animate({ opacity: 1 }, 600);
-    })
-    .on("error", function () {
-      $img.attr("src", "./../../img/img-default-large.png");
-      $img.stop(true).animate({ opacity: 1 }, 600);
-    });
+  if (realImg.complete) {
+    $img.attr("src", src).css("opacity", 1);
+  } else {
+    $(realImg)
+      .on("load", function () {
+        $img.attr("src", src).css("opacity", 1);
+      })
+      .on("error", function () {
+        $img.attr("src", "./../../img/img-default-large.png").css("opacity", 1);
+      });
+  }
 }
 
 function formatRecomPrice(item) {
@@ -642,9 +645,14 @@ function animateReel(cat, finalIdx, done) {
   const $window = $slot.find(".reel-window");
   const $roller = $slot.find(".reel-roller");
 
-  // getBoundingClientRect 回傳精確浮點數，避免 Math.round / offsetTop 造成的次像素誤差
-  const h = $window[0].getBoundingClientRect().height;
-  if (!h || pool.length === 0) {
+  // 優先用 getBoundingClientRect；若為 0（layout 尚未完成）則用 clientHeight，
+  // 再不行用 offsetHeight，最後 fallback 到 CSS 定義值（< 400px: 224, >= 400px: 280）
+  let h = $window[0].getBoundingClientRect().height
+    || $window[0].clientHeight
+    || $window[0].offsetHeight
+    || (window.innerWidth >= 400 ? 280 : 224);
+
+  if (pool.length === 0) {
     capsuleIndex[cat] = finalIdx;
     renderCapsuleReel(cat);
     done && done();
@@ -725,11 +733,18 @@ function animateReel(cat, finalIdx, done) {
 // 轉動拉霸 (略過已釘選的欄位)；三欄略微錯開落定，做出 Apple 式層次感
 // idxMap 選填；onOneSettled 選填（每欄 settle 後呼叫一次）
 function spinCapsuleReels(cats, idxMap, onOneSettled) {
-  if (isSpinning) return;
+  if (isSpinning) {
+    // 前次動畫未結束，直接通知 caller 可以揭開 loading
+    onOneSettled && onOneSettled();
+    return;
+  }
   const active = cats.filter(
     (c) => !capsulePinned[c] && (capsulePools[c] || []).length > 0
   );
-  if (active.length === 0) return;
+  if (active.length === 0) {
+    onOneSettled && onOneSettled();
+    return;
+  }
   isSpinning = true;
 
   trackInffitsEvent("spin_capsule", {
@@ -942,29 +957,44 @@ const show_results = async (response, isFirst = false) => {
     // 等所有欄動畫 settle（圖片落定）後，才隱藏 loadingbar_recom 揭開結果頁。
     $("#container-recom").show();
 
-    // 等一個 rAF，讓 Safari layout 跑完，reel-window 取得真實高度
-    requestAnimationFrame(function () {
-      let allSettled = 0;
-      const totalActive = reelCats.filter(function (c) {
-        return !capsulePinned[c] && (capsulePools[c] || []).length > 0;
-      }).length;
+    // 等多幀讓 Safari three-column layout 完全算好，再取 reel-window 高度
+    // 用 setTimeout(0) + 多重 rAF 確保跨裝置 layout 穩定
+    setTimeout(function () {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          const totalActive = reelCats.filter(function (c) {
+            return !capsulePinned[c] && (capsulePools[c] || []).length > 0;
+          }).length;
 
-      function onOneCatSettled() {
-        allSettled++;
-        if (allSettled >= totalActive) {
-          // 所有欄動畫落定、圖片就位，才揭開 loading
-          $("#loadingbar_recom").hide();
-        }
-      }
+          // 只執行一次的揭開函式
+          var revealed = false;
+          var safetyTimer = null;
+          function revealOnce() {
+            if (revealed) return;
+            revealed = true;
+            clearTimeout(safetyTimer);
+            $("#loadingbar_recom").hide();
+          }
 
-      // 若沒有任何欄要動畫（全釘選或 pool 空），直接揭開
-      if (totalActive === 0) {
-        $("#loadingbar_recom").hide();
-        return;
-      }
+          // 安全 timeout：最多等 3 秒
+          safetyTimer = setTimeout(revealOnce, 3000);
 
-      spinCapsuleReelsWithIdx(reelCats, finalIdxMap, onOneCatSettled);
-    });
+          // 若沒有任何欄要動畫，直接揭開
+          if (totalActive === 0) {
+            revealOnce();
+            return;
+          }
+
+          var allSettled = 0;
+          function onOneCatSettled() {
+            allSettled++;
+            if (allSettled >= totalActive) revealOnce();
+          }
+
+          spinCapsuleReelsWithIdx(reelCats, finalIdxMap, onOneCatSettled);
+        });
+      });
+    }, 0);
   });
 };
 
