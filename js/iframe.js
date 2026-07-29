@@ -843,28 +843,41 @@ const show_results = async (response, isFirst = false) => {
   buildCapsuleReels();
 
   // 預載各欄商品圖片，確保進入結果頁時已有圖可用
-  const PRELOAD_PER_CAT = 12; // FILLERS(10) + 最終圖(1) + 1 緩衝
-  const MAX_WAIT_MS = 4000;   // 最長等待，避免網路慢時卡住
+  // 每欄取 FILLERS(10) + 最終圖(1) + 1 緩衝 = 12 張
+  const MAX_WAIT_MS = 4000; // 最長等待，避免網路慢時卡住
 
-  const imgUrls = [];
+  // 先收集每欄「靜態預覽」那一張（capsuleIndex 對應的商品）並建立 preload Image 物件
+  // key = src，value = Image 物件（已載入）；後續直接把 src 套進 DOM，不重新發請求
+  const previewImgMap = {}; // src -> Image object
+  const previewSrcs = [];   // 保持順序供 reel-roller 賦值用
+
   reelCats.forEach(function (cat) {
     const pool = capsulePools[cat] || [];
-    pool.slice(0, PRELOAD_PER_CAT).forEach(function (item) {
+    // 靜態預覽圖：也預載全部 pool（供拉霸動畫隨機用）
+    pool.forEach(function (item) {
       const src = (item.Imgsrc || item.image_link || "").trim();
-      if (src) imgUrls.push(src);
+      if (src && !previewImgMap[src]) {
+        const imgObj = new Image();
+        previewImgMap[src] = imgObj;
+        imgObj.src = src; // 開始載入，瀏覽器快取
+      }
     });
+    // 記錄每欄靜態預覽圖的 src，方便等一下直接寫進 DOM
+    const previewItem = pool[capsuleIndex[cat]] || pool[0];
+    const previewSrc = previewItem ? (previewItem.Imgsrc || previewItem.image_link || "").trim() : "";
+    previewSrcs.push({ cat, src: previewSrc });
   });
 
-  // 去重
-  const uniqueUrls = [...new Set(imgUrls)];
+  // 只等靜態預覽那幾張（每欄一張）真正載入完成；拉霸隨機圖從快取取，不阻塞
+  const previewOnlyUrls = previewSrcs.map(function (p) { return p.src; }).filter(Boolean);
 
-  const preloadOne = function (src) {
+  const waitForImg = function (src) {
+    const imgObj = previewImgMap[src];
+    if (!imgObj) return Promise.resolve();
+    if (imgObj.complete && imgObj.naturalWidth > 0) return Promise.resolve();
     return new Promise(function (resolve) {
-      const img = new Image();
-      img.onload = resolve;
-      img.onerror = resolve; // 失敗也繼續，不阻塞
-      img.src = src;
-      if (img.complete) resolve();
+      imgObj.onload = resolve;
+      imgObj.onerror = resolve;
     });
   };
 
@@ -873,20 +886,15 @@ const show_results = async (response, isFirst = false) => {
   });
 
   Promise.race([
-    Promise.all(uniqueUrls.map(preloadOne)),
+    Promise.all(previewOnlyUrls.map(waitForImg)),
     timeoutPromise,
   ]).then(function () {
-    // 圖片就緒後：把 setReelImage 產生的靜態預覽圖強制顯示（跳過 600ms fade-in）
-    // 因為此時 loading 畫面還蓋著，不需要 fade-in 視覺效果
-    reelCats.forEach(function (cat) {
-      const item = (capsulePools[cat] || [])[capsuleIndex[cat]] || (capsulePools[cat] || [])[0];
-      if (!item) return;
-      const src = (item.Imgsrc || item.image_link || "").trim();
-      if (!src) return;
-      const $slot = $(`#container-recom .reel-slot[data-cat="${cat}"]`);
+    // 把已載入的靜態預覽圖直接寫進 DOM（不再觸發任何新的網路請求）
+    previewSrcs.forEach(function (p) {
+      if (!p.src) return;
+      const $slot = $(`#container-recom .reel-slot[data-cat="${p.cat}"]`);
       const $img = $slot.find("img.reel-img");
-      // 直接套上真實圖、停掉任何進行中的 animate、設 opacity:1
-      $img.stop(true).attr("src", src).css("opacity", 1);
+      $img.stop(true).attr("src", p.src).css("opacity", 1);
     });
 
     // 切換畫面：隱藏 loading、顯示結果頁、啟動拉霸
@@ -1469,33 +1477,26 @@ function fadeInTagsSequentially(targetRoute, tagElements, delay = TAG_FADE_IN_DE
         currentTag.classList.add("tag-fade-in");
 
         if (optionsContainer && currentTag && index >= 2) {
+          // 用 rAF 批次讀 layout，避免在 setTimeout 內連續觸發 reflow
           setTimeout(() => {
-            const tagRect = currentTag.getBoundingClientRect();
-            const containerRect = optionsContainer.getBoundingClientRect();
-
-            const isTagVisible =
-              tagRect.top >= containerRect.top &&
-              tagRect.bottom <= containerRect.bottom;
-
-            if (!isTagVisible) {
+            requestAnimationFrame(() => {
               const tagOffsetTop = currentTag.offsetTop;
+              const tagOffsetBottom = tagOffsetTop + currentTag.offsetHeight;
               const containerHeight = optionsContainer.clientHeight;
-              const tagHeight = currentTag.offsetHeight;
-              let scrollPosition;
+              const scrollTop = optionsContainer.scrollTop;
 
-              if (tagRect.bottom > containerRect.bottom) {
-                scrollPosition = tagOffsetTop - containerHeight + tagHeight + 10;
-              } else if (tagRect.top < containerRect.top) {
-                scrollPosition = tagOffsetTop - 10;
-              }
-
-              if (scrollPosition !== undefined) {
+              if (tagOffsetBottom > scrollTop + containerHeight) {
                 optionsContainer.scrollTo({
-                  top: Math.max(0, scrollPosition),
+                  top: Math.max(0, tagOffsetTop - containerHeight + currentTag.offsetHeight + 10),
+                  behavior: "smooth",
+                });
+              } else if (tagOffsetTop < scrollTop) {
+                optionsContainer.scrollTo({
+                  top: Math.max(0, tagOffsetTop - 10),
                   behavior: "smooth",
                 });
               }
-            }
+            });
           }, 400);
         }
 
@@ -1588,14 +1589,22 @@ function startTypewriterEffect(containerRoute) {
         tag.classList.remove('tag-fade-in');
       });
       
+      // scroll 檢查以 rAF 節流，避免每字觸發 reflow
+      let scrollRafPending = false;
+      function scheduleScrollCheck() {
+        if (scrollRafPending) return;
+        scrollRafPending = true;
+        requestAnimationFrame(() => {
+          scrollRafPending = false;
+          checkAndScrollIfNeeded();
+        });
+      }
+
       // 創建打字機實例
       const typewriter = new Typewriter(typewriterContainer, {
         delay: 75,
         cursor: '',  // 不顯示游標
         loop: false,
-        // 自定義回調函數在每次字符輸入後檢查滾動
-        onPause: checkAndScrollIfNeeded,
-        onType: checkAndScrollIfNeeded
       });
       
       // 開始打字效果，並在完成後顯示 swiper-slide 元素和標籤依序淡入
@@ -1617,17 +1626,10 @@ function startTypewriterEffect(containerRoute) {
           fadeInTagsSequentially(targetRoute, tagElements, 200);
         })
         .start();
-        
-      // 監聽打字過程中的滾動事件
-      const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-          if (mutation.type === 'childList' || mutation.type === 'characterData') {
-            checkAndScrollIfNeeded();
-          }
-        });
-      });
-      
-      // 開始觀察
+
+      // 以 MutationObserver + rAF 節流取代直接在 onType 讀 layout
+      // 避免每字觸發 reflow 造成 iPhone Safari 卡頓
+      const observer = new MutationObserver(scheduleScrollCheck);
       observer.observe(typewriterContainer, {
         childList: true,
         subtree: true,
