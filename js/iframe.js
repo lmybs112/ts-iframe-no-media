@@ -742,14 +742,28 @@ function animateReel(cat, finalIdx, done) {
     $roller.off("transitionend.reel");
     capsuleIndex[cat] = finalIdx;
 
+    // 無縫收尾：只保留最終圖磚，其餘移除，位移歸零
+    const $imgs = $roller.children("img");
+    const $finalImg = $imgs.last();
+    $imgs.not($finalImg).remove();
     $roller.css({ transition: "none", transform: "none", animation: "", filter: "" });
     $link.css({ animation: "", filter: "" });
     $window.css("height", "");
     $slot.removeClass("reel-spinning");
 
-    // settle 後直接重新渲染靜態商品（capsuleIndex 已設為 finalIdx）
-    // renderCapsuleReel 會用 setReelImage 載入圖片，此時圖片已在瀏覽器快取
-    renderCapsuleReel(cat);
+    // 把 finalImg 的 src 換成已在 reelImgCache 裡的版本（確保像素就緒）
+    // 不重建 DOM，避免閃爍
+    const finSrcSettle = (fin.Imgsrc || fin.image_link || "").trim();
+    const cachedSettle = reelImgCache[finSrcSettle];
+    if (cachedSettle && cachedSettle.complete && cachedSettle.naturalWidth > 0) {
+      $finalImg.css({ opacity: 1, height: "", minHeight: "" }).attr("src", finSrcSettle);
+    } else {
+      $finalImg.css({ opacity: 1, height: "" });
+      if (!$finalImg.attr("src") || $finalImg.attr("src") !== finSrcSettle) {
+        $finalImg.attr("src", finSrcSettle);
+      }
+      $finalImg[0].onload = function () { $finalImg.css("minHeight", ""); };
+    }
 
     done && done();
   };
