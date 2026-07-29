@@ -674,27 +674,23 @@ function animateReel(cat, finalIdx, done) {
 
   // 起始歸零（無過場），強制 reflow 後於下一影格啟動位移
   const $link = $slot.find(".reel-link");
+  $link.css({ animation: "", filter: "" });
+  $roller
+    .css({ transition: "none", transform: "translate3d(0,0,0)", animation: "", filter: "" })
+    .html(html);
+  void $roller[0].offsetHeight;
 
   // 距離 = FILLERS × h (精確浮點)，每格已明確設 height:h，兩者完全對齊
   const distance = FILLERS * h;
   const duration = 1150 + Math.floor(Math.random() * 300);
 
-  // 等一個 rAF 讓靜態預覽圖先 paint 一幀，再清空並填入動畫圖條
   requestAnimationFrame(() => {
-    $link.css({ animation: "", filter: "" });
-    $roller
-      .css({ transition: "none", transform: "translate3d(0,0,0)", animation: "", filter: "" })
-      .html(html);
-    void $roller[0].offsetHeight;
-
-    requestAnimationFrame(() => {
-      $roller.css({
-        transition: `transform ${duration}ms ${REEL_EASE}`,
-        transform: `translate3d(0, -${distance}px, 0)`,
-      });
-      // 輕微動態模糊：套在整張卡片，讓圖片、名稱與價格一起模糊→對焦
-      $link.css("animation", `reelMotionBlur ${duration}ms ease-out`);
+    $roller.css({
+      transition: `transform ${duration}ms ${REEL_EASE}`,
+      transform: `translate3d(0, -${distance}px, 0)`,
     });
+    // 輕微動態模糊：套在整張卡片，讓圖片、名稱與價格一起模糊→對焦
+    $link.css("animation", `reelMotionBlur ${duration}ms ease-out`);
   });
 
   let settled = false;
@@ -727,8 +723,8 @@ function animateReel(cat, finalIdx, done) {
 }
 
 // 轉動拉霸 (略過已釘選的欄位)；三欄略微錯開落定，做出 Apple 式層次感
-// idxMap 選填；傳入時直接用指定的 finalIdx（避免重新 random）
-function spinCapsuleReels(cats, idxMap) {
+// idxMap 選填；onOneSettled 選填（每欄 settle 後呼叫一次）
+function spinCapsuleReels(cats, idxMap, onOneSettled) {
   if (isSpinning) return;
   const active = cats.filter(
     (c) => !capsulePinned[c] && (capsulePools[c] || []).length > 0
@@ -751,6 +747,7 @@ function spinCapsuleReels(cats, idxMap) {
   const onOne = () => {
     pending -= 1;
     if (pending <= 0) isSpinning = false;
+    onOneSettled && onOneSettled();
   };
 
   active.forEach((c, i) => {
@@ -761,9 +758,8 @@ function spinCapsuleReels(cats, idxMap) {
   });
 }
 
-// 相容舊呼叫：帶預先決定的 finalIdx 版本
-function spinCapsuleReelsWithIdx(cats, idxMap) {
-  spinCapsuleReels(cats, idxMap);
+function spinCapsuleReelsWithIdx(cats, idxMap, onOneSettled) {
+  spinCapsuleReels(cats, idxMap, onOneSettled);
 }
 
 // 釘選 / 取消釘選
@@ -941,23 +937,33 @@ const show_results = async (response, isFirst = false) => {
     Promise.all(uniqueFinalSrcs.map(waitForImg)),
     timeoutPromise,
   ]).then(function () {
-    // 把已 decode 的靜態預覽圖（= finalIdx 圖）直接寫進 DOM
-    previewSrcs.forEach(function (p) {
-      if (!p.src) return;
-      const $slot = $(`#container-recom .reel-slot[data-cat="${p.cat}"]`);
-      const $img = $slot.find("img.reel-img");
-      $img.stop(true).attr("src", p.src).css("opacity", 1);
-    });
-
-    // 切換畫面：先 show，等一個 paint frame 確保圖片上螢幕，再啟動拉霸
-    $("#loadingbar_recom").hide();
+    // ── 策略：先 show container-recom（但 loadingbar_recom 繼續蓋在上面）──
+    // 這樣 reel-window 有真實高度，animateReel 才能正確取到 h；
+    // 等所有欄動畫 settle（圖片落定）後，才隱藏 loadingbar_recom 揭開結果頁。
     $("#container-recom").show();
 
-    // 等兩個 rAF：第一個讓瀏覽器排程 paint，第二個確認 paint 完成後再動
+    // 等一個 rAF，讓 Safari layout 跑完，reel-window 取得真實高度
     requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        spinCapsuleReelsWithIdx(reelCats, finalIdxMap);
-      });
+      let allSettled = 0;
+      const totalActive = reelCats.filter(function (c) {
+        return !capsulePinned[c] && (capsulePools[c] || []).length > 0;
+      }).length;
+
+      function onOneCatSettled() {
+        allSettled++;
+        if (allSettled >= totalActive) {
+          // 所有欄動畫落定、圖片就位，才揭開 loading
+          $("#loadingbar_recom").hide();
+        }
+      }
+
+      // 若沒有任何欄要動畫（全釘選或 pool 空），直接揭開
+      if (totalActive === 0) {
+        $("#loadingbar_recom").hide();
+        return;
+      }
+
+      spinCapsuleReelsWithIdx(reelCats, finalIdxMap, onOneCatSettled);
     });
   });
 };
