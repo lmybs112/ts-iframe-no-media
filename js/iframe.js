@@ -674,23 +674,27 @@ function animateReel(cat, finalIdx, done) {
 
   // 起始歸零（無過場），強制 reflow 後於下一影格啟動位移
   const $link = $slot.find(".reel-link");
-  $link.css({ animation: "", filter: "" });
-  $roller
-    .css({ transition: "none", transform: "translate3d(0,0,0)", animation: "", filter: "" })
-    .html(html);
-  void $roller[0].offsetHeight;
 
   // 距離 = FILLERS × h (精確浮點)，每格已明確設 height:h，兩者完全對齊
   const distance = FILLERS * h;
   const duration = 1150 + Math.floor(Math.random() * 300);
 
+  // 等一個 rAF 讓靜態預覽圖先 paint 一幀，再清空並填入動畫圖條
   requestAnimationFrame(() => {
-    $roller.css({
-      transition: `transform ${duration}ms ${REEL_EASE}`,
-      transform: `translate3d(0, -${distance}px, 0)`,
+    $link.css({ animation: "", filter: "" });
+    $roller
+      .css({ transition: "none", transform: "translate3d(0,0,0)", animation: "", filter: "" })
+      .html(html);
+    void $roller[0].offsetHeight;
+
+    requestAnimationFrame(() => {
+      $roller.css({
+        transition: `transform ${duration}ms ${REEL_EASE}`,
+        transform: `translate3d(0, -${distance}px, 0)`,
+      });
+      // 輕微動態模糊：套在整張卡片，讓圖片、名稱與價格一起模糊→對焦
+      $link.css("animation", `reelMotionBlur ${duration}ms ease-out`);
     });
-    // 輕微動態模糊：套在整張卡片，讓圖片、名稱與價格一起模糊→對焦
-    $link.css("animation", `reelMotionBlur ${duration}ms ease-out`);
   });
 
   let settled = false;
@@ -876,7 +880,8 @@ const show_results = async (response, isFirst = false) => {
     previewSrcs.push({ cat, src: previewSrc });
   });
 
-  // 預先決定每欄拉霸的 finalIdx，這樣可以提前 decode 最終圖
+  // 預先決定每欄拉霸的 finalIdx，靜態預覽也用同一張
+  // 這樣 preload、靜態預覽、拉霸落定 三者都是同一張圖，只需 decode 一次
   const finalIdxMap = {};
   reelCats.forEach(function (cat) {
     const pool = capsulePools[cat] || [];
@@ -885,10 +890,31 @@ const show_results = async (response, isFirst = false) => {
     }
   });
 
+  // 把靜態預覽更新為 finalIdx 那張（和落定圖一致）
+  previewSrcs.forEach(function (p) {
+    if (finalIdxMap.hasOwnProperty(p.cat)) {
+      const pool = capsulePools[p.cat] || [];
+      const item = pool[finalIdxMap[p.cat]] || pool[0];
+      p.src = item ? (item.Imgsrc || item.image_link || "").trim() : p.src;
+    }
+  });
+
   // 等單張圖片「network 完成 + decode 完成」
   const waitForImg = function (src) {
     const imgObj = previewImgMap[src];
-    if (!imgObj) return Promise.resolve();
+    if (!imgObj) {
+      // previewImgMap 裡沒有（finalIdx 可能不在預載的前幾張）：臨時建立
+      const tmp = new Image();
+      tmp.src = src;
+      previewImgMap[src] = tmp;
+      return new Promise(function (resolve) {
+        tmp.onload = function () {
+          (typeof tmp.decode === "function" ? tmp.decode().catch(function(){}) : Promise.resolve()).then(resolve);
+        };
+        tmp.onerror = resolve;
+        if (tmp.complete) resolve();
+      });
+    }
     const networkDone = imgObj.complete
       ? Promise.resolve()
       : new Promise(function (resolve) {
@@ -902,25 +928,20 @@ const show_results = async (response, isFirst = false) => {
     });
   };
 
-  // 等每欄「最終落定圖」decode 完成（這才是用戶最終看到的圖）
-  const finalSrcs = reelCats.map(function (cat) {
-    const pool = capsulePools[cat] || [];
-    const idx = finalIdxMap.hasOwnProperty(cat)
-      ? finalIdxMap[cat]
-      : (capsuleIndex[cat] || 0);
-    const item = pool[idx] || pool[0];
-    return item ? (item.Imgsrc || item.image_link || "").trim() : "";
-  }).filter(Boolean);
+  // 等每欄靜態預覽（= finalIdx）那張 decode 完
+  const finalSrcs = previewSrcs.map(function (p) { return p.src; }).filter(Boolean);
+  // 去重
+  const uniqueFinalSrcs = [...new Set(finalSrcs)];
 
   const timeoutPromise = new Promise(function (resolve) {
     setTimeout(resolve, MAX_WAIT_MS);
   });
 
   Promise.race([
-    Promise.all(finalSrcs.map(waitForImg)),
+    Promise.all(uniqueFinalSrcs.map(waitForImg)),
     timeoutPromise,
   ]).then(function () {
-    // 把靜態預覽圖寫進 DOM（已 decode，直接顯示）
+    // 把已 decode 的靜態預覽圖（= finalIdx 圖）直接寫進 DOM
     previewSrcs.forEach(function (p) {
       if (!p.src) return;
       const $slot = $(`#container-recom .reel-slot[data-cat="${p.cat}"]`);
@@ -928,12 +949,16 @@ const show_results = async (response, isFirst = false) => {
       $img.stop(true).attr("src", p.src).css("opacity", 1);
     });
 
-    // 切換畫面
+    // 切換畫面：先 show，等一個 paint frame 確保圖片上螢幕，再啟動拉霸
     $("#loadingbar_recom").hide();
     $("#container-recom").show();
 
-    // 用已預先決定的 finalIdx 直接啟動拉霸，不再重新 random
-    spinCapsuleReelsWithIdx(reelCats, finalIdxMap);
+    // 等兩個 rAF：第一個讓瀏覽器排程 paint，第二個確認 paint 完成後再動
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        spinCapsuleReelsWithIdx(reelCats, finalIdxMap);
+      });
+    });
   });
 };
 
