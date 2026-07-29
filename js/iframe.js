@@ -535,20 +535,25 @@ function normalizeCapsulePools(response) {
 
 // 以淡入方式載入圖片 (沿用原本 c-recom 淡入邏輯)
 function setReelImage($img, src) {
-  // 直接設圖，不做 fade-in。
-  // 之前的 opacity:0 + 600ms animate 會造成 loading 消失後圖片仍透明的視覺 bug。
-  const realImg = new Image();
-  realImg.src = src;
-  if (realImg.complete) {
+  if (!src) return;
+  // 優先用 reelImgCache 裡已下載的物件；若沒有則直接設 src 等瀏覽器快取
+  const cached = reelImgCache[src];
+  if (cached && cached.complete && cached.naturalWidth > 0) {
+    $img.attr("src", src).css("opacity", 1);
+    return;
+  }
+  // 加入快取並等待載入
+  if (!reelImgCache[src]) {
+    const imgObj = new Image();
+    imgObj.src = src;
+    reelImgCache[src] = imgObj;
+  }
+  const imgObj = reelImgCache[src];
+  if (imgObj.complete) {
     $img.attr("src", src).css("opacity", 1);
   } else {
-    $(realImg)
-      .on("load", function () {
-        $img.attr("src", src).css("opacity", 1);
-      })
-      .on("error", function () {
-        $img.attr("src", "./../../img/img-default-large.png").css("opacity", 1);
-      });
+    imgObj.onload = function () { $img.attr("src", src).css("opacity", 1); };
+    imgObj.onerror = function () { $img.attr("src", "./../../img/img-default-large.png").css("opacity", 1); };
   }
 }
 
@@ -581,10 +586,16 @@ function renderCapsuleReel(cat) {
   const link = item.Link || item.link || "javascript:void(0)";
 
   $slot.find(".reel-link").attr("href", link);
+
+  // 如果快取裡已有此圖，直接顯示；否則先放佔位圖
+  const _cached = reelImgCache[imgSrc];
+  const _immediateSrc = (_cached && _cached.complete && _cached.naturalWidth > 0) ? imgSrc : "./../../img/img-default-large.png";
   $roller.html(
-    `<img class="c-recom reel-img" data-item="0" src="./../../img/img-default-large.png" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`
+    `<img class="c-recom reel-img" data-item="0" src="${_immediateSrc}" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`
   );
-  setReelImage($roller.find("img.reel-img"), imgSrc);
+  if (_immediateSrc !== imgSrc) {
+    setReelImage($roller.find("img.reel-img"), imgSrc);
+  }
   $slot.find(".recom-text").text(item.ItemName || "");
   $slot.find(".recom-price").text(priceText);
 }
@@ -731,25 +742,14 @@ function animateReel(cat, finalIdx, done) {
     $roller.off("transitionend.reel");
     capsuleIndex[cat] = finalIdx;
 
-    // 無縫收尾：保留最終圖、移除其餘圖磚並把位移歸零 (視覺位置不變、不閃爍)
-    const $imgs = $roller.children("img");
-    const $finalImg = $imgs.last();
-    $imgs.not($finalImg).remove();
     $roller.css({ transition: "none", transform: "none", animation: "", filter: "" });
     $link.css({ animation: "", filter: "" });
     $window.css("height", "");
     $slot.removeClass("reel-spinning");
 
-    // 還原成靜止商品樣式
-    const _fi = $finalImg[0];
-    console.log(`[reel][${cat}] settle: src=${_fi && _fi.src} complete=${_fi && _fi.complete} naturalH=${_fi && _fi.naturalHeight}`);
-    $finalImg.css({ opacity: 1, height: "" });
-    if (_fi && _fi.complete && _fi.naturalHeight > 0) {
-      $finalImg.css("minHeight", "");
-    } else {
-      $finalImg.css("minHeight", h + "px"); // 保留 minHeight 直到圖片載入
-      if (_fi) _fi.onload = function () { $finalImg.css("minHeight", ""); };
-    }
+    // settle 後直接重新渲染靜態商品（capsuleIndex 已設為 finalIdx）
+    // renderCapsuleReel 會用 setReelImage 載入圖片，此時圖片已在瀏覽器快取
+    renderCapsuleReel(cat);
 
     done && done();
   };
