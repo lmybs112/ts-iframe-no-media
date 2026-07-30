@@ -1,6 +1,58 @@
 document.addEventListener('DOMContentLoaded', () => {
     // 創建和管理滾動提示箭頭
     let scrollDownArrow = null;
+
+    function hideScrollDownArrow() {
+        if (scrollDownArrow && scrollDownArrow.parentNode) {
+            scrollDownArrow.parentNode.removeChild(scrollDownArrow);
+        }
+        scrollDownArrow = null;
+    }
+
+    function canSelectionScroll(selectionElement) {
+        if (!selectionElement || !selectionElement.isConnected) return false;
+
+        const style = window.getComputedStyle(selectionElement);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+
+        const overflow = selectionElement.scrollHeight - selectionElement.clientHeight;
+        if (overflow > 2) return true;
+
+        const slide = selectionElement.closest('.swiper-slide');
+        if (slide) {
+            const slideOverflow = slide.scrollHeight - slide.clientHeight;
+            if (slideOverflow > 2) return true;
+        }
+
+        return false;
+    }
+
+    function getScrollableElement(selectionElement) {
+        if (!selectionElement) return null;
+
+        const candidates = [selectionElement, selectionElement.closest('.swiper-slide')];
+        for (const element of candidates) {
+            if (element && element.scrollHeight - element.clientHeight > 2) {
+                return element;
+            }
+        }
+
+        return null;
+    }
+
+    function getActiveSelectionElement(containerElement) {
+        if (!containerElement) return null;
+
+        const selectionElements = containerElement.querySelectorAll('.axd_selections.selection, .selection');
+        for (const element of selectionElements) {
+            const style = window.getComputedStyle(element);
+            if (style.display !== 'none' && style.visibility !== 'hidden' && element.offsetParent !== null) {
+                return element;
+            }
+        }
+
+        return null;
+    }
     
     function createScrollDownArrow() {
         if (scrollDownArrow) return scrollDownArrow;
@@ -146,7 +198,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return arrowContainer;
     }
     
-    function showScrollDownArrow() {
+    function showScrollDownArrow(selectionElement) {
+        const selection = selectionElement || null;
+
+        if (selection && !canSelectionScroll(selection)) {
+            hideScrollDownArrow();
+            return;
+        }
+
+        const scrollableElement = selection ? getScrollableElement(selection) : null;
+        if (selection && !scrollableElement) {
+            hideScrollDownArrow();
+            return;
+        }
+
+        if (scrollableElement && scrollableElement.scrollTop > 5) {
+            return;
+        }
+
         const arrow = createScrollDownArrow();
         
         // 動態尋找當前顯示的容器
@@ -197,18 +266,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (currentContainer) {
+            const activeSelection = selection || getActiveSelectionElement(currentContainer);
+
+            if (!activeSelection || !canSelectionScroll(activeSelection)) {
+                hideScrollDownArrow();
+                return;
+            }
+
+            const scrollableElement = getScrollableElement(activeSelection);
+            if (!scrollableElement || scrollableElement.scrollTop > 5) {
+                hideScrollDownArrow();
+                return;
+            }
+
             // 將箭頭添加到當前容器
             if (!currentContainer.contains(arrow)) {
                 currentContainer.appendChild(arrow);
                 
                 // 設置隱藏邏輯
-                setupArrowHideLogic(arrow, currentContainer);
+                setupArrowHideLogic(arrow, currentContainer, activeSelection);
             }
         }
     }
 
     // 設置箭頭隱藏邏輯
-    function setupArrowHideLogic(arrowElement, containerElement) {
+    function setupArrowHideLogic(arrowElement, containerElement, selectionElement) {
         let isHiding = false;
         let hasHidden = false;
         
@@ -232,7 +314,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // 檢測真實有效的滾動行為
-        const selectionElements = containerElement.querySelectorAll('.axd_selections.selection, .selection, [class*="selection"]');
+        const selectionElements = selectionElement
+            ? [selectionElement]
+            : containerElement.querySelectorAll('.axd_selections.selection, .selection, [class*="selection"]');
         
         selectionElements.forEach(element => {
             let initialScrollTop = element.scrollTop;
@@ -495,10 +579,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         outerTouchStartY = touchY; // 更新觸摸位置
                         
                         // 如果滾動到頂部附近，顯示箭頭提示
-                        if (newScroll <= 5 && maxScroll > 0) {
+                        if (newScroll <= 5 && maxScroll > 0 && canSelectionScroll(selectionElement)) {
                             const currentRowIndex = getCurrentRowIndex(newScroll, rowHeight);
                             if (currentRowIndex === 0) {
-                                setTimeout(() => showScrollDownArrow(), 100); // 稍微延遲
+                                setTimeout(() => showScrollDownArrow(selectionElement), 100); // 稍微延遲
                             }
                         }
                     }
@@ -557,8 +641,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetScroll = getTargetScrollPosition(targetRowIndex, rowHeight, maxScroll);
             
             // 檢測是否在頂部，顯示向下滾動箭頭提示
-            if (currentRowIndex === 0 && targetRowIndex === 0 && targetScroll === 0) {
-                showScrollDownArrow();
+            if (currentRowIndex === 0 && targetRowIndex === 0 && targetScroll === 0 && canSelectionScroll(selectionElement)) {
+                showScrollDownArrow(selectionElement);
             }
             
             selectionElement.scrollTo({
@@ -656,8 +740,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const currentScroll = selectionElement.scrollTop;
                 const currentRowIndex = getCurrentRowIndex(currentScroll, rowHeight);
                 
-                if (maxScroll > 0 && currentRowIndex === 0 && currentScroll <= 5) { // 允許小誤差
-                    showScrollDownArrow();
+                if (maxScroll > 0 && currentRowIndex === 0 && currentScroll <= 5 && canSelectionScroll(selectionElement)) { // 允許小誤差
+                    showScrollDownArrow(selectionElement);
                 }
             }, 50);
         };
@@ -791,16 +875,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     isAligning = false;
                     
                     // 對齊完成後檢查是否需要顯示箭頭提示
-                    if (currentRowIndex === 0 && targetScroll <= 5) {
-                        showScrollDownArrow();
+                    if (currentRowIndex === 0 && targetScroll <= 5 && canSelectionScroll(selectionElement)) {
+                        showScrollDownArrow(selectionElement);
                     }
                 }, 300);
             } else {
                 isAligning = false;
                 
                 // 檢查是否需要顯示箭頭提示
-                if (currentRowIndex === 0 && scrollTop <= 5) {
-                    showScrollDownArrow();
+                if (currentRowIndex === 0 && scrollTop <= 5 && canSelectionScroll(selectionElement)) {
+                    showScrollDownArrow(selectionElement);
                 }
             }
         }
@@ -834,8 +918,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         const maxScroll = selectionElement.scrollHeight - selectionElement.clientHeight;
                         const currentRowIndex = getCurrentRowIndex(currentScrollTop, rowHeight);
                         
-                        if (maxScroll > 0 && currentRowIndex === 0 && currentScrollTop <= 5) {
-                            showScrollDownArrow();
+                        if (maxScroll > 0 && currentRowIndex === 0 && currentScrollTop <= 5 && canSelectionScroll(selectionElement)) {
+                            showScrollDownArrow(selectionElement);
                         }
                         
                         clearInterval(scrollMonitorInterval);
@@ -938,8 +1022,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentRowIndex = getCurrentRowIndex(currentScroll, rowHeight);
             
             // 如果有內容需要滾動且當前在頂部，顯示箭頭提示
-            if (maxScroll > 0 && currentRowIndex === 0 && currentScroll <= 5) { // 允許小誤差
-                showScrollDownArrow();
+            if (maxScroll > 0 && currentRowIndex === 0 && currentScroll <= 5 && canSelectionScroll(selectionElement)) { // 允許小誤差
+                showScrollDownArrow(selectionElement);
             }
         }, 800); // 增加等待時間，確保所有動畫和佈局都完成
 
@@ -1106,4 +1190,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('beforeunload', () => {
         clearInterval(healthCheckInterval);
     });
+
+    window.refreshScrollDownArrow = function () {
+        hideScrollDownArrow();
+
+        document.querySelectorAll('[data-enhanced-scroll="true"]').forEach((element) => {
+            if (canSelectionScroll(element) && element.scrollTop <= 5) {
+                showScrollDownArrow(element);
+            }
+        });
+    };
 });
