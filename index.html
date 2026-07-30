@@ -26,6 +26,7 @@
           id="opt-olivo"
           name="param-option"
           value="olivo"
+          checked
         />
         <label for="opt-olivo" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OLIVO <span style='color:#888;'>(ID: 1750051004528)</span></label>
       </div>
@@ -68,15 +69,6 @@
       <div style="margin-bottom: 10px;">
         <input
           type="radio"
-          id="opt-olivo5"
-          name="param-option"
-          value="olivo5"
-        />
-        <label for="opt-olivo5" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OLIVO 5 <span style='color:#888;'>(ID: 1759626608273)</span></label>
-      </div>
-      <div style="margin-bottom: 10px;">
-        <input
-          type="radio"
           id="opt-jerscy"
           name="param-option"
           value="jerscy"
@@ -87,31 +79,7 @@
         <input type="radio" id="opt-almi" name="param-option" value="almi" />
         <label for="opt-almi" style="margin-left: 6px; font-weight: 500; cursor: pointer;">ALMI <span style='color:#888;'>(ID: 2025-05-29-18-00-13-2)</span></label>
       </div>
-      <div style="margin-bottom: 10px;">
-        <input type="radio" id="opt-ob91" name="param-option" value="ob91" checked />
-        <label for="opt-ob91" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OB91 <span style='color:#888;'>(ID: 2026-06-25-05-22-26-2)</span></label>
-      </div>
-      <div style="margin-bottom: 10px;">
-        <input type="radio" id="opt-ob91_1" name="param-option" value="ob91_1" />
-        <label for="opt-ob91_1" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OB91 1 <span style='color:#888;'>(ID: 2026-06-25-05-22-26-4)</span></label>
-      </div>
-      <div style="margin-bottom: 10px;">
-        <input type="radio" id="opt-ob91_2" name="param-option" value="ob91_2" />
-        <label for="opt-ob91_2" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OB91 2 <span style='color:#888;'>(ID: 2026-06-25-05-22-26-1)</span></label>
-      </div>
-      <div style="margin-bottom: 10px;">
-        <input type="radio" id="opt-ob91_3" name="param-option" value="ob91_3" />
-        <label for="opt-ob91_3" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OB91 3 <span style='color:#888;'>(ID: 2026-06-25-05-22-26-3)</span></label>
-      </div>
-      <div style="margin-bottom: 10px;">
-        <input type="radio" id="opt-ob91_4" name="param-option" value="ob91_4" />
-        <label for="opt-ob91_4" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OB91 4 <span style='color:#888;'>(ID: 2026-06-25-05-22-26-0)</span></label>
-      </div>
-      <div style="margin-bottom: 10px;">
-        <input type="radio" id="opt-aurastro" name="param-option" value="aurastro" />
-        <label for="opt-aurastro" style="margin-left: 6px; font-weight: 500; cursor: pointer;">AURASTRO <span style='color:#888;'>(ID: 1784514960073)</span></label>
-      </div>
-      <div style="margin-bottom: 10px; display: none; align-items: flex-start;">
+      <div style="margin-bottom: 10px; display: flex; align-items: flex-start;">
         <input type="radio" id="opt-custom" name="param-option" value="custom" style="margin-top: 4px;" />
         <label for="opt-custom" style="margin-left: 6px; font-weight: 500; cursor: pointer; min-width: 60px;">自訂：</label>
         <div
@@ -141,21 +109,6 @@
       >
         傳送參數到 Iframe
       </button>
-      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid #e8e8e8;">
-        <p style="font-size: 0.95em; font-weight: 600; color: #333; margin: 0 0 8px 0;">intro_mode</p>
-        <div style="margin-bottom: 6px;">
-          <input type="radio" id="intro-mode-default" name="intro-mode" value="" checked />
-          <label for="intro-mode-default" style="margin-left: 6px; cursor: pointer;">不指定（原規則）</label>
-        </div>
-        <div style="margin-bottom: 6px;">
-          <input type="radio" id="intro-mode-v1" name="intro-mode" value="v1" />
-          <label for="intro-mode-v1" style="margin-left: 6px; cursor: pointer;">v1 簡化開始頁</label>
-        </div>
-        <div style="margin-bottom: 6px;">
-          <input type="radio" id="intro-mode-v2" name="intro-mode" value="v2" />
-          <label for="intro-mode-v2" style="margin-left: 6px; cursor: pointer;">v2 專屬資訊</label>
-        </div>
-      </div>
     </div>
   </body>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
@@ -187,34 +140,14 @@
       document.head.appendChild(customCSS);
 
       $(function () {
+        // console.log("DOM is ready");
         $(window).on("message", function (event) {
           var origin = event.originalEvent.origin;
           // if (origin !== 'https://iframe所在的網址') return; // 避免跨域攻擊
-          var data = event.originalEvent.data || {};
-
-          // 對齊 shirt-component / GTM：iframe 送來的 GA4 事件
-          // 正式環境由 gtm_*.js 轉發 gtag；此處供本機除錯
-          if (data.header === "GA4Event") {
-            try {
-              console.log("[GA4Event from iframe]", data);
-            } catch (_) {}
-            if (typeof gtag === "function" && data.event_action) {
-              var gaPayload = {
-                event_category: data.event_category || "inffits_route",
-                event_label: data.event_label || "",
-                value: typeof data.value === "number" ? data.value : 1,
-              };
-              if (data.measurement_id) gaPayload.send_to = data.measurement_id;
-              try {
-                gtag("event", data.event_action, gaPayload);
-              } catch (_) {}
-            }
-            return;
-          }
-
           // 處理從 <iframe> 來的訊息
-          if (data.type === "result") {
-            if (data.value) {
+          // console.log("接收到來自 iframe 的訊息：", event.originalEvent.data);
+          if (event.originalEvent.data.type === "result") {
+            if (event.originalEvent.data.value) {
               $(".ai-pd-container__trigger").addClass(
                 "ai-pd-container__trigger--result"
               );
@@ -224,8 +157,8 @@
               );
             }
           }
-          if (data.type === "closeModal") {
-            if (data.value) {
+          if (event.originalEvent.data.type === "closeModal") {
+            if (event.originalEvent.data.value) {
               $("#inffits_cblock--overlay").fadeOut();
               $(".ai-pd-container__trigger").toggleClass(
                 "ai-pd-container__trigger--search ai-pd-container__trigger--close"
@@ -329,15 +262,8 @@
             olivo2: { id: "2025-06-24-16-55-16-2", brand: "OLIVO" },
             olivo3: { id: "2025-06-24-16-55-16-3", brand: "OLIVO" },
             olivo4: { id: "2025-06-24-16-55-16-4", brand: "OLIVO" },
-            olivo5: { id: "1759626608273", brand: "OLIVO" },
             jerscy: { id: "1734582962432", brand: "JERSCY" },
             almi: { id: "2025-05-29-18-00-13-2", brand: "ALMI" },
-            ob91: { id: "2026-06-25-05-22-26-2", brand: "OB91" },
-            ob91_1: { id: "2026-06-25-05-22-26-4", brand: "OB91" },
-            ob91_2: { id: "2026-06-25-05-22-26-1", brand: "OB91" },
-            ob91_3: { id: "2026-06-25-05-22-26-3", brand: "OB91" },
-            ob91_4: { id: "2026-06-25-05-22-26-0", brand: "OB91" },
-            aurastro: { id: "1784514960073", brand: "AURASTRO" },
           };
 
           $('input[name="param-option"]').on("change", function () {
@@ -350,7 +276,7 @@
           // 初始化自訂欄位的可見性
           $('input[name="param-option"]:checked').trigger("change");
 
-          const recreateIframe = (id, brand, introMode) => {
+          const recreateIframe = (id, brand) => {
             const oldIframe = document.getElementById("inffits_tryon_window");
             if (oldIframe) {
               oldIframe.remove();
@@ -380,12 +306,7 @@
                 MRID: "",
                 GVID: "",
                 LGVID: "",
-                use_route_linked_tags: false,
               };
-              // 與 use_route_linked_tags 相同傳法：明確帶入 intro_mode
-              if (introMode === "v1" || introMode === "v2") {
-                iframe_preview_obj.intro_mode = introMode;
-              }
               iframe_container.postMessage(iframe_preview_obj, "*");
             };
 
@@ -411,13 +332,13 @@
               return;
             }
 
-            const introMode =
-              $('input[name="intro-mode"]:checked').val() || "";
-            recreateIframe(id, brand, introMode);
+            recreateIframe(id, brand);
           });
 
           // Initial load
           $("#send-to-iframe").click();
+        } else {
+          console.error("iframe 元素未找到，無法傳送 postMessage");
         }
 
         $(".ai-pd-container__trigger").on("pointerdown", function (event) {

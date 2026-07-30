@@ -4,11 +4,6 @@ var Brand = "";
 var MRID = "";
 var GVID = "";
 var LGVID = "";
-var showOriginPrice = false;
-/** true：features 選完依 RouteLinkedTags 過濾下一題；false：維持原本顯示全部 */
-var useRouteLinkedTags = false;
-/** intro 版面：null=原規則；"v1"=簡化開始頁；"v2"=專屬資訊（資料不足時回退原規則） */
-var introMode = null;
 var SpecifyTags = [];
 var SpecifyKeywords = [];
 var themeBackgroundImages = [];
@@ -29,100 +24,6 @@ let isForReferral = window.location.href
   .toLocaleLowerCase()
   .includes("referral");
 let firstResult = {};
-
-// ===== GA4 事件追蹤（對齊 shirt-component：iframe 內不直接呼叫 gtag）=====
-// 僅 postMessage 給父頁，由父頁 GTM（如 gtm_*.js）轉發 gtag
-var GA4Key = ""; // measurement_id；空字串則交給父頁 GTM 預設 GA4KEY
-var TRACK_EVENT_PREFIX = "no-media_v2_";
-var TRACK_EVENT_CATEGORY = "inffits_route";
-var TRACK_EVENT_DEBOUNCE_MS = 800; // 同一事件防連擊時間窗
-var trackEventLastSent = {};
-
-function getGa4KeyFromUrl() {
-  try {
-    var params = new URLSearchParams(window.location.search);
-    return (params.get("ga") || "").trim();
-  } catch (_) {
-    return "";
-  }
-}
-
-GA4Key = getGa4KeyFromUrl();
-
-function isNoMediaGaDebug() {
-  try {
-    if (window.__NO_MEDIA_GA_DEBUG === true) return true;
-    if (localStorage.getItem("NO_MEDIA_GA_DEBUG") === "1") return true;
-  } catch (_) {}
-  return false;
-}
-
-function isEmbeddedInIframe() {
-  try {
-    return window.parent && window.parent !== window;
-  } catch (_) {
-    return true;
-  }
-}
-
-function getTrackEventDedupeKey(eventName, params) {
-  var p = params || {};
-  return [
-    eventName,
-    p.action || "",
-    p.event_label || "",
-    p.event_value || "",
-    p.category || "",
-    p.tag_group || "",
-    p.step != null ? String(p.step) : "",
-  ].join("|");
-}
-
-function trackInffitsEvent(eventName, params) {
-  var p = params || {};
-  var fullEventName =
-    eventName.indexOf(TRACK_EVENT_PREFIX) === 0
-      ? eventName
-      : TRACK_EVENT_PREFIX + eventName;
-
-  var now = Date.now();
-  var dedupeKey = getTrackEventDedupeKey(fullEventName, p);
-  var last = trackEventLastSent[dedupeKey] || 0;
-  if (now - last < TRACK_EVENT_DEBOUNCE_MS) return; // 防連擊
-  trackEventLastSent[dedupeKey] = now;
-
-  var eventLabel =
-    p.event_label != null && p.event_label !== ""
-      ? String(p.event_label)
-      : "Track/NoMediaV2";
-
-  var message = {
-    header: "GA4Event",
-    measurement_id: GA4Key || "",
-    event_action: fullEventName,
-    event_category: TRACK_EVENT_CATEGORY,
-    event_label: eventLabel,
-    value: typeof p.value === "number" ? p.value : 1,
-  };
-
-  // 開發對照用（父頁 GTM 若未接則不影響正式上報）
-  if (p.action) message.action = p.action;
-  if (Brand) message.brand = Brand;
-  if (Route || current_Route) message.route = Route || current_Route || "";
-
-  if (isNoMediaGaDebug()) {
-    try {
-      console.log("[NO_MEDIA_GA]", message, p);
-    } catch (_) {}
-  }
-
-  // 非 iframe 嵌入：不送 GA（僅 debug log），對齊 shirt-component
-  if (!isEmbeddedInIframe()) return;
-
-  try {
-    window.parent.postMessage(message, "*");
-  } catch (_) {}
-}
 
 function throttle(fn, delay) {
   let isFirstCall = true; // 用來判斷是否是第一次調用
@@ -214,10 +115,12 @@ const get_recom_res = () => {
     body: JSON.stringify({
       Brand: Brand,
       Tags: tags_chosen,
-      NUM: 8,
-      capsule: Brand === "AURASTRO" ? "材質" : true,
-      SpecifyTags: {},
-      SpecifyKeywords: [],
+      NUM: 12,
+      SpecifyTags: SpecifyTags,
+      SpecifyKeywords: SpecifyKeywords,
+      LGVID: LGVID,
+      MRID: MRID,
+      GVID: GVID,
     }),
   };
   if (isForReferral) {
@@ -226,8 +129,10 @@ const get_recom_res = () => {
       [`${Brand}_${current_route_path.Route}`]: tags_chosen,
     };
     window.parent.postMessage(messageData, "*");
+    // console.error("messageData", messageData);
   }
 
+  // console.warn("tags chosen:", tags_chosen);
   var INFS_ROUTE_ORDER = !isForPreview
     ? JSON.parse(localStorage.getItem(`INFS_ROUTE_ORDER_${Brand}`)) || []
     : [];
@@ -249,6 +154,8 @@ const get_recom_res = () => {
 
   // 如果找到了，則將其移到 INFS_ROUTE_RES
   if ((matchIndex !== -1) & !isForPreview) {
+    // console.error("matchIndex", matchIndex);
+    // console.error("isForPreview", isForPreview);
     const matchedItem = INFS_ROUTE_ORDER.splice(matchIndex, 1)[0]; // 移除並取得物件
     INFS_ROUTE_RES.push(matchedItem); // 將物件推到 RES 陣列
 
@@ -267,7 +174,8 @@ const get_recom_res = () => {
   // tags_chosen = {};
 
   fetch(
-    "https://ldiusfc4ib.execute-api.ap-northeast-1.amazonaws.com/v0/extension/recom_product",
+    "https://api.inffits.com/http_mkt_extensions_recom/recom_product",
+    // "https://ldiusfc4ib.execute-api.ap-northeast-1.amazonaws.com/v0/extension/recom_product",
     options
   )
     .then((response) => response.json())
@@ -278,11 +186,14 @@ const get_recom_res = () => {
         value: true,
       };
       window.parent.postMessage(messageData, "*");
+      // console.error("Message", response);
       firstResult = response;
       await show_results(response, true);
       // }, 1500);
     })
-    .catch(() => {})
+    .catch((err) => {
+      console.error("err", err);
+    })
     .finally(() => {
       if (isForReferral) {
         const messageData = {
@@ -292,10 +203,7 @@ const get_recom_res = () => {
         window.parent.postMessage(messageData, "*");
       }
       setTimeout(() => {
-        // 若結果頁尚未把 loading 收掉（例如仍在備援），此處保險關閉
-        if ($("#container-recom").is(":visible")) {
-          $("#loadingbar_recom").hide();
-        }
+        // $("#loadingbar_recom").fadeOut(500);
         isFetching = false;
       }, 2200);
     });
@@ -331,154 +239,82 @@ const analyzeGenderInTags = (tags_chosen) => {
   };
 }
 
-function getRandomElements(arr, count) {
-  const result = [];
-  const usedIndexes = new Set();
-  if (!arr || arr.length === 0 || count <= 0) return result;
-
-  while (result.length < count && result.length < arr.length) {
-    const randomIndex = Math.floor(Math.random() * arr.length);
-    if (!usedIndexes.has(randomIndex)) {
-      result.push(arr[randomIndex]);
-      usedIndexes.add(randomIndex);
-    }
-  }
-
-  return result;
-}
-
-// 將第二支推薦 API（CDP）商品轉成拉霸用的格式
-function formatCdpItemsToCapsule(dataSource) {
-  if (!dataSource || dataSource.length === 0) return [];
-  const pickCount = dataSource.length < 6 ? dataSource.length : 6;
-  return getRandomElements(dataSource, pickCount).map(function (item) {
-    var newItem = Object.assign({}, item);
-    newItem.sale_price = item.sale_price
-      ? parseInt(item.sale_price.replace(/\D/g, ""), 10).toLocaleString("en-US", {
-          style: "currency",
-          currency: "TWD",
-          minimumFractionDigits: 0,
-        })
-      : "";
-    newItem.price = parseInt(item.price.replace(/\D/g, ""), 10).toLocaleString(
-      "en-US",
-      {
-        style: "currency",
-        currency: "TWD",
-        minimumFractionDigits: 0,
-      }
-    );
-    return {
-      Imgsrc: newItem.image_link,
-      Link: newItem.link,
-      ItemName: newItem.title,
-      sale_price: newItem.sale_price,
-      price: newItem.price,
-      ...newItem,
-    };
-  });
-}
-
-function buildCdpRecommendRequest(isBackup) {
-  var requestData = {
+const getEmbedded = async () => {
+  let requestData = {
     Brand: Brand,
     LGVID: LGVID || "",
     MRID: MRID || "",
     GVID: GVID || "",
     recom_num: "12",
+    PID: "",
+    SP_PID:'skip'
   };
-  if (isBackup) {
-    requestData.PID = "搭配商品的pid";
-    requestData.SP_PID = "xxSOCIAL PROOF";
-  } else {
-    requestData.PID = "";
-    requestData.SP_PID = "skip";
-  }
-  if (Brand.toLocaleUpperCase() === "VER") {
-    var series_in = analyzeGenderInTags(tags_chosen).result;
-    if (series_in) requestData.series_in = series_in;
-  }
-  return requestData;
-}
+  const api_recom_product_url = Brand.toLocaleUpperCase() === 'VER' ? 'HTTP_stock_cdp_product_recommendation' : 'HTTP_inf_bhv_cdp_product_recommendation';
+  const apiUrl = `https://api.inffits.com/${api_recom_product_url}/extension/recom_product`;
 
-function getCdpRecommendApiUrl() {
-  var api_recom_product_url =
-    Brand.toLocaleUpperCase() === "VER"
-      ? "HTTP_stock_cdp_product_recommendation"
-      : "HTTP_inf_bhv_cdp_product_recommendation";
-  return (
-    "https://api.inffits.com/" + api_recom_product_url + "/extension/recom_product"
-  );
-}
-
-// 呼叫第二支推薦 API，回傳拉霸可用的商品陣列
-async function fetchFallbackRecommendItems() {
-  async function requestOnce(isBackup) {
-    var response = await fetch(getCdpRecommendApiUrl(), {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(buildCdpRecommendRequest(isBackup)),
-    });
-    var data = await response.json();
-    var dataSource =
-      data["bhv"] && data["bhv"].length > 0 ? data["bhv"] : data["sp_atc"];
-    return formatCdpItemsToCapsule(dataSource);
-  }
-
-  try {
-    var primary = await requestOnce(false);
-    if (primary.length > 0) return primary;
-  } catch (_) {}
-
-  try {
-    return await requestOnce(true);
-  } catch (_) {
-    return [];
-  }
-}
-
-// 空的分類池改用第二支推薦 API 補齊；補不到則移除該欄，避免出現空卡
-async function fillEmptyCapsulePools(pools) {
-  var cats = Object.keys(pools);
-  var emptyCats = cats.filter(function (c) {
-    return !pools[c] || pools[c].length === 0;
-  });
-  if (emptyCats.length === 0) return pools;
-
-  var fallbackItems = await fetchFallbackRecommendItems();
-  var next = {};
-  cats.forEach(function (c) {
-    if (pools[c] && pools[c].length > 0) next[c] = pools[c];
-  });
-
-  if (fallbackItems.length === 0) return next;
-
-  var cursor = 0;
-  emptyCats.forEach(function (cat) {
-    var need = Math.max(
-      1,
-      Math.floor(fallbackItems.length / emptyCats.length)
-    );
-    var chunk = [];
-    for (var i = 0; i < need; i++) {
-      chunk.push(fallbackItems[cursor % fallbackItems.length]);
-      cursor += 1;
+  if(Brand.toLocaleUpperCase() === 'VER'){
+    const series_in = analyzeGenderInTags(tags_chosen).result;
+    if(series_in){
+      requestData.series_in = series_in;
     }
-    next[cat] = chunk;
-  });
-  return next;
-}
+  }
 
-const getEmbedded = async () => {
+  const options = {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(requestData),
+  };
+
   try {
-    const formatItems = await fetchFallbackRecommendItems();
-    if (!formatItems || formatItems.length === 0) {
-      $("#startover").click();
+    const response = await fetch(
+      apiUrl,
+      options
+    );
+    const data = await response.json();
+    
+    // 檢查 bhv 是否為空陣列，如果是則使用 sp_atc
+    const dataSource = (data["bhv"] && data["bhv"].length > 0) ? data["bhv"] : data["sp_atc"];
+    
+    // 如果兩個資料源都為空，則呼叫 getEmbeddedForBackup
+    if (!dataSource || dataSource.length === 0) {
+      getEmbeddedForBackup();
       return;
     }
+    
+    let jsonData = getRandomElements(dataSource, dataSource.length < 6 ? dataSource.length : 6).map((item) => {
+      let newItem = Object.assign({}, item);
+      newItem.sale_price = item.sale_price
+        ? parseInt(item.sale_price.replace(/\D/g, "")).toLocaleString("en-US", {
+            style: "currency",
+            currency: "TWD",
+            minimumFractionDigits: 0,
+          })
+        : "";
+      newItem.price = parseInt(item.price.replace(/\D/g, "")).toLocaleString(
+        "en-US",
+        {
+          style: "currency",
+          currency: "TWD",
+          minimumFractionDigits: 0,
+        }
+      );
+      return newItem;
+    });
+
+    const formatItems = jsonData.map((jsonDataItem) => ({
+      Imgsrc: jsonDataItem.image_link,
+      Link: jsonDataItem.link,
+      ItemName: jsonDataItem.title,
+      sale_price: jsonDataItem.sale_price,
+      price: jsonDataItem.price,
+      ...jsonDataItem,
+    }));
+
+    // console.error("jsonData", jsonData);
+    // console.error("formatItems", formatItems);
 
     const formatData = {
       Item: formatItems,
@@ -489,539 +325,268 @@ const getEmbedded = async () => {
     $("#recommend-btn").text("刷新推薦");
     show_results(formatData);
   } catch (err) {
-    $("#startover").click();
+    console.error(err);
+    getEmbeddedForBackup();
   }
 };
 
-// ===== 拉霸結果頁 (capsule slot machine) =====
-// 預設三欄（capsule: true）；AURASTRO 等會改為 API 回傳的動態 key（如材質）
-const DEFAULT_REEL_CATS = ["Tops", "Bottoms", "Dresses"];
-let reelCats = DEFAULT_REEL_CATS.slice();
-let capsulePools = {};
-let capsuleIndex = {};
-let capsulePinned = {};
-let isSpinning = false;
-let reelImgCache = {}; // src -> HTMLImageElement，跨函式共享已下載的 img 物件
+function getRandomElements(arr, count) {
+  const result = [];
+  const usedIndexes = new Set();
 
-// 判斷 Item 是否為「分類 → 商品陣列」的分組結構
-function isGroupedCapsuleItem(item) {
-  if (!item || Array.isArray(item) || typeof item !== "object") return false;
-  const keys = Object.keys(item);
-  if (keys.length === 0) return false;
-  return keys.every(function (k) {
-    return Array.isArray(item[k]);
-  });
+  while (result.length < count) {
+    const randomIndex = Math.floor(Math.random() * arr.length);
+    if (!usedIndexes.has(randomIndex)) {
+      result.push(arr[randomIndex]);
+      usedIndexes.add(randomIndex);
+    }
+  }
+
+  return result;
 }
+const getEmbeddedForBackup = () => {
+  let requestData = {
+    Brand: Brand,
+    LGVID: LGVID || "",
+    MRID: MRID || "",
+    GVID: GVID || "",
+    PID:"搭配商品的pid",
+    recom_num: "12",
+    SP_PID:"xxSOCIAL PROOF"
+  };
 
-// 將 API 回傳整理成分類商品池；支援 Tops/Bottoms/Dresses 或動態材質 key
-// 若為扁平陣列（備援熱門商品）則平均分配到預設三欄
-function normalizeCapsulePools(response) {
-  const item = response && response.Item;
-  if (isGroupedCapsuleItem(item)) {
-    const pools = {};
-    Object.keys(item).forEach(function (k) {
-      pools[k] = item[k] || [];
+  const api_recom_product_url = Brand.toLocaleUpperCase() === 'VER' ? 'HTTP_stock_cdp_product_recommendation' : 'HTTP_inf_bhv_cdp_product_recommendation';
+  const apiUrl = `https://api.inffits.com/${api_recom_product_url}/extension/recom_product`;
+
+  if(Brand.toLocaleUpperCase() === 'VER'){
+    const series_in = analyzeGenderInTags(tags_chosen).result;
+    if(series_in){
+      requestData.series_in = series_in;
+    }
+  }
+  const options = {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(requestData),
+  };
+  fetch(
+    apiUrl,
+    options
+  )
+    .then((response) => response.json())
+    .then((response) => {
+      // 檢查 bhv 是否為空陣列，如果是則使用 sp_atc
+      const dataSource = (response["bhv"] && response["bhv"].length > 0) ? response["bhv"] : response["sp_atc"];
+      
+      // 如果兩個資料源都為空，則點擊重新開始按鈕
+      if (!dataSource || dataSource.length === 0) {
+        // 點擊重新開始按鈕
+        $("#startover").click();
+        return;
+      }
+      
+      let jsonData = getRandomElements(dataSource, dataSource.length < 6 ? dataSource.length : 6).map((item) => {
+        let newItem = Object.assign({}, item);
+        newItem.sale_price = item.sale_price
+          ? parseInt(item.sale_price.replace(/\D/g, "")).toLocaleString(
+              "en-US",
+              {
+                style: "currency",
+                currency: "TWD",
+                minimumFractionDigits: 0,
+              }
+            )
+          : "";
+        newItem.price = parseInt(item.price.replace(/\D/g, "")).toLocaleString(
+          "en-US",
+          {
+            style: "currency",
+            currency: "TWD",
+            minimumFractionDigits: 0,
+          }
+        );
+        return newItem;
+      });
+      const formatItems = jsonData.map((jsonDataItem) => {
+        return {
+          Imgsrc: jsonDataItem.image_link,
+          Link: jsonDataItem.link,
+          ItemName: jsonDataItem.title,
+          sale_price: jsonDataItem.sale_price,
+          price: jsonDataItem.price,
+          ...jsonDataItem,
+        };
+      });
+
+      // console.error("jsonData", jsonData);
+      // console.error("formatItems", formatItems);
+
+      const formatData = {
+        Item: formatItems,
+      };
+      $("#recommend-title").text("猜你可能喜歡");
+      $("#recommend-desc").text("目前無符合結果，推薦熱門商品給你。");
+      $("#recommend-btn").text("刷新推薦");
+      show_results(formatData);
+      $("#container-recom").show();
+      localStorage.setItem(
+        `INFS_ROUTE_RES_${Brand}`,
+        JSON.stringify([])
+      );
+    })
+    .catch((err) => {
+      console.error(err);
     });
-    return pools;
-  }
-  const arr = Array.isArray(item) ? item : [];
-  const pools = {};
-  DEFAULT_REEL_CATS.forEach(function (c) {
-    pools[c] = [];
-  });
-  arr.forEach(function (it, idx) {
-    pools[DEFAULT_REEL_CATS[idx % DEFAULT_REEL_CATS.length]].push(it);
-  });
-  return pools;
-}
+};
 
-// 以淡入方式載入圖片 (沿用原本 c-recom 淡入邏輯)
-function setReelImage($img, src) {
-  if (!src) return;
-  // 優先用 reelImgCache 裡已下載的物件；若沒有則直接設 src 等瀏覽器快取
-  const cached = reelImgCache[src];
-  if (cached && cached.complete && cached.naturalWidth > 0) {
-    $img.attr("src", src).css("opacity", 1);
+const show_results = (response, isFirst = false) => {
+  //只出現其中三個}
+  const itemCount = response?.Item?.length || 0;
+  // 如果項目數量小於 3，只顯示所有可用的項目
+  const displayCount = Math.min(itemCount, 3);
+
+  function getTopCommonIndices() {
+    // 取得排序後的索引值陣列
+    const indices = firstResult.Item.map((item, index) => ({
+      index,
+      common: item.COMMON,
+    }))
+      .sort((a, b) => b.common - a.common)
+      .map((obj) => obj.index);
+
+    // 取前最多 3 筆
+    return indices.slice(0, 3);
+  }
+
+  function getRandomNumbers(max, count) {
+    let randomNumbers = [];
+    while (randomNumbers.length < count) {
+      let num = Math.floor(Math.random() * max);
+      if (!randomNumbers.includes(num)) {
+        randomNumbers.push(num);
+      }
+    }
+    return randomNumbers;
+  }
+
+  if (itemCount === 0 || !response) {
+    getEmbedded();
+    localStorage.setItem(
+      `INFS_ROUTE_RES_${Brand}`,
+      JSON.stringify([])
+    );
     return;
-  }
-  // 加入快取並等待載入
-  if (!reelImgCache[src]) {
-    const imgObj = new Image();
-    imgObj.src = src;
-    reelImgCache[src] = imgObj;
-  }
-  const imgObj = reelImgCache[src];
-  if (imgObj.complete) {
-    $img.attr("src", src).css("opacity", 1);
   } else {
-    imgObj.onload = function () { $img.attr("src", src).css("opacity", 1); };
-    imgObj.onerror = function () { $img.attr("src", "./../../img/img-default-large.png").css("opacity", 1); };
+    $("#container-recom").show();
   }
-}
+  // const finalitem = getRandomNumbers(itemCount - 1, 3);
+  const finalitem = isFirst
+    ? getTopCommonIndices()
+    : getRandomNumbers(itemCount, displayCount);
+  // console.error("finalitem", finalitem);
+  const finalitemCount = 3;
+  resList = response.Item;
+  $(`#container-recom`).find(".axd_selections").html("");
 
-function formatRecomPrice(item) {
-  if (!item) return "-";
-  if (showOriginPrice) return item.price || item.sale_price || "-";
-  return item.sale_price || item.price || "-";
-}
+  for (let ii in finalitem) {
+    let i = finalitem[ii];
+    var ItemName = response.Item[i].ItemName;
+    // if (ItemName.length >= 16) {
+    //   ItemName = ItemName.substring(0, 15) + "...";
+    // }
+    $(`#container-recom`).find(".axd_selections").append(`
+      <div class="axd_selection cursor-pointer update_delete">
+ <a href="${
+   response.Item[i].Link
+ }" target="_blank" class="update_delete" style="text-decoration: none;" onclick="openDetailDialog()">
+    <div style="overflow: hidden;">
+         <img loading="lazy" class="c-recom" id="container-recom-${i}" data-item="0"  src="./../../img/img-default-large.png" data-src=" ${
+      response.Item[i].Imgsrc
+    }" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'"
+         >
+         </div>
+         <div class="recom-info">
+         <p class="recom-text item-title line-ellipsis-2" id="recom-${i}-text">${ItemName}</p>
+           <div class="discount-content">
+             <p class="item-price recom-price">${
+               response.Item[i].sale_price || response.Item[i].price || "-"
+             }</p>
+             </div>
+         </div>
+ </a>
+  </div>
+ `);
+    $(`#container-recom img.c-recom`).each(function () {
+      var $img = $(this);
 
-// 渲染單一欄位目前選中的商品
-function renderCapsuleReel(cat) {
-  const $slot = $(`#container-recom .reel-slot[data-cat="${cat}"]`);
-  if (!$slot.length) return;
-  const pool = capsulePools[cat] || [];
-  const $roller = $slot.find(".reel-roller");
-  $roller.removeClass("spinning").css({ transition: "none", transform: "none" });
-  $slot.find(".reel-window").css("height", "");
+      // 設置圖片初始 opacity 為 0
+      $img.css("opacity", 0);
 
-  if (pool.length === 0) {
-    $slot.find(".reel-link").attr("href", "javascript:void(0)");
-    $roller.html(`<div class="reel-empty">此類別暫無符合商品</div>`);
-    $slot.find(".recom-text").text("—");
-    $slot.find(".recom-price").text("");
-    return;
+      // 創建一個新的 Image 對象來監聽加載事件
+      var realImg = new Image();
+      realImg.src = $img.data("src");
+
+      // 當圖片加載完成後，替換佔位符並做淡入效果
+      $(realImg)
+        .on("load", function () {
+          $img.attr("src", $img.data("src")); // 將佔位符圖片替換為真實圖片
+          $img.animate({ opacity: 1 }, 1500); // 在1500毫秒內淡入圖片
+        })
+        .on("error", function () {
+          // 處理圖片加載錯誤的情況
+          $img.attr("src", "./../../img/img-default-large.png"); // 顯示預設錯誤圖片
+          $img.animate({ opacity: 1 }, 1500); // 錯誤圖片也淡入
+        });
+    });
   }
-
-  const item = pool[capsuleIndex[cat]] || pool[0];
-  const priceText = formatRecomPrice(item);
-  const imgSrc = (item.Imgsrc || item.image_link || "").trim();
-  const link = item.Link || item.link || "javascript:void(0)";
-
-  $slot.find(".reel-link").attr("href", link);
-
-  // 如果快取裡已有此圖，直接顯示；否則先放佔位圖
-  const _cached = reelImgCache[imgSrc];
-  const _immediateSrc = (_cached && _cached.complete && _cached.naturalWidth > 0) ? imgSrc : "./../../img/img-default-large.png";
-  $roller.html(
-    `<img class="c-recom reel-img" data-item="0" src="${_immediateSrc}" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`
-  );
-  if (_immediateSrc !== imgSrc) {
-    setReelImage($roller.find("img.reel-img"), imgSrc);
-  }
-  $slot.find(".recom-text").text(item.ItemName || "");
-  $slot.find(".recom-price").text(priceText);
-}
-
-// 建立拉霸欄位（欄位數與標題依 reelCats 動態決定）
-function buildCapsuleReels() {
-  const $sel = $("#container-recom").find(".axd_selections");
-  $sel.html("");
-  reelCats.forEach((cat) => {
-    const pinned = capsulePinned[cat] ? " reel-pinned" : "";
-    const safeCat = String(cat)
-      .replace(/&/g, "&amp;")
-      .replace(/"/g, "&quot;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-    $sel.append(`
-      <div class="axd_selection cursor-pointer update_delete reel-slot${pinned}" data-cat="${safeCat}">
-        <button type="button" class="reel-pin-btn" data-cat="${safeCat}" title="固定此欄" aria-label="固定此欄">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76V6a3 3 0 0 1 6 0v4.76a2 2 0 0 0 .55 1.38l1.94 2.06A1 1 0 0 1 16.77 17H7.23a1 1 0 0 1-.72-1.8l1.94-2.06A2 2 0 0 0 9 10.76z"/></svg>
-        </button>
-        <a href="javascript:void(0)" target="_blank" class="update_delete reel-link" style="text-decoration: none;" onclick="openDetailDialog()">
-          <p class="reel-cat-label">${safeCat}</p>
-          <div class="reel-window">
-            <div class="reel-roller"></div>
-          </div>
-          <div class="recom-info">
-            <p class="recom-text item-title line-ellipsis-2"></p>
-            <div class="discount-content">
-              <p class="item-price recom-price"></p>
-            </div>
-          </div>
-        </a>
-      </div>
-    `);
-  });
-
-  reelCats.forEach((cat) => renderCapsuleReel(cat));
 
   const selectionContainer = document.querySelector(
     `#container-recom .selection`
   );
-  if (selectionContainer) {
-    selectionContainer.classList.toggle("three-elements", reelCats.length === 3);
-  }
-}
 
-// Apple 風格的減速曲線 (easeOutExpo)，末段以近乎靜止的速度落定
-const REEL_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
+  if (finalitemCount === 2) {
+    selectionContainer.classList.add("two-elements");
+  } else if (finalitemCount === 3) {
+    selectionContainer.classList.add("three-elements");
 
-// 轉動圖磚：明確傳入每格高度，避免 aspect-ratio 在各裝置算出不同小數值
-function reelStripImg(src, tileH) {
-  return `<img class="c-recom reel-img" style="height:${tileH}px;min-height:${tileH}px" src="${src}" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'">`;
-}
-
-// 建立 reel tile img 元素
-// 若 reelImgCache 裡已有此 src 的 img 物件且已載入完成，直接 clone 該物件的像素（cloneNode）
-// 確保像素不需重新 decode
-function reelStripImgEl(src, tileH) {
-  let el;
-  const cached = reelImgCache[src];
-  if (cached && cached.complete && cached.naturalWidth > 0) {
-    el = cached.cloneNode(false); // 淺 clone：src 相同，像素立即可用
-  } else {
-    el = document.createElement("img");
-    el.src = src;
-  }
-  el.className = "c-recom reel-img";
-  el.style.height = tileH + "px";
-  el.style.minHeight = tileH + "px";
-  el.onerror = function () { this.onerror = null; this.src = "./../../img/img-default-large.png"; };
-  return el;
-}
-
-// 單一欄位：以一次性減速動畫精準落定到 finalIdx，並做無縫收尾
-function animateReel(cat, finalIdx, done) {
-  const $slot = $(`#container-recom .reel-slot[data-cat="${cat}"]`);
-  const pool = capsulePools[cat] || [];
-  const $window = $slot.find(".reel-window");
-  const $roller = $slot.find(".reel-roller");
-
-  const _bcr = $window[0].getBoundingClientRect().height;
-  const _ch  = $window[0].clientHeight;
-  const _oh  = $window[0].offsetHeight;
-  const _css = window.innerWidth >= 400 ? 280 : 224;
-  let h = _bcr || _ch || _oh || _css;
-  console.log(`[reel][${cat}] h=${h} (bcr=${_bcr} ch=${_ch} oh=${_oh} css=${_css})`);
-
-  if (pool.length === 0) {
-    capsuleIndex[cat] = finalIdx;
-    renderCapsuleReel(cat);
-    done && done();
-    return;
-  }
-  // 鎖定視窗高度，整段動畫採用統一高度的圖磚
-  $window.css("height", h + "px");
-  $slot.addClass("reel-spinning");
-
-  // 組合滾輪：前段隨機填充圖 + 最後一張為最終商品
-  // 每格明確設定 height = h，確保 FILLERS × h 精準等於最終圖磚頂部距離
-  const FILLERS = 10;
-  const fin = pool[finalIdx];
-  const finSrc = (fin.Imgsrc || fin.image_link || "").trim();
-
-  // 轉動一開始就把名稱/價格換成最終商品 (趁模糊過程中切換)
-  $slot.find(".recom-text").text(fin.ItemName || "");
-  $slot.find(".recom-price").text(formatRecomPrice(fin));
-  $slot
-    .find(".reel-link")
-    .attr("href", fin.Link || fin.link || "javascript:void(0)");
-
-  // 起始歸零（無過場），強制 reflow 後於下一影格啟動位移
-  const $link = $slot.find(".reel-link");
-  $link.css({ animation: "", filter: "" });
-  $roller
-    .css({ transition: "none", transform: "translate3d(0,0,0)", animation: "", filter: "" })
-    .empty();
-
-  // 用 reelStripImgEl 建立 DOM 節點（相同 src 不重下載）
-  for (let k = 0; k < FILLERS; k++) {
-    const rnd = pool[Math.floor(Math.random() * pool.length)];
-    $roller[0].appendChild(reelStripImgEl((rnd.Imgsrc || rnd.image_link || "").trim(), h));
-  }
-  $roller[0].appendChild(reelStripImgEl(finSrc, h));
-
-  void $roller[0].offsetHeight;
-
-  // 距離 = FILLERS × h (精確浮點)，每格已明確設 height:h，兩者完全對齊
-  const distance = FILLERS * h;
-  const duration = 1150 + Math.floor(Math.random() * 300);
-
-  requestAnimationFrame(() => {
-    $roller.css({
-      transition: `transform ${duration}ms ${REEL_EASE}`,
-      transform: `translate3d(0, -${distance}px, 0)`,
-    });
-    // 輕微動態模糊：套在整張卡片，讓圖片、名稱與價格一起模糊→對焦
-    $link.css("animation", `reelMotionBlur ${duration}ms ease-out`);
-  });
-
-  let settled = false;
-  const settle = () => {
-    if (settled) return;
-    settled = true;
-    $roller.off("transitionend.reel");
-    capsuleIndex[cat] = finalIdx;
-
-    // 無縫收尾：只保留最終圖磚，其餘移除，位移歸零
-    const $imgs = $roller.children("img");
-    const $finalImg = $imgs.last();
-    $imgs.not($finalImg).remove();
-    $roller.css({ transition: "none", transform: "none", animation: "", filter: "" });
-    $link.css({ animation: "", filter: "" });
-    $window.css("height", "");
-    $slot.removeClass("reel-spinning");
-
-    // 把 finalImg 的 src 換成已在 reelImgCache 裡的版本（確保像素就緒）
-    // 不重建 DOM，避免閃爍
-    const finSrcSettle = (fin.Imgsrc || fin.image_link || "").trim();
-    const cachedSettle = reelImgCache[finSrcSettle];
-    if (cachedSettle && cachedSettle.complete && cachedSettle.naturalWidth > 0) {
-      $finalImg.css({ opacity: 1, height: "", minHeight: "" }).attr("src", finSrcSettle);
-    } else {
-      $finalImg.css({ opacity: 1, height: "" });
-      if (!$finalImg.attr("src") || $finalImg.attr("src") !== finSrcSettle) {
-        $finalImg.attr("src", finSrcSettle);
+    if (selectionContainer) {
+      const axdSelections =
+        selectionContainer.querySelectorAll(".axd_selection");
+      if (axdSelections.length > 2) {
+        axdSelections[2].classList.add("overflow-opacity");
       }
-      $finalImg[0].onload = function () { $finalImg.css("minHeight", ""); };
     }
 
-    done && done();
-  };
+    document
+      .querySelector(".three-elements .axd_selections")
+      .addEventListener("scroll", function (e) {
+        var container = e.target;
+        var selections = container.querySelectorAll(".axd_selection");
 
-  $roller.on("transitionend.reel", function (e) {
-    if (e.target === $roller[0]) settle();
-  });
-  // 後備：避免 transitionend 偶發未觸發
-  setTimeout(settle, duration + 220);
-}
-
-// 轉動拉霸 (略過已釘選的欄位)；三欄略微錯開落定，做出 Apple 式層次感
-// idxMap 選填；onOneSettled 選填（每欄 settle 後呼叫一次）
-function spinCapsuleReels(cats, idxMap, onOneSettled) {
-  if (isSpinning) return;
-  const active = cats.filter(
-    (c) => !capsulePinned[c] && (capsulePools[c] || []).length > 0
-  );
-  if (active.length === 0) return;
-  isSpinning = true;
-
-  trackInffitsEvent("spin_capsule", {
-    action: "spin_reels",
-    event_label: "拉霸轉動",
-    categories: active.join(","),
-    pinned: cats
-      .filter(function (c) {
-        return capsulePinned[c];
-      })
-      .join(","),
-  });
-
-  let pending = active.length;
-  const onOne = () => {
-    pending -= 1;
-    if (pending <= 0) isSpinning = false;
-    onOneSettled && onOneSettled();
-  };
-
-  active.forEach((c, i) => {
-    const finalIdx = (idxMap && idxMap.hasOwnProperty(c))
-      ? idxMap[c]
-      : Math.floor(Math.random() * capsulePools[c].length);
-    setTimeout(() => animateReel(c, finalIdx, onOne), i * 110);
-  });
-}
-
-function spinCapsuleReelsWithIdx(cats, idxMap, onOneSettled) {
-  spinCapsuleReels(cats, idxMap, onOneSettled);
-}
-
-// 釘選 / 取消釘選
-function toggleCapsulePin(cat) {
-  capsulePinned[cat] = !capsulePinned[cat];
-  $(`#container-recom .reel-slot[data-cat="${cat}"]`).toggleClass(
-    "reel-pinned",
-    capsulePinned[cat]
-  );
-  trackInffitsEvent("click_reel_pin", {
-    action: capsulePinned[cat] ? "pin" : "unpin",
-    event_label: cat,
-    event_value: capsulePinned[cat] ? "pin" : "unpin",
-    pinned: capsulePinned[cat],
-  });
-}
-
-// 釘選按鈕事件 (事件委託；button 在 <a> 之外，不會觸發跳轉)
-$(document).on("click", "#container-recom .reel-pin-btn", function (e) {
-  e.preventDefault();
-  e.stopPropagation();
-  const cat = $(this).attr("data-cat");
-  if (cat) toggleCapsulePin(cat);
-});
-
-// 點擊拉霸商品
-$(document).on("click", "#container-recom .reel-link", function () {
-  const $slot = $(this).closest(".reel-slot");
-  const cat = $slot.attr("data-cat") || "";
-  const title = $slot.find(".recom-text").text() || "";
-  const link = $(this).attr("href") || "";
-  const price = $slot.find(".recom-price").text() || "";
-  trackInffitsEvent("click_reel_item", {
-    action: "reel_item_click",
-    event_label: title,
-    event_value: link,
-    category: cat,
-    price: price,
-  });
-});
-
-const show_results = async (response, isFirst = false) => {
-  let pools = normalizeCapsulePools(response);
-  let cats = Object.keys(pools);
-  let total = cats.reduce(function (sum, c) {
-    return sum + (pools[c] || []).length;
-  }, 0);
-
-  if (total === 0 || !response) {
-    getEmbedded();
-    localStorage.setItem(`INFS_ROUTE_RES_${Brand}`, JSON.stringify([]));
-    return;
-  }
-
-  // 任一分類為空：用第二支推薦 API 補齊；仍空則不顯示該欄
-  const hasEmpty = cats.some(function (c) {
-    return !pools[c] || pools[c].length === 0;
-  });
-  if (hasEmpty) {
-    pools = await fillEmptyCapsulePools(pools);
-    cats = Object.keys(pools);
-    total = cats.reduce(function (sum, c) {
-      return sum + (pools[c] || []).length;
-    }, 0);
-    if (total === 0) {
-      getEmbedded();
-      localStorage.setItem(`INFS_ROUTE_RES_${Brand}`, JSON.stringify([]));
-      return;
-    }
-  }
-
-  // container-recom 暫不顯示，等 preload 完成後再一起 show
-  $("#container-recom").hide();
-  reelCats = cats;
-  capsulePools = pools;
-  resList = cats.reduce(function (list, c) {
-    return list.concat(pools[c] || []);
-  }, []);
-
-  const nextIndex = {};
-  const nextPinned = {};
-  cats.forEach(function (cat) {
-    nextIndex[cat] = 0;
-    nextPinned[cat] = isFirst ? false : !!capsulePinned[cat];
-  });
-  capsuleIndex = nextIndex;
-  capsulePinned = nextPinned;
-
-  buildCapsuleReels();
-
-  // 預載各欄商品圖片，確保進入結果頁時已有圖可用
-  // 每欄取 FILLERS(10) + 最終圖(1) + 1 緩衝 = 12 張
-  const MAX_WAIT_MS = 4000; // 最長等待，避免網路慢時卡住
-
-  // 先收集每欄「靜態預覽」那一張（capsuleIndex 對應的商品）並建立 preload Image 物件
-  // key = src，value = Image 物件（已載入）；後續直接把 src 套進 DOM，不重新發請求
-  const previewImgMap = {}; // src -> Image object
-  const previewSrcs = [];   // 保持順序供 reel-roller 賦值用
-
-  reelCats.forEach(function (cat) {
-    const pool = capsulePools[cat] || [];
-    // 靜態預覽圖：也預載全部 pool（供拉霸動畫隨機用）
-    pool.forEach(function (item) {
-      const src = (item.Imgsrc || item.image_link || "").trim();
-      if (src && !previewImgMap[src]) {
-        const imgObj = new Image();
-        previewImgMap[src] = imgObj;
-        reelImgCache[src] = imgObj; // 同步寫入 module-level cache
-        imgObj.src = src; // 開始載入，瀏覽器快取
-      }
-    });
-    // 記錄每欄靜態預覽圖的 src，方便等一下直接寫進 DOM
-    const previewItem = pool[capsuleIndex[cat]] || pool[0];
-    const previewSrc = previewItem ? (previewItem.Imgsrc || previewItem.image_link || "").trim() : "";
-    previewSrcs.push({ cat, src: previewSrc });
-  });
-
-  // 預先決定每欄拉霸的 finalIdx，靜態預覽也用同一張
-  // 這樣 preload、靜態預覽、拉霸落定 三者都是同一張圖，只需 decode 一次
-  const finalIdxMap = {};
-  reelCats.forEach(function (cat) {
-    const pool = capsulePools[cat] || [];
-    if (!capsulePinned[cat] && pool.length > 0) {
-      finalIdxMap[cat] = Math.floor(Math.random() * pool.length);
-    }
-  });
-
-  // 把靜態預覽更新為 finalIdx 那張（和落定圖一致）
-  previewSrcs.forEach(function (p) {
-    if (finalIdxMap.hasOwnProperty(p.cat)) {
-      const pool = capsulePools[p.cat] || [];
-      const item = pool[finalIdxMap[p.cat]] || pool[0];
-      p.src = item ? (item.Imgsrc || item.image_link || "").trim() : p.src;
-    }
-  });
-
-  // 等單張圖片「network 完成 + decode 完成」
-  const waitForImg = function (src) {
-    const imgObj = previewImgMap[src];
-    if (!imgObj) {
-      // previewImgMap 裡沒有（finalIdx 可能不在預載的前幾張）：臨時建立
-      const tmp = new Image();
-      tmp.src = src;
-      previewImgMap[src] = tmp;
-      return new Promise(function (resolve) {
-        tmp.onload = function () {
-          (typeof tmp.decode === "function" ? tmp.decode().catch(function(){}) : Promise.resolve()).then(resolve);
-        };
-        tmp.onerror = resolve;
-        if (tmp.complete) resolve();
-      });
-    }
-    const networkDone = imgObj.complete
-      ? Promise.resolve()
-      : new Promise(function (resolve) {
-          imgObj.onload = resolve;
-          imgObj.onerror = resolve;
+        selections.forEach(function (selection, index) {
+          if (isVisible(selection, container)) {
+            selection.classList.remove("overflow-opacity");
+          } else {
+            selection.classList.add("overflow-opacity");
+          }
         });
-    return networkDone.then(function () {
-      return typeof imgObj.decode === "function"
-        ? imgObj.decode().catch(function () {})
-        : Promise.resolve();
-    });
-  };
-
-  // 等每欄靜態預覽（= finalIdx）那張 decode 完
-  const finalSrcs = previewSrcs.map(function (p) { return p.src; }).filter(Boolean);
-  // 去重
-  const uniqueFinalSrcs = [...new Set(finalSrcs)];
-
-  const timeoutPromise = new Promise(function (resolve) {
-    setTimeout(resolve, MAX_WAIT_MS);
-  });
-
-  Promise.race([
-    Promise.all(uniqueFinalSrcs.map(waitForImg)),
-    timeoutPromise,
-  ]).then(function () {
-    // 把已 decode 的 finalIdx 圖寫進靜態預覽（直接用 reelImgCache 裡的物件）
-    previewSrcs.forEach(function (p) {
-      if (!p.src) return;
-      const $slot = $(`#container-recom .reel-slot[data-cat="${p.cat}"]`);
-      const $img = $slot.find("img.reel-img");
-      const cached = reelImgCache[p.src];
-      if (cached && cached.complete && cached.naturalWidth > 0) {
-        // 直接 clone 已下載的 img 節點，確保像素立即可用
-        const clone = cached.cloneNode(false);
-        clone.className = $img[0] ? $img[0].className : "c-recom reel-img";
-        clone.style.cssText = "";
-        clone.removeAttribute("loading");
-        $img.replaceWith(clone);
-      } else {
-        $img.attr("src", p.src).css("opacity", 1);
-      }
-    });
-
-    // 揭開：先顯示結果頁（此時靜態圖已就緒），再開始動畫
-    $("#loadingbar_recom").hide();
-    $("#container-recom").show();
-
-    // 等兩個 rAF 讓圖片 paint 一幀，用戶先看到靜態圖，再啟動拉霸
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        spinCapsuleReelsWithIdx(reelCats, finalIdxMap);
       });
-    });
-  });
+
+    function isVisible(element, container) {
+      var elementRect = element.getBoundingClientRect();
+      var containerRect = container.getBoundingClientRect();
+
+      return (
+        elementRect.right < containerRect.right &&
+        elementRect.left > containerRect.left
+      );
+    }
+  } else if (finalitemCount >= 4) {
+    // selectionContainer.classList.add("four-elements");
+  }
 };
 
 function openDetailDialog (){
@@ -1097,7 +662,9 @@ const fetchCoupon = async () => {
     options
   );
   const responseData = await response.json();
+  // console.log('responseData', responseData)
   const currentData = responseData.find(item => item.Module === 'Personalized_Landing_Widget');
+  // console.log('currentData', currentData)
   const data = currentData?.ConfigData?.Discount_Info || [{
     Title: '敬請期待',
     Description: '敬請期待',
@@ -1227,7 +794,6 @@ const fetchCoupon = async () => {
       autoplay: false,
       hide_discount: true, // 隱藏折扣
       hide_size: true, // 隱藏尺寸
-      introMode: introMode,
       bid: {
         HV: "165",
         WV: "45",
@@ -1325,350 +891,10 @@ const fetchCoupon = async () => {
   // }
 };
 
-const CHANGE_GROUP_BTN_DELAY_MS = 0;
-/** 與 CSS `tagFadeInSmooth` 時長一致 */
-const TAG_FADE_IN_ANIMATION_MS = 400;
-const changeGroupBtnTimers = {};
-/** 重新開始／重渲染時遞增，讓過期 timer／animationend 失效 */
-let changeGroupBtnGeneration = 0;
-
-function clearAllChangeGroupBtnState() {
-  Object.keys(changeGroupBtnTimers).forEach((key) => {
-    clearTimeout(changeGroupBtnTimers[key]);
-    delete changeGroupBtnTimers[key];
-  });
-  changeGroupBtnGeneration += 1;
-  document.querySelectorAll(".change-group-btn").forEach((btn) => {
-    btn.classList.add("change-group-btn--hidden");
-  });
-}
-
-function hideChangeGroupBtn(target) {
-  if (changeGroupBtnTimers[target]) {
-    clearTimeout(changeGroupBtnTimers[target]);
-    delete changeGroupBtnTimers[target];
-  }
-  const btn = document.querySelector(`#container-${target} .change-group-btn`);
-  if (btn) btn.classList.add("change-group-btn--hidden");
-}
-
-/** 僅在選項已淡入且打字區已顯示時才允許出現按鈕 */
-function canShowChangeGroupBtn(target) {
-  const container = document.querySelector(`#container-${target}`);
-  if (!container) return false;
-  if (!container.querySelector(".change-group-btn")) return false;
-
-  const slide = container.querySelector(".swiper-wrapper .swiper-slide");
-  if (slide && !slide.classList.contains("typewriter-complete")) return false;
-
-  const tags = getRouteTagElements(target);
-  if (tags.length === 0) return false;
-  return tags.every((tag) => tag.classList.contains("tag-fade-in"));
-}
-
-function showChangeGroupBtn(target, delayMs = CHANGE_GROUP_BTN_DELAY_MS) {
-  if (changeGroupBtnTimers[target]) {
-    clearTimeout(changeGroupBtnTimers[target]);
-  }
-  const generation = changeGroupBtnGeneration;
-  changeGroupBtnTimers[target] = setTimeout(() => {
-    delete changeGroupBtnTimers[target];
-    if (generation !== changeGroupBtnGeneration) return;
-    if (!canShowChangeGroupBtn(target)) return;
-    const btn = document.querySelector(`#container-${target} .change-group-btn`);
-    if (btn) btn.classList.remove("change-group-btn--hidden");
-  }, delayMs);
-}
-
-/** 等最後一個標籤淡入動畫結束後再顯示「換一組試試」 */
-function revealChangeGroupBtnAfterTagsVisible(targetRoute, tagElements) {
-  const lastTag =
-    Array.isArray(tagElements) && tagElements.length > 0
-      ? tagElements[tagElements.length - 1]
-      : null;
-  const generation = changeGroupBtnGeneration;
-
-  if (!lastTag) {
-    // 沒有可顯示選項時維持隱藏
-    hideChangeGroupBtn(targetRoute);
-    return Promise.resolve();
-  }
-
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      lastTag.removeEventListener("animationend", onAnimationEnd);
-      if (generation !== changeGroupBtnGeneration) {
-        resolve();
-        return;
-      }
-      showChangeGroupBtn(targetRoute);
-      resolve();
-    };
-
-    const onAnimationEnd = (event) => {
-      if (event.target !== lastTag && !lastTag.contains(event.target)) {
-        return;
-      }
-      if (
-        event.animationName &&
-        event.animationName !== "tagFadeInSmooth"
-      ) {
-        return;
-      }
-      finish();
-    };
-
-    lastTag.addEventListener("animationend", onAnimationEnd);
-
-    // 若動畫已跑完（例如 listener 掛上前就結束），立即顯示
-    const opacity = parseFloat(window.getComputedStyle(lastTag).opacity);
-    if (
-      lastTag.classList.contains("tag-fade-in") &&
-      !Number.isNaN(opacity) &&
-      opacity >= 0.99
-    ) {
-      finish();
-      return;
-    }
-
-    // animationend 未觸發時的後備
-    setTimeout(finish, TAG_FADE_IN_ANIMATION_MS + 80);
-  });
-}
-
-function formatCssBackgroundUrl(url) {
-  if (!url || typeof url !== "string") return "";
-  const trimmed = url.trim();
-  if (!trimmed) return "";
-  return `url("${encodeURI(trimmed)}")`;
-}
-
-function buildContainerBackgroundImage(imageUrl) {
-  const cssUrl = formatCssBackgroundUrl(imageUrl);
-  if (!cssUrl) return "none";
-  return `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), ${cssUrl}`;
-}
-
-function buildTagGroups(routeItems) {
-  const groups = [];
-  for (let i = 0; i < routeItems.length; i += 8) {
-    groups.push(
-      routeItems.slice(i, i + 8).map((item) => ({
-        Name: item.Name.S,
-        Tag: item.Tag.S,
-      }))
-    );
-  }
-  return groups;
-}
-
-/** 解析 RouteConfig.RouteLinkedTags（DynamoDB 字串，如 "['1','2','10']"） */
-function parseRouteLinkedTags(raw) {
-  if (raw == null || raw === "") return [];
-  const str = typeof raw === "string" ? raw : String(raw);
-  try {
-    const parsed = JSON.parse(str.replace(/'/g, '"'));
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(String).filter(Boolean);
-  } catch (_) {
-    return [];
-  }
-}
-
-function filterItemsByLinkedTags(items, linkedIds) {
-  if (!Array.isArray(items) || items.length === 0) return [];
-  if (!Array.isArray(linkedIds) || linkedIds.length === 0) return items.slice();
-  const byTag = new Map(
-    items.map((item) => [String(item?.Tag?.S ?? ""), item])
-  );
-  return linkedIds
-    .map((id) => byTag.get(String(id)))
-    .filter(Boolean);
-}
-
-function buildTagSlotHtml(target, slotIndex, tag) {
-  const inactiveClass = tag ? "" : " axd_tag-slot--inactive";
-  const innerClass = tag
-    ? `axd_tag_inner c-${target} tagId-${tag.Tag}`
-    : `axd_tag_inner c-${target}`;
-  const tagName = tag ? tag.Name : "";
-
-  return `
-    <div class="axd_selection axd_tag axd_tag-slot${inactiveClass}" data-slot="${slotIndex}">
-      <div class="axd_tag-flip">
-        <div class="${innerClass}">
-          <p>${tagName}</p>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function setTagInnerContent(innerEl, target, tag) {
-  if (!innerEl) return;
-  if (!tag || !tag.Tag) {
-    innerEl.className = `axd_tag_inner c-${target}`;
-    innerEl.innerHTML = "<p></p>";
-    return;
-  }
-  innerEl.className = `axd_tag_inner c-${target} tagId-${tag.Tag}`;
-  innerEl.innerHTML = `<p>${tag.Name}</p>`;
-}
-
-function getRouteTagElements(targetRoute) {
-  const container = document.querySelector(`#container-${targetRoute}`);
-  if (!container) return [];
-
-  // >8 標籤：使用卡槽模式
-  const slots = container.querySelectorAll(
-    ".axd_tag-slot:not(.axd_tag-slot--inactive)"
-  );
-  if (slots.length > 0) return Array.from(slots);
-
-  // ≤8 標籤：舊 DOM 無 axd_tag-slot / data-group，改抓全部標籤
-  const grouped = container.querySelectorAll(
-    '.axd_selection.axd_tag[data-group="0"]'
-  );
-  if (grouped.length > 0) return Array.from(grouped);
-
-  return Array.from(container.querySelectorAll(".axd_selection.axd_tag"));
-}
-
-const tagFlipLock = {};
-const TAG_FADE_IN_DELAY_MS = 200;
-
-function resetTagSlotVisual($slot) {
-  $slot.removeClass("tag-fade-in axd_tag-slot--swapping");
-  const inner = $slot.find(".axd_tag_inner")[0];
-  if (!inner) return;
-  inner.getAnimations?.().forEach((animation) => animation.cancel());
-  inner.style.opacity = "";
-}
-
-function flipTagsToGroup(target, nextGroup) {
-  if (tagFlipLock[target]) return Promise.resolve();
-
-  const $container = $(`#container-${target}`);
-  const groups = $container.data("tag-groups");
-  if (!groups?.[nextGroup]) return Promise.resolve();
-
-  tagFlipLock[target] = true;
-  hideChangeGroupBtn(target);
-  $container.find(".tag-selected").removeClass("tag-selected");
-
-  const nextTags = groups[nextGroup];
-  const slots = $container.find(".axd_tag-slot").toArray();
-  const visibleSlots = [];
-
-  slots.forEach((slotEl, index) => {
-    const $slot = $(slotEl);
-    const tag = nextTags[index];
-    const inner = $slot.find(".axd_tag-flip .axd_tag_inner")[0];
-
-    resetTagSlotVisual($slot);
-
-    if (!tag) {
-      $slot.addClass("axd_tag-slot--inactive");
-      return;
-    }
-
-    setTagInnerContent(inner, target, tag);
-    $slot.removeClass("axd_tag-slot--inactive");
-    visibleSlots.push(slotEl);
-  });
-
-  return fadeInTagsSequentially(target, visibleSlots, TAG_FADE_IN_DELAY_MS).finally(() => {
-    tagFlipLock[target] = false;
-    if (typeof window.refreshScrollDownArrow === "function") {
-      window.refreshScrollDownArrow();
-    }
-  });
-}
-
-function fadeInTagsSequentially(targetRoute, tagElements, delay = TAG_FADE_IN_DELAY_MS) {
-  hideChangeGroupBtn(targetRoute);
-
-  return new Promise((resolve) => {
-    if (tagElements.length === 0) {
-      hideChangeGroupBtn(targetRoute);
-      resolve();
-      return;
-    }
-
-    const optionsContainer = document.querySelector(`#container-${targetRoute} .axd_selections.selection`);
-
-    let index = 0;
-    function fadeInNext() {
-      if (index < tagElements.length) {
-        const currentTag = tagElements[index];
-        currentTag.classList.add("tag-fade-in");
-
-        if (optionsContainer && currentTag && index >= 2) {
-          // 用 rAF 批次讀 layout，避免在 setTimeout 內連續觸發 reflow
-          setTimeout(() => {
-            requestAnimationFrame(() => {
-              const tagOffsetTop = currentTag.offsetTop;
-              const tagOffsetBottom = tagOffsetTop + currentTag.offsetHeight;
-              const containerHeight = optionsContainer.clientHeight;
-              const scrollTop = optionsContainer.scrollTop;
-
-              if (tagOffsetBottom > scrollTop + containerHeight) {
-                optionsContainer.scrollTo({
-                  top: Math.max(0, tagOffsetTop - containerHeight + currentTag.offsetHeight + 10),
-                  behavior: "smooth",
-                });
-              } else if (tagOffsetTop < scrollTop) {
-                optionsContainer.scrollTo({
-                  top: Math.max(0, tagOffsetTop - 10),
-                  behavior: "smooth",
-                });
-              }
-            });
-          }, 400);
-        }
-
-        index++;
-        setTimeout(fadeInNext, delay);
-      } else {
-        if (typeof window.refreshScrollDownArrow === "function") {
-          setTimeout(() => window.refreshScrollDownArrow(), 100);
-        }
-        revealChangeGroupBtnAfterTagsVisible(targetRoute, tagElements).then(
-          resolve
-        );
-      }
-    }
-    fadeInNext();
-  });
-}
-
 // 啟動特定容器的打字效果
-// 題目描述：\n → <br>，空白 → &nbsp;，確保縮排與連續空格都保留
-function formatTypewriterLineBreaks(text) {
-  if (!text) return "";
-  return String(text)
-    .replace(/\\n/g, "\n")
-    .replace(/\r\n|\r/g, "\n")
-    .split("\n")
-    .map(function (line) {
-      return line
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/ /g, "&nbsp;")
-        .replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;");
-    })
-    .join("<br>");
-}
-
 function startTypewriterEffect(containerRoute) {
   const targetRoute = containerRoute.replaceAll(/[\s\.]/g, "");
   const typewriterContainer = document.querySelector(`.typewriter-${targetRoute}`);
-  // 進場／重播時先藏按鈕，避免舊 timer 或未淡入完成就露出
-  hideChangeGroupBtn(targetRoute);
   
   if (typewriterContainer && typeof Typewriter !== 'undefined') {
     // 獲取要顯示的內容
@@ -1687,14 +913,13 @@ function startTypewriterEffect(containerRoute) {
       }
     }
 
-    content = formatTypewriterLineBreaks((content || "").trim());
-
     // 檢查標籤是否已經完成了動畫
-    const tagElements = getRouteTagElements(targetRoute);
+    const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
     const allTagsHaveFadeIn = Array.from(tagElements).every(tag => tag.classList.contains('tag-fade-in'));
     
     // 如果所有標籤都已經有 tag-fade-in 類，說明動畫已經完成，不需要重新播放
     if (allTagsHaveFadeIn && tagElements.length > 0) {
+      // console.log(`🎭 容器 ${targetRoute} 的標籤動畫已完成，跳過重新播放`);
       
       // 確保打字效果容器也是完成狀態
       const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
@@ -1703,15 +928,82 @@ function startTypewriterEffect(containerRoute) {
       });
       
       // 直接顯示內容，不重新打字
-      if (content && content !== '' && content !== 'undefined') {
-        typewriterContainer.innerHTML = content;
+      if (content && content.trim() !== '' && content !== 'undefined') {
+        typewriterContainer.innerHTML = content.trim();
       } else {
-        typewriterContainer.innerHTML = "";
+        typewriterContainer.innerHTML = '';
       }
-      showChangeGroupBtn(targetRoute);
       return;
     }
 
+    // 按順序淡入標籤的函數
+    function fadeInTagsSequentially(tagElements, delay = 200) {
+      return new Promise((resolve) => {
+        if (tagElements.length === 0) {
+          resolve();
+          return;
+        }
+        
+        // 獲取選項容器
+        const optionsContainer = document.querySelector(`#container-${targetRoute} .axd_selections.selection`);
+        
+        let index = 0;
+        function fadeInNext() {
+          if (index < tagElements.length) {
+            const currentTag = tagElements[index];
+            currentTag.classList.add('tag-fade-in');
+            
+            // 自動滾動到當前標籤（只在必要時進行）
+            if (optionsContainer && currentTag && index >= 2) { // 只從第3個標籤開始檢查滾動
+              // 等待標籤動畫完成後再滾動
+              setTimeout(() => {
+                // 計算當前標籤在容器中的位置
+                const tagRect = currentTag.getBoundingClientRect();
+                const containerRect = optionsContainer.getBoundingClientRect();
+                
+                // 檢查標籤是否在可視區域內
+                const isTagVisible = (
+                  tagRect.top >= containerRect.top &&
+                  tagRect.bottom <= containerRect.bottom
+                );
+                
+                if (!isTagVisible) {
+                  // 滾動到標籤位置
+                  const tagOffsetTop = currentTag.offsetTop;
+                  const containerHeight = optionsContainer.clientHeight;
+                  const tagHeight = currentTag.offsetHeight;
+                  
+                  // 計算滾動位置，確保標籤在可視區域內
+                  let scrollPosition;
+                  
+                  if (tagRect.bottom > containerRect.bottom) {
+                    // 標籤在下方，向下滾動
+                    scrollPosition = tagOffsetTop - containerHeight + tagHeight + 10; // 留10px邊距
+                  } else if (tagRect.top < containerRect.top) {
+                    // 標籤在上方，向上滾動
+                    scrollPosition = tagOffsetTop - 10; // 留10px邊距
+                  }
+                  
+                  if (scrollPosition !== undefined) {
+                    optionsContainer.scrollTo({
+                      top: Math.max(0, scrollPosition),
+                      behavior: 'smooth'
+                    });
+                  }
+                }
+              }, 400); // 等待動畫完全完成(0.4s)
+            }
+            
+            index++;
+            setTimeout(fadeInNext, delay);
+          } else {
+            resolve();
+          }
+        }
+        fadeInNext();
+      });
+    }
+    
     // 檢查是否需要滾動的函數
     function checkAndScrollIfNeeded() {
       if (typewriterContainer.scrollHeight > typewriterContainer.clientHeight) {
@@ -1721,9 +1013,9 @@ function startTypewriterEffect(containerRoute) {
     }
     
     // 確保有內容才啟動打字效果
-    if (content && content !== '' && content !== 'undefined') {
+    if (content && content.trim() !== '' && content !== 'undefined') {
       // 只有在動畫未完成時才重置狀態
-      hideChangeGroupBtn(targetRoute);
+      // console.log(`🎭 開始容器 ${targetRoute} 的動畫序列`);
       
       // 清空容器內容，準備重新打字
       typewriterContainer.innerHTML = '';
@@ -1739,27 +1031,19 @@ function startTypewriterEffect(containerRoute) {
         tag.classList.remove('tag-fade-in');
       });
       
-      // scroll 檢查以 rAF 節流，避免每字觸發 reflow
-      let scrollRafPending = false;
-      function scheduleScrollCheck() {
-        if (scrollRafPending) return;
-        scrollRafPending = true;
-        requestAnimationFrame(() => {
-          scrollRafPending = false;
-          checkAndScrollIfNeeded();
-        });
-      }
-
       // 創建打字機實例
       const typewriter = new Typewriter(typewriterContainer, {
         delay: 75,
         cursor: '',  // 不顯示游標
         loop: false,
+        // 自定義回調函數在每次字符輸入後檢查滾動
+        onPause: checkAndScrollIfNeeded,
+        onType: checkAndScrollIfNeeded
       });
       
-      // 開始打字效果（已將 \n 轉成 <br>），並在完成後顯示標籤
+      // 開始打字效果，並在完成後顯示 swiper-slide 元素和標籤依序淡入
       typewriter
-        .typeString(content)
+        .typeString(content.trim())
         .pauseFor(500)
         .callFunction(() => {
           // 最終滾動檢查
@@ -1772,14 +1056,21 @@ function startTypewriterEffect(containerRoute) {
           });
           
           // 然後讓標籤按順序依序淡入
-          const tagElements = getRouteTagElements(targetRoute);
-          fadeInTagsSequentially(targetRoute, tagElements, 200);
+          const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
+          fadeInTagsSequentially(tagElements, 200); // 每個標籤間隔 200ms
         })
         .start();
-
-      // 以 MutationObserver + rAF 節流取代直接在 onType 讀 layout
-      // 避免每字觸發 reflow 造成 iPhone Safari 卡頓
-      const observer = new MutationObserver(scheduleScrollCheck);
+        
+      // 監聽打字過程中的滾動事件
+      const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+          if (mutation.type === 'childList' || mutation.type === 'characterData') {
+            checkAndScrollIfNeeded();
+          }
+        });
+      });
+      
+      // 開始觀察
       observer.observe(typewriterContainer, {
         childList: true,
         subtree: true,
@@ -1794,6 +1085,7 @@ function startTypewriterEffect(containerRoute) {
     } else {
       // 如果沒有內容，檢查標籤是否已經完成了動畫
       if (allTagsHaveFadeIn && tagElements.length > 0) {
+        // console.log(`🎭 容器 ${targetRoute} 的標籤動畫已完成，跳過重新播放（無內容情況）`);
         
         // 確保容器狀態正確
         const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
@@ -1801,13 +1093,12 @@ function startTypewriterEffect(containerRoute) {
           slide.classList.add('typewriter-complete');
         });
         
-        typewriterContainer.innerHTML = "";
-        showChangeGroupBtn(targetRoute);
+        typewriterContainer.innerHTML = '';
         return;
       }
       
       // 如果動畫未完成，直接顯示空內容並顯示 swiper-slide 元素和標籤
-      hideChangeGroupBtn(targetRoute);
+      // console.log(`🎭 開始容器 ${targetRoute} 的動畫序列（無內容情況）`);
       typewriterContainer.innerHTML = '';
       
       const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
@@ -1816,7 +1107,7 @@ function startTypewriterEffect(containerRoute) {
       });
       
       // 標籤按順序依序淡入
-      fadeInTagsSequentially(targetRoute, tagElements, 200);
+      fadeInTagsSequentially(tagElements, 200);
     }
   }
 }
@@ -1833,6 +1124,11 @@ const fetchData = async () => {
       animXContainers.forEach(container => {
         container.classList.add('bg-loaded');
       });
+    };
+    
+    bgImage.onerror = function() {
+      // 圖片加載失敗時的處理（可選）
+      console.warn('Background image failed to load');
     };
   }
   
@@ -1962,50 +1258,15 @@ const fetchData = async () => {
     }
 
     let Route_in_frame = {};
-    let Route_in_frame_all = {};
     for (var n = 0; n < all_Route.length; n++) {
       Route_in_frame[all_Route[n]] = [];
-      Route_in_frame_all[all_Route[n]] = [];
     }
     for (var j = 0; j < obj.RouteConfig.length; j++) {
       let item = obj.RouteConfig[j];
       // let idx = all_Route.indexOf(item.TagGroup.S)
-      if (!Route_in_frame[item.TagGroup.S]) {
-        Route_in_frame[item.TagGroup.S] = [];
-        Route_in_frame_all[item.TagGroup.S] = [];
-      }
       Route_in_frame[item.TagGroup.S].push(item);
-      Route_in_frame_all[item.TagGroup.S].push(item);
     }
-
-    /** features 選完後，依 RouteLinkedTags 過濾下一題可選標籤；略過或無連結則還原全部 */
-    function prepareNextRouteOptions(selectedGroup, tagId, nextGroup, options = {}) {
-      if (!nextGroup || !Route_in_frame_all[nextGroup]) return;
-
-      const restoreAll = options.restoreAll === true || selectedGroup !== "features";
-      if (restoreAll) {
-        Route_in_frame[nextGroup] = Route_in_frame_all[nextGroup].slice();
-        return;
-      }
-
-      const selectedItem = Route_in_frame_all[selectedGroup]?.find(
-        (item) => String(item?.Tag?.S) === String(tagId)
-      );
-      const linked = parseRouteLinkedTags(selectedItem?.RouteLinkedTags?.S);
-      if (linked.length === 0) {
-        Route_in_frame[nextGroup] = Route_in_frame_all[nextGroup].slice();
-        return;
-      }
-
-      const filtered = filterItemsByLinkedTags(
-        Route_in_frame_all[nextGroup],
-        linked
-      );
-      Route_in_frame[nextGroup] =
-        filtered.length > 0
-          ? filtered
-          : Route_in_frame_all[nextGroup].slice();
-    }
+    // console.error(Route_in_frame, "dog");
     const userAgent = navigator.userAgent.toLowerCase();
     const isMobile = /mobile|android|iphone|ipod|phone/.test(userAgent);
 
@@ -2013,64 +1274,8 @@ const fetchData = async () => {
       ? "data:image/svg+xml;charset=UTF-8,%3csvg width='36' height='37' viewBox='0 0 36 37' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M18 11.0264L10.8 18.2264L18 25.4264' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3cpath d='M25.2 18.2266H10.8' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e"
       : "data:image/svg+xml;charset=UTF-8,%3csvg width='36' height='37' viewBox='0 0 36 37' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M18 11.0264L10.8 18.2264L18 25.4264' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3cpath d='M25.2 18.2266H10.8' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e";
 
-    function renderRouteTags(tar) {
-      var target = tar.replaceAll(/[\s\.]/g, "");
-      $(`#container-${target}`).find(".selection").remove();
-      $(`#container-${target}`).find(".remove-button").remove();
-      $(`#container-${target}`).find(`.pagination-${target}`).empty();
-      $(`#container-${target}`).find(`.change-group-btn`).remove();
-
-      const items = Route_in_frame[tar] || [];
-      const itemCount = items.length;
-      const useTagSlots = itemCount > 8;
-
-      $(`#container-${target}`)
-        .find(".swiper-wrapper")
-        .append(
-          '<div class="selection swiper-slide"><div class="axd_selections selection"></div></div>'
-        );
-
-      if (useTagSlots) {
-        const groups = buildTagGroups(items);
-        $(`#container-${target}`).data("tag-groups", groups);
-
-        for (let slot = 0; slot < 8; slot++) {
-          $(`#container-${target}`)
-            .find(".axd_selections")
-            .append(buildTagSlotHtml(target, slot, groups[0][slot]));
-        }
-      } else {
-        for (let rr = 0; rr < itemCount; rr++) {
-          $(`#container-${target}`).find(".axd_selections").append(`
-                             <div class="axd_selection axd_tag">
-                                 <div class="axd_tag_inner c-${target} tagId-${items[rr].Tag.S}">
-                                     <p>${items[rr].Name.S}</p>
-                                 </div>
-                             </div>
-                         `);
-        }
-      }
-
-      if (useTagSlots) {
-        $(`#container-${target}`).find(`.swiper-container-${target}`).append(`
-            <div class="change-group-btn change-group-btn--hidden" data-current-group="0" data-total-groups="${Math.ceil(itemCount / 8)}" data-target="${target}">
-              <svg class="change-group-btn__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                <path d="M15.2 2.8V6.8H11.2" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2.8 15.2V11.2H6.8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2.8 8.3C2.8 5.2 5.3 2.8 8.4 2.8C10.6 2.8 12.5 4.2 13.4 6.2" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M15.2 9.7C15.2 12.8 12.7 15.2 9.6 15.2C7.4 15.2 5.5 13.8 4.6 11.8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span class="change-group-btn__text">換一組試試</span>
-            </div>
-          `);
-      }
-    }
-
-    function init(tar) {
-      renderRouteTags(tar);
-    }
-
     for (var r in Route_in_frame) {
+      // console.log("TagGroup : " + r);
       document.getElementById("pback").insertAdjacentHTML(
         "beforebegin",
         `<div class='container mbinfo animX animFadeIn update_delete' id="container-${r.replaceAll(/[\s\.]/g, "")}">
@@ -2129,35 +1334,47 @@ const fetchData = async () => {
           `container-${r.replaceAll(/[\s\.]/g, "")}-backarrow`
         )
         $(backarrow).on(tap, function () {
-          trackInffitsEvent("click_back", {
-            action: "back_to_intro",
-            event_label: "返回介紹頁",
-            event_value: all_Route[0] || "",
-          });
           $("#intro-page").show();
           $("#container-" + all_Route[0]).hide();
           tags_chosen = {};
         });
       }
 
+      const mediaQuery = window.matchMedia("(max-width: 400px)");
+      function handleMediaQueryChange(mediaQuery, tar) {
+        // console.log(tar)
+        init(tar);
+      }
+
+      // 初始檢查
+      function init(tar) {
+        var target = tar.replaceAll(/[\s\.]/g, "");
+        $(`#container-${target}`).find(".selection").remove();
+        $(`#container-${target}`).find(".remove-button").remove();
+        $(`#container-${target}`).find(`.pagination-${target}`).empty();
+
+        const itemCount = Route_in_frame[tar].length;
+        const render_num =itemCount
+        $(`#container-${target}`)
+          .find(".swiper-wrapper")
+          .append(
+            '<div class="selection swiper-slide"><div class="axd_selections selection"></div></div>'
+          );
+        for (let rr = 0; rr < render_num; rr++) {
+          $(`#container-${target}`).find(".axd_selections").append(`
+                            <div class="axd_selection axd_tag">
+                                <div class="axd_tag_inner c-${target} tagId-${Route_in_frame[tar][rr].Tag.S}">
+                                    <p>${Route_in_frame[tar][rr].Name.S}</p>
+                                </div>
+                            </div>
+                        `);
+        }
+        bind();
+      }
       init(r);
     }
 
     var mytap = window.ontouchstart === null ? "touchend" : "click";
-
-    var suppressPresetResume = false;
-
-    function refreshNextRouteAfterSelection(fs, tagId, options = {}) {
-      if (!useRouteLinkedTags) return;
-      if (fs >= all_Route.length - 1) return;
-      const nextGroup = all_Route[fs + 1];
-      prepareNextRouteOptions(all_Route[fs], tagId, nextGroup, options);
-      renderRouteTags(nextGroup);
-      // 重綁事件；略過 resume 自動點擊，避免遞迴
-      suppressPresetResume = true;
-      bind();
-      suppressPresetResume = false;
-    }
 
     function bind() {
       // 檢查是否所有問題都已完成，如果是則直接跳到結果頁面
@@ -2169,7 +1386,7 @@ const fetchData = async () => {
       );
       const skipShowResult = isForPreview || isForReferral;
       
-      if (match && !skipShowResult && !suppressPresetResume) {
+      if (match && !skipShowResult) {
         tags_chosen = match.Record;
         
         // 檢查是否所有路由都有有效的選擇
@@ -2205,7 +1422,7 @@ const fetchData = async () => {
             deepEqualWithoutKey(item, current_route_path, ["Record"])
           );
           const skipShowResult = isForPreview || isForReferral;
-          if (match && !skipShowResult && !suppressPresetResume) {
+          if (match && !skipShowResult) {
             tags_chosen = match.Record;
           }
           if (skipShowResult) {
@@ -2218,9 +1435,8 @@ const fetchData = async () => {
                                       tags_chosen[currentRoute][0].Name !== "example";
           
           if (
-            !suppressPresetResume &&
-            ((Object.keys(tags_chosen).length > 0 && !isForPreview) ||
-            (Object.keys(tags_chosen).length > 0 && !isForReferral))
+            (Object.keys(tags_chosen).length > 0 && !isForPreview) ||
+            (Object.keys(tags_chosen).length > 0 && !isForReferral)
           ) {
             if (currentRouteCompleted) {
               // 如果當前路由已完成，跳過顯示，直接觸發點擊
@@ -2252,6 +1468,7 @@ const fetchData = async () => {
               });
               
               if (fs === firstIncompleteIndex) {
+                // console.log("firstIncompleteIndex", firstIncompleteIndex);
                 $("#intro-page").hide();
                 $("#container-" + currentRoute).show();
                 startTypewriterEffect(all_Route[fs]);
@@ -2265,13 +1482,8 @@ const fetchData = async () => {
           $(".c-" + currentRoute + ".skip")
             .off(mytap)
             .on(mytap, function (e) {
+              // console.error("$(this) SKIP", $(this));
               // if ($(this).text() == "略過") {
-              trackInffitsEvent("click_skip", {
-                action: "skip_step",
-                event_label: all_Route[fs],
-                event_value: currentRoute,
-                step: fs + 1,
-              });
               var tag = `c-${all_Route[fs]}`;
               $(`.${tag}.tag-selected`).removeClass("tag-selected");
               $(".tag-selected").removeClass("tag-selected");
@@ -2304,7 +1516,9 @@ const fetchData = async () => {
                   JSON.stringify(INFS_ROUTE_ORDER)
                 );
               }
+              // console.error("error skip add", tags_chosen);
               // }
+              // console.log("skip", all_Route[fs]);
               if (fs == all_Route.length - 1) {
                 $("#container-" + currentRoute).hide();
                 if ($.isEmptyObject(tags_chosen)) {
@@ -2312,6 +1526,7 @@ const fetchData = async () => {
                     .find(".image-container")
                     .first();
                   var tagid = firstEl.attr("class").match(/tagId-(\d+)/)[1];
+                  // console.warn("tagid", tagid);
                   tags_chosen[all_Route[fs].replaceAll(/[\s\.]/g, "")] = [
                     {
                       Description: "example",
@@ -2324,7 +1539,7 @@ const fetchData = async () => {
                 }
                 get_recom_res();
               } else {
-                refreshNextRouteAfterSelection(fs, null, { restoreAll: true });
+                // console.log(".c-" + all_Route[fs + 1].replaceAll(/[\s\.]/g, ""));
                 $("#container-" + currentRoute).hide();
                 $("#container-" + all_Route[fs + 1].replaceAll(/[\s\.]/g, "")).show();
                 // 啟動下一個容器的打字效果
@@ -2342,13 +1557,6 @@ const fetchData = async () => {
               var tag = `c-${all_Route[fs]}`;
               $(`.${tag}.tag-selected`).removeClass("tag-selected");
               $(this).addClass("tag-selected");
-              trackInffitsEvent("click_tag", {
-                action: "select_tag",
-                event_label: $(this).find("p").text() || "",
-                event_value: tagid,
-                tag_group: all_Route[fs],
-                step: fs + 1,
-              });
               if (fs == all_Route.length - 1) {
                 $("#container-" + currentRoute).hide();
 
@@ -2374,7 +1582,6 @@ const fetchData = async () => {
                   get_recom_res_throttled();
                 }
               } else {
-                refreshNextRouteAfterSelection(fs, tagid);
                 $("#container-" + currentRoute).hide();
                 $("#container-" + all_Route[fs + 1].replaceAll(/[\s\.]/g, "")).show();
                 // 啟動下一個容器的打字效果
@@ -2412,22 +1619,17 @@ const fetchData = async () => {
                 );
               }
             });
-          $(`#container-${all_Route[fs].replaceAll(/[\s\.]/g, "")}-backarrow`)
-            .off(mytap)
-            .on(mytap, function (e) {
+          $(`#container-${all_Route[fs].replaceAll(/[\s\.]/g, "")}-backarrow`).on(
+            mytap,
+            function (e) {
               if (fs != 0) {
-                trackInffitsEvent("click_back", {
-                  action: "back_to_prev_step",
-                  event_label: all_Route[fs - 1],
-                  event_value: all_Route[fs],
-                  step: fs + 1,
-                });
                 $("#container-" + currentRoute).hide();
                 $("#container-" + all_Route[fs - 1].replaceAll(/[\s\.]/g, "")).show();
                 // 啟動上一個容器的打字效果
                 startTypewriterEffect(all_Route[fs - 1]);
               }
-            });
+            }
+          );
 
           if (fs == 0) {
             reset = async function () {
@@ -2438,9 +1640,6 @@ const fetchData = async () => {
                 MRID: MRID,
                 GVID: GVID,
                 LGVID: LGVID,
-                show_origin_price: showOriginPrice,
-                use_route_linked_tags: useRouteLinkedTags,
-                intro_mode: introMode,
               };
 
               // 發送消息到接收窗口
@@ -2464,7 +1663,9 @@ const fetchData = async () => {
       MsgHeader: "fetchDone",
     };
     window.parent.postMessage(pass_data, "*");
-  } catch (error) {}
+  } catch (error) {
+    console.error("Fetch error:", error);
+  }
 };
 var tap = window.ontouchstart === null ? "touchend" : "click";
 
@@ -2482,41 +1683,11 @@ $(document).on(tap, ".icon-reminder", function () {
   $(".text-inffits").removeClass("visible");
 });
 
-// 換一組試試按鈕點擊事件
-$(document).on(tap, ".change-group-btn", function () {
-  const $btn = $(this);
-  const target = $btn.data("target");
-
-  if ($btn.hasClass("rotating") || tagFlipLock[target]) return;
-
-  const currentGroup = parseInt($btn.attr("data-current-group"), 10);
-  const totalGroups = parseInt($btn.data("total-groups"), 10);
-  const nextGroup = (currentGroup + 1) % totalGroups;
-
-  trackInffitsEvent("click_change_group", {
-    action: "change_tag_group",
-    event_label: target,
-    event_value: String(nextGroup),
-    from_group: currentGroup,
-    to_group: nextGroup,
-  });
-
-  $btn.addClass("rotating change-group-btn--hidden");
-  $btn.attr("data-current-group", nextGroup);
-
-  flipTagsToGroup(target, nextGroup).finally(() => {
-    $btn.removeClass("rotating");
-  });
-
-  $btn.find("svg").one("animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd", function () {
-    $btn.removeClass("rotating");
-  });
-});
-
 function copyCoupon(couponCode, btn) {
   navigator.clipboard
     .writeText(couponCode)
     .then(() => {
+      // console.log("已複製優惠碼：", couponCode);
       const $btn = $(btn);
       const $parent = $btn.closest(
         ".intro-coupon-modal__content-container-content-footer"
@@ -2535,16 +1706,13 @@ function copyCoupon(couponCode, btn) {
       }, 3000);
     })
     .catch((err) => {
+      console.error("複製失敗：", err);
       alert("無法複製優惠碼，請手動複製。");
     });
 }
 
 // 使用事件委託來處理動態創建的元素
 $(document).on(tap, "#start-button", function () {
-  trackInffitsEvent("click_start", {
-    action: "start_button",
-    event_label: "開始導購",
-  });
   $("#recommend-title").text("專屬商品推薦");
   $("#recommend-desc").text("根據您的偏好，精選以下單品。"); // 使用淡入動畫
   $("#recommend-btn").text("刷新推薦");
@@ -2589,10 +1757,6 @@ $(document).on(tap, "#start-button", function () {
 
 
 $("#coupon-btn").on(tap, function () {
-  trackInffitsEvent("click_coupon", {
-    action: "open_coupon",
-    event_label: "開啟優惠券",
-  });
   $("#loadingbar_recom").show();
   const $couponOverlay = $(`<div id="coupon-overlay"></div>`)
     .css({
@@ -2645,6 +1809,7 @@ $("#coupon-btn").on(tap, function () {
           correctLevel: QRCode.CorrectLevel.H
         });
       } catch (error) {
+        console.error("生成 QR code 時發生錯誤:", error);
         qrcodeContainer.innerHTML = '<div style="color: red;">QR code 生成失敗</div>';
       }
     } else {
@@ -2656,12 +1821,14 @@ $("#coupon-btn").on(tap, function () {
           generateQRCode();
         };
         script.onerror = function() {
+          console.error("無法載入 QR code 庫");
           if (qrcodeContainer) {
             qrcodeContainer.innerHTML = '<div style="color: red;">QR code 庫載入失敗</div>';
           }
         };
         document.head.appendChild(script);
       } else {
+        console.error("QR code 容器不存在");
         if (qrcodeContainer) {
           qrcodeContainer.innerHTML = '<div style="color: red;">QR code 容器不存在</div>';
         }
@@ -2676,11 +1843,6 @@ $("#coupon-btn").on(tap, function () {
 })
 
 $("#coupon-recommend-btn").on(tap, function () {
-  trackInffitsEvent("click_coupon_recommend", {
-    action: "open_coupon_recommend",
-    event_label: "優惠推薦",
-    event_value: String((resList && resList.length) || 0),
-  });
   const messageData = {
     type: "openCouponDialog",
     list: resList,
@@ -2689,19 +1851,56 @@ $("#coupon-recommend-btn").on(tap, function () {
   window.parent.postMessage(messageData, "*");
 })
 
-// 刷新推薦 = SPIN：重新轉動未釘選的拉霸欄位
-$("#recommend-btn").on(tap, function () {
-  trackInffitsEvent("click_refresh_recommend", {
-    action: "refresh_recommend_btn",
-    event_label: "刷新推薦",
-    event_value: "spin",
-    categories: (reelCats || []).join(","),
-  });
+$("#recommend-btn").on(tap, async function () {
   $("#loadingbar_recom").hide();
 
-  window.parent.postMessage({ type: "result", value: true }, "*");
+  const $loadingOverlay = $('<div id="loading-overlay"></div>')
+    .css({
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      background:
+        "rgba(255, 255, 255, 0.9) url('./../img/recom-loading-desktop.gif') no-repeat center center / contain",
+      zIndex: 9999,
+    })
+    .appendTo("#container-recom");
 
-  spinCapsuleReels(reelCats);
+  const userAgent = navigator.userAgent.toLowerCase();
+  const isMobile = /mobile|android|iphone|ipod|phone/.test(userAgent);
+  const backgroundImage = isMobile
+    ? "./../img/recom-loading-mobile.gif" // 手機版背景
+    : "./../img/recom-loading-desktop.gif"; // 桌面版背景
+  $("#loading-overlay").css(
+    "background",
+    `rgba(255, 255, 255, 0.9) url('${backgroundImage}') no-repeat center center / contain`
+  );
+
+  const messageData = {
+    type: "result",
+    value: true,
+  };
+  window.parent.postMessage(messageData, "*");
+  if (firstResult.Item?.length <= 3) {
+    await getEmbedded().finally(() => {
+      setTimeout(() => {
+        $loadingOverlay.fadeOut(300, function () {
+          $(this).remove();
+        });
+      }, 1000);
+    });
+  } else {
+    show_results(firstResult);
+    $("#recommend-title").text("精選推薦商品");
+    $("#recommend-desc").text("更多您可能喜愛的商品");
+
+    setTimeout(() => {
+      $loadingOverlay.fadeOut(300, function () {
+        $(this).remove();
+      });
+    }, 1000);
+  }
 });
 
 $(document).on("click", function (event) {
@@ -2714,17 +1913,12 @@ $(document).on("click", function (event) {
 });
 
 $("#startover").on(tap, function () {
-  trackInffitsEvent("click_startover", {
-    action: "startover_btn",
-    event_label: "重新開始",
-  });
   $("#loadingbar_recom").hide();
   Initial();
   reset();
 });
 
 const Initial = () => {
-  clearAllChangeGroupBtnState();
   $(".update_delete").remove();
   $("#container-recom").hide();
 
@@ -2732,6 +1926,7 @@ const Initial = () => {
 };
 
 window.addEventListener("message", async (event) => {
+  // console.warn("message", event);
   if (event.data.header == "from_preview") {
 
     Route = event.data.id;
@@ -2739,18 +1934,6 @@ window.addEventListener("message", async (event) => {
     MRID = event.data.MRID || "";
     GVID = event.data.GVID || "";
     LGVID = event.data.LGVID || "";
-    // 僅在明確傳入時更新，避免重新開始未帶欄位時被重設成 false
-    if (Object.prototype.hasOwnProperty.call(event.data, "show_origin_price")) {
-      showOriginPrice = !!event.data.show_origin_price;
-    }
-    if (Object.prototype.hasOwnProperty.call(event.data, "use_route_linked_tags")) {
-      useRouteLinkedTags = !!event.data.use_route_linked_tags;
-    }
-    // intro_mode: "v1" | "v2"；僅在明確傳入時更新
-    if (Object.prototype.hasOwnProperty.call(event.data, "intro_mode")) {
-      var rawIntro = String(event.data.intro_mode || "").toLowerCase();
-      introMode = rawIntro === "v1" || rawIntro === "v2" ? rawIntro : null;
-    }
     await Initial();
     await fetchData();
     await fetchCoupon();
