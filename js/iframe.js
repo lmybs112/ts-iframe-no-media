@@ -4,6 +4,10 @@ var Brand = "";
 var MRID = "";
 var GVID = "";
 var LGVID = "";
+/** true：features 選完依 RouteLinkedTags 過濾下一題；false：維持原本顯示全部 */
+var useRouteLinkedTags = false;
+/** intro 版面：null=原規則；"v1"=簡化開始頁；"v2"=專屬資訊（資料不足時回退原規則） */
+var introMode = null;
 var SpecifyTags = [];
 var SpecifyKeywords = [];
 var themeBackgroundImages = [];
@@ -794,6 +798,7 @@ const fetchCoupon = async () => {
       autoplay: false,
       hide_discount: true, // 隱藏折扣
       hide_size: true, // 隱藏尺寸
+      introMode: introMode,
       bid: {
         HV: "165",
         WV: "45",
@@ -892,6 +897,24 @@ const fetchCoupon = async () => {
 };
 
 // 啟動特定容器的打字效果
+// 題目描述：\n → <br>，空白 → &nbsp;，確保縮排與連續空格都保留
+function formatTypewriterLineBreaks(text) {
+  if (!text) return "";
+  return String(text)
+    .replace(/\\n/g, "\n")
+    .replace(/\r\n|\r/g, "\n")
+    .split("\n")
+    .map(function (line) {
+      return line
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/ /g, "&nbsp;")
+        .replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;");
+    })
+    .join("<br>");
+}
+
 function startTypewriterEffect(containerRoute) {
   const targetRoute = containerRoute.replaceAll(/[\s\.]/g, "");
   const typewriterContainer = document.querySelector(`.typewriter-${targetRoute}`);
@@ -913,6 +936,8 @@ function startTypewriterEffect(containerRoute) {
       }
     }
 
+    content = formatTypewriterLineBreaks((content || "").trim());
+
     // 檢查標籤是否已經完成了動畫
     const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
     const allTagsHaveFadeIn = Array.from(tagElements).every(tag => tag.classList.contains('tag-fade-in'));
@@ -928,8 +953,8 @@ function startTypewriterEffect(containerRoute) {
       });
       
       // 直接顯示內容，不重新打字
-      if (content && content.trim() !== '' && content !== 'undefined') {
-        typewriterContainer.innerHTML = content.trim();
+      if (content && content !== '' && content !== 'undefined') {
+        typewriterContainer.innerHTML = content;
       } else {
         typewriterContainer.innerHTML = '';
       }
@@ -1013,7 +1038,7 @@ function startTypewriterEffect(containerRoute) {
     }
     
     // 確保有內容才啟動打字效果
-    if (content && content.trim() !== '' && content !== 'undefined') {
+    if (content && content !== '' && content !== 'undefined') {
       // 只有在動畫未完成時才重置狀態
       // console.log(`🎭 開始容器 ${targetRoute} 的動畫序列`);
       
@@ -1041,9 +1066,9 @@ function startTypewriterEffect(containerRoute) {
         onType: checkAndScrollIfNeeded
       });
       
-      // 開始打字效果，並在完成後顯示 swiper-slide 元素和標籤依序淡入
+      // 開始打字效果（已將 \n 轉成 <br>、空白轉成 &nbsp;），並在完成後顯示標籤
       typewriter
-        .typeString(content.trim())
+        .typeString(content)
         .pauseFor(500)
         .callFunction(() => {
           // 最終滾動檢查
@@ -1258,14 +1283,110 @@ const fetchData = async () => {
     }
 
     let Route_in_frame = {};
+    let Route_in_frame_all = {};
     for (var n = 0; n < all_Route.length; n++) {
       Route_in_frame[all_Route[n]] = [];
+      Route_in_frame_all[all_Route[n]] = [];
     }
     for (var j = 0; j < obj.RouteConfig.length; j++) {
       let item = obj.RouteConfig[j];
-      // let idx = all_Route.indexOf(item.TagGroup.S)
+      if (!Route_in_frame[item.TagGroup.S]) {
+        Route_in_frame[item.TagGroup.S] = [];
+        Route_in_frame_all[item.TagGroup.S] = [];
+      }
       Route_in_frame[item.TagGroup.S].push(item);
+      Route_in_frame_all[item.TagGroup.S].push(item);
     }
+
+    /** 解析 RouteConfig.RouteLinkedTags（DynamoDB 字串，如 "['1','2','10']"） */
+    function parseRouteLinkedTags(raw) {
+      if (raw == null || raw === "") return [];
+      const str = typeof raw === "string" ? raw : String(raw);
+      try {
+        const parsed = JSON.parse(str.replace(/'/g, '"'));
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(String).filter(Boolean);
+      } catch (_) {
+        return [];
+      }
+    }
+
+    function filterItemsByLinkedTags(items, linkedIds) {
+      if (!Array.isArray(items) || items.length === 0) return [];
+      if (!Array.isArray(linkedIds) || linkedIds.length === 0) return items.slice();
+      const byTag = new Map(
+        items.map((item) => [String(item?.Tag?.S ?? ""), item])
+      );
+      return linkedIds
+        .map((id) => byTag.get(String(id)))
+        .filter(Boolean);
+    }
+
+    /** features 選完後，依 RouteLinkedTags 過濾下一題可選標籤；略過或無連結則還原全部 */
+    function prepareNextRouteOptions(selectedGroup, tagId, nextGroup, options = {}) {
+      if (!nextGroup || !Route_in_frame_all[nextGroup]) return;
+
+      const restoreAll = options.restoreAll === true || selectedGroup !== "features";
+      if (restoreAll) {
+        Route_in_frame[nextGroup] = Route_in_frame_all[nextGroup].slice();
+        return;
+      }
+
+      const selectedItem = Route_in_frame_all[selectedGroup]?.find(
+        (item) => String(item?.Tag?.S) === String(tagId)
+      );
+      const linked = parseRouteLinkedTags(selectedItem?.RouteLinkedTags?.S);
+      if (linked.length === 0) {
+        Route_in_frame[nextGroup] = Route_in_frame_all[nextGroup].slice();
+        return;
+      }
+
+      const filtered = filterItemsByLinkedTags(
+        Route_in_frame_all[nextGroup],
+        linked
+      );
+      Route_in_frame[nextGroup] =
+        filtered.length > 0
+          ? filtered
+          : Route_in_frame_all[nextGroup].slice();
+    }
+
+    function renderRouteTags(tar) {
+      var target = tar.replaceAll(/[\s\.]/g, "");
+      $(`#container-${target}`).find(".selection").remove();
+      $(`#container-${target}`).find(".remove-button").remove();
+      $(`#container-${target}`).find(`.pagination-${target}`).empty();
+
+      const items = Route_in_frame[tar] || [];
+      const itemCount = items.length;
+      $(`#container-${target}`)
+        .find(".swiper-wrapper")
+        .append(
+          '<div class="selection swiper-slide"><div class="axd_selections selection"></div></div>'
+        );
+      for (let rr = 0; rr < itemCount; rr++) {
+        $(`#container-${target}`).find(".axd_selections").append(`
+                            <div class="axd_selection axd_tag">
+                                <div class="axd_tag_inner c-${target} tagId-${items[rr].Tag.S}">
+                                    <p>${items[rr].Name.S}</p>
+                                </div>
+                            </div>
+                        `);
+      }
+    }
+
+    let suppressPresetResume = false;
+    function refreshNextRouteAfterSelection(fs, tagId, options = {}) {
+      if (!useRouteLinkedTags) return;
+      if (fs >= all_Route.length - 1) return;
+      const nextGroup = all_Route[fs + 1];
+      prepareNextRouteOptions(all_Route[fs], tagId, nextGroup, options);
+      renderRouteTags(nextGroup);
+      suppressPresetResume = true;
+      bind();
+      suppressPresetResume = false;
+    }
+
     // console.error(Route_in_frame, "dog");
     const userAgent = navigator.userAgent.toLowerCase();
     const isMobile = /mobile|android|iphone|ipod|phone/.test(userAgent);
@@ -1348,27 +1469,7 @@ const fetchData = async () => {
 
       // 初始檢查
       function init(tar) {
-        var target = tar.replaceAll(/[\s\.]/g, "");
-        $(`#container-${target}`).find(".selection").remove();
-        $(`#container-${target}`).find(".remove-button").remove();
-        $(`#container-${target}`).find(`.pagination-${target}`).empty();
-
-        const itemCount = Route_in_frame[tar].length;
-        const render_num =itemCount
-        $(`#container-${target}`)
-          .find(".swiper-wrapper")
-          .append(
-            '<div class="selection swiper-slide"><div class="axd_selections selection"></div></div>'
-          );
-        for (let rr = 0; rr < render_num; rr++) {
-          $(`#container-${target}`).find(".axd_selections").append(`
-                            <div class="axd_selection axd_tag">
-                                <div class="axd_tag_inner c-${target} tagId-${Route_in_frame[tar][rr].Tag.S}">
-                                    <p>${Route_in_frame[tar][rr].Name.S}</p>
-                                </div>
-                            </div>
-                        `);
-        }
+        renderRouteTags(tar);
         bind();
       }
       init(r);
@@ -1386,7 +1487,7 @@ const fetchData = async () => {
       );
       const skipShowResult = isForPreview || isForReferral;
       
-      if (match && !skipShowResult) {
+      if (match && !skipShowResult && !suppressPresetResume) {
         tags_chosen = match.Record;
         
         // 檢查是否所有路由都有有效的選擇
@@ -1540,6 +1641,7 @@ const fetchData = async () => {
                 get_recom_res();
               } else {
                 // console.log(".c-" + all_Route[fs + 1].replaceAll(/[\s\.]/g, ""));
+                refreshNextRouteAfterSelection(fs, null, { restoreAll: true });
                 $("#container-" + currentRoute).hide();
                 $("#container-" + all_Route[fs + 1].replaceAll(/[\s\.]/g, "")).show();
                 // 啟動下一個容器的打字效果
@@ -1582,6 +1684,7 @@ const fetchData = async () => {
                   get_recom_res_throttled();
                 }
               } else {
+                refreshNextRouteAfterSelection(fs, tagid);
                 $("#container-" + currentRoute).hide();
                 $("#container-" + all_Route[fs + 1].replaceAll(/[\s\.]/g, "")).show();
                 // 啟動下一個容器的打字效果
@@ -1640,6 +1743,8 @@ const fetchData = async () => {
                 MRID: MRID,
                 GVID: GVID,
                 LGVID: LGVID,
+                use_route_linked_tags: useRouteLinkedTags,
+                intro_mode: introMode,
               };
 
               // 發送消息到接收窗口
@@ -1934,6 +2039,13 @@ window.addEventListener("message", async (event) => {
     MRID = event.data.MRID || "";
     GVID = event.data.GVID || "";
     LGVID = event.data.LGVID || "";
+    if (Object.prototype.hasOwnProperty.call(event.data, "use_route_linked_tags")) {
+      useRouteLinkedTags = !!event.data.use_route_linked_tags;
+    }
+    if (Object.prototype.hasOwnProperty.call(event.data, "intro_mode")) {
+      var rawIntro = String(event.data.intro_mode || "").toLowerCase();
+      introMode = rawIntro === "v1" || rawIntro === "v2" ? rawIntro : null;
+    }
     await Initial();
     await fetchData();
     await fetchCoupon();

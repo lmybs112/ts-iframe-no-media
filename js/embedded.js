@@ -12,6 +12,7 @@
       autoplay: true, // 默認開啓輪播
       hide_discount: false, // 默認不隱藏折扣
       hide_size: false, // 默認不隱藏尺寸
+      introMode: null, // null=原規則；"v1"=簡化開始頁；"v2"=專屬資訊（資料不足回退原規則）
       bid: {
         HV: "163",
         WV: "50",
@@ -80,6 +81,7 @@
       autoplay,
       arrowPosition,
       customPadding,
+      introMode,
     } = finalConfig;
 
     // 轉換斷點為排序後的陣列
@@ -1215,25 +1217,64 @@
                       return newItem;
                     });
               $(`#recommendation-loading`).remove();
-              if (window.innerWidth > 992) {
-                if (jsonData.length >= 6) {
-                  $(`#${containerId} .embeddedAdContainer`).show();
-                  updatePopAd(jsonData);
-                }
-              } else {
-                if (jsonData.length >= 4) {
-                  $(`#${containerId} .embeddedAdContainer`).show();
-                  updatePopAd(jsonData);
-                }
+              const hasEnoughData =
+                window.innerWidth > 992
+                  ? jsonData.length >= 6
+                  : jsonData.length >= 4;
+              if (hasEnoughData) {
+                $(`#${containerId} .embeddedAdContainer`).show();
+                updatePopAd(jsonData);
               }
-                            $("#intro-content-simple").remove();
-                            $("#intro-content-advanced").show();
-                            $("#loadingbar").hide();
+              applyIntroDisplay({
+                prefer: introMode,
+                apiOk: true,
+                hasEnoughData: hasEnoughData,
+              });
             })
             .catch((err) => {
               console.error(err);
-                            // 動態生成 intro-content-simple 來取代 intro-content-advanced
-                            const simpleContent = `
+              applyIntroDisplay({
+                prefer: introMode,
+                apiOk: false,
+                hasEnoughData: false,
+              });
+            });
+        }
+
+        // 顯示 intro v1（簡化開始頁）或 v2（專屬資訊）
+        // prefer: null=原規則；"v1"=強制簡化；"v2"=優先專屬資訊，資料不足時回退原規則
+        function applyIntroDisplay({ prefer, apiOk, hasEnoughData }) {
+          var mode = prefer === "v1" || prefer === "v2" ? prefer : null;
+          var showAdvanced;
+
+          if (mode === "v1") {
+            showAdvanced = false;
+          } else if (mode === "v2") {
+            showAdvanced = hasEnoughData ? true : !!apiOk;
+          } else {
+            showAdvanced = !!apiOk;
+          }
+
+          if (showAdvanced) {
+            showIntroAdvanced();
+          } else {
+            showIntroSimple();
+          }
+        }
+
+        function showIntroAdvanced() {
+          $("#intro-content-simple").remove();
+          $("#intro-content-advanced").show();
+          $("#loadingbar").hide();
+        }
+
+        function showIntroSimple() {
+          if ($("#intro-content-simple").length) {
+            $("#intro-content-advanced").remove();
+            $("#loadingbar").hide();
+            return;
+          }
+          const simpleContent = `
                             <div id="intro-content-simple" class="intro-content intro-modal__content" style="opacity: 0; transition: opacity 0.3s ease-in-out;">
                               <div class="intro-logo intro-modal__logo intro-modal__logo--inf">
                                 <img src="img/intro-logo.png" alt="intro logo" />
@@ -1277,52 +1318,45 @@
                               </div>
                             </div>
                           `;
-                          
-                          // 移除 intro-content-advanced 並插入動態生成的內容
-                          $("#intro-content-advanced").remove();
-                          $("#intro-page").append(simpleContent);
-                          $("#loadingbar").hide();
-                          
-                          // 等待圖片加載完成後再顯示內容
-                          const $simpleContent = $("#intro-content-simple");
-                          const $images = $simpleContent.find("img");
-                          let loadedImages = 0;
-                          const totalImages = $images.length;
-                          
-                          if (totalImages === 0) {
-                            // 如果沒有圖片，直接顯示
-                            $simpleContent.css("opacity", "1");
-                          } else {
-                            // 監聽所有圖片加載完成
-                            $images.each(function() {
-                              const $img = $(this);
-                              if ($img[0].complete) {
-                                loadedImages++;
-                                checkAllImagesLoaded();
-                              } else {
-                                $img.on("load", function() {
-                                  loadedImages++;
-                                  checkAllImagesLoaded();
-                                }).on("error", function() {
-                                  loadedImages++;
-                                  checkAllImagesLoaded();
-                                });
-                              }
-                            });
-                          }
-                          
-                          function checkAllImagesLoaded() {
-                            if (loadedImages >= totalImages) {
-                              // 所有圖片加載完成，平滑顯示內容
-                              setTimeout(() => {
-                                $simpleContent.css("opacity", "1");
-                              }, 100);
-                            }
-                          }
-                          // 移除重複的事件綁定，iframe.js 中已有完整的 start-button 事件處理邏輯
-                          
-                          // 移除重複的圖標事件綁定，iframe.js 中已有完整的圖標事件處理邏輯
+
+          $("#intro-content-advanced").remove();
+          $("#intro-page").append(simpleContent);
+          $("#loadingbar").hide();
+
+          const $simpleContent = $("#intro-content-simple");
+          const $images = $simpleContent.find("img");
+          let loadedImages = 0;
+          const totalImages = $images.length;
+
+          if (totalImages === 0) {
+            $simpleContent.css("opacity", "1");
+          } else {
+            $images.each(function () {
+              const $img = $(this);
+              if ($img[0].complete) {
+                loadedImages++;
+                checkAllImagesLoaded();
+              } else {
+                $img
+                  .on("load", function () {
+                    loadedImages++;
+                    checkAllImagesLoaded();
+                  })
+                  .on("error", function () {
+                    loadedImages++;
+                    checkAllImagesLoaded();
+                  });
+              }
             });
+          }
+
+          function checkAllImagesLoaded() {
+            if (loadedImages >= totalImages) {
+              setTimeout(() => {
+                $simpleContent.css("opacity", "1");
+              }, 100);
+            }
+          }
         }
 
         function updatePopAd(images, corr_bool) {
