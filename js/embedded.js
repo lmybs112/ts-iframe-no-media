@@ -1124,6 +1124,16 @@
           };
         }
         function getEmbeddedAds(ids) {
+          // v1：強制簡化開始頁，不打 recom_product
+          if (introMode === "v1") {
+            applyIntroDisplay({
+              prefer: "v1",
+              apiOk: false,
+              hasEnoughData: false,
+            });
+            return;
+          }
+
           const requestData = {
             Brand: Brand,
             LGVID: bid.LGVID || ids.lgiven_id,
