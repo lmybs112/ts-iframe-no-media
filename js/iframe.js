@@ -7,6 +7,8 @@ var LGVID = "";
 var showOriginPrice = false;
 /** true：features 選完依 RouteLinkedTags 過濾下一題；false：維持原本顯示全部 */
 var useRouteLinkedTags = false;
+/** intro 版面：null=原規則；"v1"=簡化開始頁；"v2"=專屬資訊（資料不足時回退原規則） */
+var introMode = null;
 var SpecifyTags = [];
 var SpecifyKeywords = [];
 var themeBackgroundImages = [];
@@ -1212,6 +1214,7 @@ const fetchCoupon = async () => {
       autoplay: false,
       hide_discount: true, // 隱藏折扣
       hide_size: true, // 隱藏尺寸
+      introMode: introMode,
       bid: {
         HV: "165",
         WV: "45",
@@ -1630,6 +1633,24 @@ function fadeInTagsSequentially(targetRoute, tagElements, delay = TAG_FADE_IN_DE
 }
 
 // 啟動特定容器的打字效果
+// 題目描述：\n → <br>，空白 → &nbsp;，確保縮排與連續空格都保留
+function formatTypewriterLineBreaks(text) {
+  if (!text) return "";
+  return String(text)
+    .replace(/\\n/g, "\n")
+    .replace(/\r\n|\r/g, "\n")
+    .split("\n")
+    .map(function (line) {
+      return line
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/ /g, "&nbsp;")
+        .replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;");
+    })
+    .join("<br>");
+}
+
 function startTypewriterEffect(containerRoute) {
   const targetRoute = containerRoute.replaceAll(/[\s\.]/g, "");
   const typewriterContainer = document.querySelector(`.typewriter-${targetRoute}`);
@@ -1653,6 +1674,8 @@ function startTypewriterEffect(containerRoute) {
       }
     }
 
+    content = formatTypewriterLineBreaks((content || "").trim());
+
     // 檢查標籤是否已經完成了動畫
     const tagElements = getRouteTagElements(targetRoute);
     const allTagsHaveFadeIn = Array.from(tagElements).every(tag => tag.classList.contains('tag-fade-in'));
@@ -1667,8 +1690,8 @@ function startTypewriterEffect(containerRoute) {
       });
       
       // 直接顯示內容，不重新打字
-      if (content && content.trim() !== '' && content !== 'undefined') {
-        typewriterContainer.innerHTML = content.trim();
+      if (content && content !== '' && content !== 'undefined') {
+        typewriterContainer.innerHTML = content;
       } else {
         typewriterContainer.innerHTML = "";
       }
@@ -1685,7 +1708,7 @@ function startTypewriterEffect(containerRoute) {
     }
     
     // 確保有內容才啟動打字效果
-    if (content && content.trim() !== '' && content !== 'undefined') {
+    if (content && content !== '' && content !== 'undefined') {
       // 只有在動畫未完成時才重置狀態
       hideChangeGroupBtn(targetRoute);
       
@@ -1721,9 +1744,9 @@ function startTypewriterEffect(containerRoute) {
         loop: false,
       });
       
-      // 開始打字效果，並在完成後顯示 swiper-slide 元素和標籤依序淡入
+      // 開始打字效果（已將 \n 轉成 <br>），並在完成後顯示標籤
       typewriter
-        .typeString(content.trim())
+        .typeString(content)
         .pauseFor(500)
         .callFunction(() => {
           // 最終滾動檢查
@@ -2404,6 +2427,7 @@ const fetchData = async () => {
                 LGVID: LGVID,
                 show_origin_price: showOriginPrice,
                 use_route_linked_tags: useRouteLinkedTags,
+                intro_mode: introMode,
               };
 
               // 發送消息到接收窗口
@@ -2708,6 +2732,11 @@ window.addEventListener("message", async (event) => {
     }
     if (Object.prototype.hasOwnProperty.call(event.data, "use_route_linked_tags")) {
       useRouteLinkedTags = !!event.data.use_route_linked_tags;
+    }
+    // intro_mode: "v1" | "v2"；僅在明確傳入時更新
+    if (Object.prototype.hasOwnProperty.call(event.data, "intro_mode")) {
+      var rawIntro = String(event.data.intro_mode || "").toLowerCase();
+      introMode = rawIntro === "v1" || rawIntro === "v2" ? rawIntro : null;
     }
     await Initial();
     await fetchData();

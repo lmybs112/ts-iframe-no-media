@@ -68,6 +68,15 @@
       <div style="margin-bottom: 10px;">
         <input
           type="radio"
+          id="opt-olivo5"
+          name="param-option"
+          value="olivo5"
+        />
+        <label for="opt-olivo5" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OLIVO 5 <span style='color:#888;'>(ID: 1759626608273)</span></label>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <input
+          type="radio"
           id="opt-jerscy"
           name="param-option"
           value="jerscy"
@@ -132,6 +141,21 @@
       >
         傳送參數到 Iframe
       </button>
+      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid #e8e8e8;">
+        <p style="font-size: 0.95em; font-weight: 600; color: #333; margin: 0 0 8px 0;">intro_mode</p>
+        <div style="margin-bottom: 6px;">
+          <input type="radio" id="intro-mode-default" name="intro-mode" value="" checked />
+          <label for="intro-mode-default" style="margin-left: 6px; cursor: pointer;">不指定（原規則）</label>
+        </div>
+        <div style="margin-bottom: 6px;">
+          <input type="radio" id="intro-mode-v1" name="intro-mode" value="v1" />
+          <label for="intro-mode-v1" style="margin-left: 6px; cursor: pointer;">v1 簡化開始頁</label>
+        </div>
+        <div style="margin-bottom: 6px;">
+          <input type="radio" id="intro-mode-v2" name="intro-mode" value="v2" />
+          <label for="intro-mode-v2" style="margin-left: 6px; cursor: pointer;">v2 專屬資訊</label>
+        </div>
+      </div>
     </div>
   </body>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
@@ -305,6 +329,7 @@
             olivo2: { id: "2025-06-24-16-55-16-2", brand: "OLIVO" },
             olivo3: { id: "2025-06-24-16-55-16-3", brand: "OLIVO" },
             olivo4: { id: "2025-06-24-16-55-16-4", brand: "OLIVO" },
+            olivo5: { id: "1759626608273", brand: "OLIVO" },
             jerscy: { id: "1734582962432", brand: "JERSCY" },
             almi: { id: "2025-05-29-18-00-13-2", brand: "ALMI" },
             ob91: { id: "2026-06-25-05-22-26-2", brand: "OB91" },
@@ -325,7 +350,7 @@
           // 初始化自訂欄位的可見性
           $('input[name="param-option"]:checked').trigger("change");
 
-          const recreateIframe = (id, brand) => {
+          const recreateIframe = (id, brand, introMode) => {
             const oldIframe = document.getElementById("inffits_tryon_window");
             if (oldIframe) {
               oldIframe.remove();
@@ -355,7 +380,12 @@
                 MRID: "",
                 GVID: "",
                 LGVID: "",
+                use_route_linked_tags: false,
               };
+              // 與 use_route_linked_tags 相同傳法：明確帶入 intro_mode
+              if (introMode === "v1" || introMode === "v2") {
+                iframe_preview_obj.intro_mode = introMode;
+              }
               iframe_container.postMessage(iframe_preview_obj, "*");
             };
 
@@ -381,7 +411,9 @@
               return;
             }
 
-            recreateIframe(id, brand);
+            const introMode =
+              $('input[name="intro-mode"]:checked').val() || "";
+            recreateIframe(id, brand, introMode);
           });
 
           // Initial load
