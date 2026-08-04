@@ -100,6 +100,21 @@ test("駝峰 showOriginPrice 字串 true 也應解析為 true", () => {
   assert.equal(next, true);
 });
 
+test("任意巢狀 payload.show_origin_price 也應被解析", () => {
+  const next = resolveShowOriginPriceFromPayload(
+    {
+      payload: {
+        nested: {
+          show_origin_price: "!0",
+        },
+      },
+    },
+    false
+  );
+
+  assert.equal(next, true);
+});
+
 test("query 參數 show_origin_price=!0 應解析為 true", () => {
   const next = resolveShowOriginPriceFromSearch("?show_origin_price=!0", false);
   assert.equal(next, true);

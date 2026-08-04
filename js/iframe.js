@@ -36,20 +36,35 @@ function normalizeShowOriginPriceFlag(rawValue, fallbackValue) {
 
 function resolveShowOriginPriceFromPayload(payload, fallbackValue) {
   if (!payload || typeof payload !== "object") return fallbackValue;
-  var containers = [payload];
-  ["config", "options", "params", "settings", "data"].forEach(function (key) {
-    var nested = payload[key];
-    if (nested && typeof nested === "object") containers.push(nested);
-  });
+  var queue = [payload];
+  var visited = [];
 
-  for (var idx = 0; idx < containers.length; idx++) {
-    var target = containers[idx];
+  while (queue.length > 0) {
+    var target = queue.shift();
+    if (!target || typeof target !== "object") continue;
+    if (visited.indexOf(target) !== -1) continue;
+    visited.push(target);
+
     if (Object.prototype.hasOwnProperty.call(target, "show_origin_price")) {
       return normalizeShowOriginPriceFlag(target.show_origin_price, fallbackValue);
     }
     if (Object.prototype.hasOwnProperty.call(target, "showOriginPrice")) {
       return normalizeShowOriginPriceFlag(target.showOriginPrice, fallbackValue);
     }
+
+    if (Array.isArray(target)) {
+      for (var arrIdx = 0; arrIdx < target.length; arrIdx++) {
+        if (target[arrIdx] && typeof target[arrIdx] === "object") {
+          queue.push(target[arrIdx]);
+        }
+      }
+      continue;
+    }
+
+    Object.keys(target).forEach(function (key) {
+      var next = target[key];
+      if (next && typeof next === "object") queue.push(next);
+    });
   }
   return fallbackValue;
 }
