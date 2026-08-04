@@ -4,7 +4,83 @@ var Brand = "";
 var MRID = "";
 var GVID = "";
 var LGVID = "";
-var showOriginPrice = false;
+function normalizeShowOriginPriceFlag(rawValue, fallbackValue) {
+  if (rawValue === undefined || rawValue === null) return fallbackValue;
+  if (typeof rawValue === "boolean") return rawValue;
+  if (typeof rawValue === "number") return rawValue !== 0;
+  if (typeof rawValue === "string") {
+    var normalized = rawValue.trim().toLowerCase();
+    if (!normalized) return fallbackValue;
+    if (
+      normalized === "1" ||
+      normalized === "true" ||
+      normalized === "!0" ||
+      normalized === "yes" ||
+      normalized === "on"
+    ) {
+      return true;
+    }
+    if (
+      normalized === "0" ||
+      normalized === "false" ||
+      normalized === "no" ||
+      normalized === "off" ||
+      normalized === "null" ||
+      normalized === "undefined"
+    ) {
+      return false;
+    }
+  }
+  return !!rawValue;
+}
+
+function resolveShowOriginPriceFromPayload(payload, fallbackValue) {
+  if (!payload || typeof payload !== "object") return fallbackValue;
+  var containers = [payload];
+  ["config", "options", "params", "settings", "data"].forEach(function (key) {
+    var nested = payload[key];
+    if (nested && typeof nested === "object") containers.push(nested);
+  });
+
+  for (var idx = 0; idx < containers.length; idx++) {
+    var target = containers[idx];
+    if (Object.prototype.hasOwnProperty.call(target, "show_origin_price")) {
+      return normalizeShowOriginPriceFlag(target.show_origin_price, fallbackValue);
+    }
+    if (Object.prototype.hasOwnProperty.call(target, "showOriginPrice")) {
+      return normalizeShowOriginPriceFlag(target.showOriginPrice, fallbackValue);
+    }
+  }
+  return fallbackValue;
+}
+
+function resolveShowOriginPriceFromSearch(search, fallbackValue) {
+  try {
+    var query = typeof search === "string" ? search : "";
+    if (!query) return fallbackValue;
+    var params = new URLSearchParams(
+      query.charAt(0) === "?" ? query : "?" + query
+    );
+    if (params.has("show_origin_price")) {
+      return normalizeShowOriginPriceFlag(
+        params.get("show_origin_price"),
+        fallbackValue
+      );
+    }
+    if (params.has("showOriginPrice")) {
+      return normalizeShowOriginPriceFlag(
+        params.get("showOriginPrice"),
+        fallbackValue
+      );
+    }
+  } catch (_) {}
+  return fallbackValue;
+}
+
+var showOriginPrice = resolveShowOriginPriceFromSearch(
+  window.location && window.location.search ? window.location.search : "",
+  false
+);
 /** true：features 選完依 RouteLinkedTags 過濾下一題；false：維持原本顯示全部 */
 var useRouteLinkedTags = false;
 /** intro 版面：null=原規則；"v1"=簡化開始頁；"v2"=專屬資訊（資料不足時回退原規則） */
@@ -2764,10 +2840,11 @@ window.addEventListener("message", async (event) => {
     MRID = event.data.MRID || "";
     GVID = event.data.GVID || "";
     LGVID = event.data.LGVID || "";
-    // 僅在明確傳入時更新，避免重新開始未帶欄位時被重設成 false
-    if (Object.prototype.hasOwnProperty.call(event.data, "show_origin_price")) {
-      showOriginPrice = !!event.data.show_origin_price;
-    }
+    // 僅在明確傳入時更新，避免重新開始未帶欄位時被重設；支援巢狀/駝峰命名
+    showOriginPrice = resolveShowOriginPriceFromPayload(
+      event.data,
+      showOriginPrice
+    );
     if (Object.prototype.hasOwnProperty.call(event.data, "use_route_linked_tags")) {
       useRouteLinkedTags = !!event.data.use_route_linked_tags;
     }
