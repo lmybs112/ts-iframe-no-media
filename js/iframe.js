@@ -1065,24 +1065,53 @@ function startTypewriterEffect(containerRoute) {
         onPause: checkAndScrollIfNeeded,
         onType: checkAndScrollIfNeeded
       });
+
+      let finished = false;
+      const routeContainer = document.querySelector(`#container-${targetRoute}`);
+
+      function finishTypewriter(instantTags) {
+        if (finished) return;
+        finished = true;
+
+        try {
+          if (typewriter && typeof typewriter.stop === "function") {
+            typewriter.stop();
+          }
+        } catch (_) {}
+
+        observer.disconnect();
+        if (routeContainer) {
+          routeContainer.removeEventListener("pointerdown", skipTypewriterOnTap, true);
+        }
+
+        // 立刻顯示完整文字
+        typewriterContainer.innerHTML = content;
+        checkAndScrollIfNeeded();
+
+        const slides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
+        slides.forEach(slide => {
+          slide.classList.add('typewriter-complete');
+        });
+
+        const tags = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
+        if (instantTags) {
+          // 點擊跳過：標籤一次全部顯示
+          tags.forEach((tag) => tag.classList.add("tag-fade-in"));
+        } else {
+          fadeInTagsSequentially(tags, 200);
+        }
+      }
+
+      function skipTypewriterOnTap() {
+        finishTypewriter(true);
+      }
       
-      // 開始打字效果（已將 \n 轉成 <br>、空白轉成 &nbsp;），並在完成後顯示標籤
+      // 自然播完依序淡入標籤；點擊則文字+標籤一次到位
       typewriter
         .typeString(content)
         .pauseFor(500)
-        .callFunction(() => {
-          // 最終滾動檢查
-          checkAndScrollIfNeeded();
-          
-          // 打字效果完成後，先顯示容器
-          const swiperSlides = document.querySelectorAll(`#container-${targetRoute} .swiper-wrapper .swiper-slide`);
-          swiperSlides.forEach(slide => {
-            slide.classList.add('typewriter-complete');
-          });
-          
-          // 然後讓標籤按順序依序淡入
-          const tagElements = document.querySelectorAll(`#container-${targetRoute} .axd_selection.axd_tag`);
-          fadeInTagsSequentially(tagElements, 200); // 每個標籤間隔 200ms
+        .callFunction(function () {
+          finishTypewriter(false);
         })
         .start();
         
@@ -1101,8 +1130,13 @@ function startTypewriterEffect(containerRoute) {
         subtree: true,
         characterData: true
       });
+
+      // 打字進行中：任意點擊跳過動畫、立刻顯示全文與標籤
+      if (routeContainer) {
+        routeContainer.addEventListener("pointerdown", skipTypewriterOnTap, true);
+      }
       
-      // 打字完成後停止觀察
+      // 打字完成後停止觀察（自然播完的保底；skip 時會提前 disconnect）
       setTimeout(() => {
         observer.disconnect();
       }, content.length * 95 + 1000); // 根據打字速度估算完成時間
