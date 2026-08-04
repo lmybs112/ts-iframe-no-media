@@ -4,6 +4,7 @@ var Brand = "";
 var MRID = "";
 var GVID = "";
 var LGVID = "";
+var showOriginPrice = false;
 /** true：features 選完依 RouteLinkedTags 過濾下一題；false：維持原本顯示全部 */
 var useRouteLinkedTags = false;
 /** intro 版面：null=原規則；"v1"=簡化開始頁；"v2"=專屬資訊（資料不足時回退原規則） */
@@ -446,6 +447,12 @@ const getEmbeddedForBackup = () => {
     });
 };
 
+const formatRecomPrice = (item) => {
+  if (!item) return "-";
+  if (showOriginPrice) return item.price || item.sale_price || "-";
+  return item.sale_price || item.price || "-";
+};
+
 const show_results = (response, isFirst = false) => {
   //只出現其中三個}
   const itemCount = response?.Item?.length || 0;
@@ -516,7 +523,7 @@ const show_results = (response, isFirst = false) => {
          <p class="recom-text item-title line-ellipsis-2" id="recom-${i}-text">${ItemName}</p>
            <div class="discount-content">
              <p class="item-price recom-price">${
-               response.Item[i].sale_price || response.Item[i].price || "-"
+               formatRecomPrice(response.Item[i])
              }</p>
              </div>
          </div>
@@ -1777,6 +1784,7 @@ const fetchData = async () => {
                 MRID: MRID,
                 GVID: GVID,
                 LGVID: LGVID,
+                show_origin_price: showOriginPrice,
                 use_route_linked_tags: useRouteLinkedTags,
                 intro_mode: introMode,
               };
@@ -2073,6 +2081,10 @@ window.addEventListener("message", async (event) => {
     MRID = event.data.MRID || "";
     GVID = event.data.GVID || "";
     LGVID = event.data.LGVID || "";
+    // 僅在明確傳入時更新，避免重新開始未帶欄位時被重設成 false
+    if (Object.prototype.hasOwnProperty.call(event.data, "show_origin_price")) {
+      showOriginPrice = !!event.data.show_origin_price;
+    }
     if (Object.prototype.hasOwnProperty.call(event.data, "use_route_linked_tags")) {
       useRouteLinkedTags = !!event.data.use_route_linked_tags;
     }

@@ -143,6 +143,12 @@
           use_route_linked_tags
         </label>
       </div>
+      <div style="margin-top: 12px;">
+        <label style="font-size: 0.95em; font-weight: 600; color: #333; cursor: pointer;">
+          <input type="checkbox" id="show-origin-price" style="margin-right: 6px;" />
+          show_origin_price
+        </label>
+      </div>
     </div>
   </body>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
@@ -312,7 +318,7 @@
           // 初始化自訂欄位的可見性
           $('input[name="param-option"]:checked').trigger("change");
 
-          const recreateIframe = (id, brand, introMode, useRouteLinkedTags) => {
+          const recreateIframe = (id, brand, introMode, useRouteLinkedTags, showOriginPrice) => {
             const oldIframe = document.getElementById("inffits_tryon_window");
             if (oldIframe) {
               oldIframe.remove();
@@ -343,6 +349,7 @@
                 GVID: "",
                 LGVID: "",
                 use_route_linked_tags: !!useRouteLinkedTags,
+                show_origin_price: !!showOriginPrice,
               };
               if (introMode === "v1" || introMode === "v2") {
                 iframe_preview_obj.intro_mode = introMode;
@@ -377,7 +384,8 @@
             const useRouteLinkedTags = $("#use-route-linked-tags").is(
               ":checked"
             );
-            recreateIframe(id, brand, introMode, useRouteLinkedTags);
+            const showOriginPrice = $("#show-origin-price").is(":checked");
+            recreateIframe(id, brand, introMode, useRouteLinkedTags, showOriginPrice);
           });
 
           // Initial load
