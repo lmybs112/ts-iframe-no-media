@@ -236,10 +236,23 @@
           }
         }
 
+        function getVersionFromUrl() {
+          try {
+            var params = new URLSearchParams(window.location.search);
+            return (params.get("v") || "").trim();
+          } catch (_) {
+            return "";
+          }
+        }
+
         function getIframeContainerSrc() {
           var src = "./iframe_container_module.html";
+          var query = [];
+          var version = getVersionFromUrl();
           var ga = getGaKeyFromUrl();
-          if (ga) src += "?ga=" + encodeURIComponent(ga);
+          if (version) query.push("v=" + encodeURIComponent(version));
+          if (ga) query.push("ga=" + encodeURIComponent(ga));
+          if (query.length) src += "?" + query.join("&");
           return src;
         }
 
