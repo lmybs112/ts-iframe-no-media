@@ -98,18 +98,30 @@
     var skuContent = shopline_sku(); //plain_me_sku()
     var show_up_position_before = "#" + containerId;
     var test = "A";
-    var GA4Key = "";
+    var GA4Key =
+      typeof NoMediaGa !== "undefined"
+        ? NoMediaGa.getGa4KeyFromUrl()
+        : "";
 
-    function getGa4KeyFromUrl() {
-      try {
-        var params = new URLSearchParams(window.location.search);
-        return (params.get("ga") || "").trim();
-      } catch (_) {
-        return "";
+    function trackEmbeddedGaEvent(eventName, params) {
+      var p = Object.assign({ event_category: "embedded" }, params || {});
+      if (typeof trackInffitsEvent === "function") {
+        trackInffitsEvent(eventName, p);
+        return;
+      }
+      if (typeof NoMediaGa !== "undefined") {
+        NoMediaGa.createTrackInffitsEvent({
+          prefix:
+            (typeof TRACK_EVENT_PREFIX === "string" && TRACK_EVENT_PREFIX) ||
+            "no-media_v2_",
+          category: "embedded",
+          measurementId: GA4Key,
+          getBrand: function () {
+            return Brand || "";
+          },
+        })(eventName, p);
       }
     }
-
-    GA4Key = getGa4KeyFromUrl();
 
     // 移除全局模块注册代码
 
@@ -947,35 +959,28 @@
           const title = $(this).data("title"); // 取得 data-title 屬性
           const link = $(this).data("link"); // 取得 data-link 屬性
 
-          // 觸發 Google Analytics 的事件追蹤
-          gtag("event", "click_embedded_item" + test, {
-            send_to: GA4Key,
+          trackEmbeddedGaEvent("click_embedded_item" + test, {
+            action: "embedded_item_click",
             event_category: "embedded",
             event_label: title,
             event_value: link,
           });
         });
         $(document).on("click", `#${containerId} .a-left`, function () {
-          // 觸發 Google Analytics 的事件追蹤
-          if (typeof gtag === "function") {
-            gtag("event", "click_embedded_item" + test, {
-              send_to: GA4Key,
-              event_category: "embedded",
-              event_label: "arrow-left",
-              event_value: "left",
-            });
-          }
+          trackEmbeddedGaEvent("click_embedded_item" + test, {
+            action: "embedded_arrow_left",
+            event_category: "embedded",
+            event_label: "arrow-left",
+            event_value: "left",
+          });
         });
         $(document).on("click", `#${containerId} .a-right`, function () {
-          // 觸發 Google Analytics 的事件追蹤
-          if (typeof gtag === "function") {
-            gtag("event", "click_embedded_item" + test, {
-              send_to: GA4Key,
-              event_category: "embedded",
-              event_label: "arrow-right",
-              event_value: "right",
-            });
-          }
+          trackEmbeddedGaEvent("click_embedded_item" + test, {
+            action: "embedded_arrow_right",
+            event_category: "embedded",
+            event_label: "arrow-right",
+            event_value: "right",
+          });
         });
         $(document).on("click", `#${containerId} .title-nav-prev`, function () {
           // 觸發上一頁輪播
@@ -992,12 +997,12 @@
             const title = $(this).data("title"); // 取得 data-title 屬性
             const link = $(this).data("link"); // 取得 data-link 屬性
 
-            // 觸發 Google Analytics 的事件追蹤
-            gtag("event", "corr_click_embedded_item" + test, {
-              send_to: GA4Key,
+            trackEmbeddedGaEvent("corr_click_embedded_item" + test, {
+              action: "corr_embedded_item_click",
               event_category: "swiper-wrapper-corr-embedded",
               event_label: "Title: " + title,
-              value: link.length,
+              event_value: link,
+              value: typeof link === "string" ? link.length : 1,
             });
           }
         );
@@ -1005,9 +1010,8 @@
           "click",
           `#${containerId} #swiper-wrapper-corr .a-left`,
           function () {
-            // 觸發 Google Analytics 的事件追蹤
-            gtag("event", "corr_click_embedded_item" + test, {
-              send_to: GA4Key,
+            trackEmbeddedGaEvent("corr_click_embedded_item" + test, {
+              action: "corr_embedded_arrow_left",
               event_category: "swiper-wrapper-corr-embedded",
               event_label: "arrow-left",
               value: 10,
@@ -1018,9 +1022,8 @@
           "click",
           `#${containerId} #swiper-wrapper-corr .a-right`,
           function () {
-            // 觸發 Google Analytics 的事件追蹤
-            gtag("event", "corr_click_embedded_item" + test, {
-              send_to: GA4Key,
+            trackEmbeddedGaEvent("corr_click_embedded_item" + test, {
+              action: "corr_embedded_arrow_right",
               event_category: "swiper-wrapper-corr-embedded",
               event_label: "arrow-right",
               value: 10,
@@ -1034,12 +1037,12 @@
             const title = $(this).data("title"); // 取得 data-title 屬性
             const link = $(this).data("link"); // 取得 data-link 屬性
 
-            // 觸發 Google Analytics 的事件追蹤
-            gtag("event", "bhv_click_embedded_item" + test, {
-              send_to: GA4Key,
+            trackEmbeddedGaEvent("bhv_click_embedded_item" + test, {
+              action: "bhv_embedded_item_click",
               event_category: "swiper-wrapper-basic-embedded",
               event_label: "Title: " + title,
-              value: link.length,
+              event_value: link,
+              value: typeof link === "string" ? link.length : 1,
             });
           }
         );
@@ -1047,9 +1050,8 @@
           "click",
           `#${containerId} #swiper-wrapper-basic .a-left`,
           function () {
-            // 觸發 Google Analytics 的事件追蹤
-            gtag("event", "bhv_click_embedded_item" + test, {
-              send_to: GA4Key,
+            trackEmbeddedGaEvent("bhv_click_embedded_item" + test, {
+              action: "bhv_embedded_arrow_left",
               event_category: "swiper-wrapper-basic-embedded",
               event_label: "arrow-left",
               value: 10,
@@ -1060,9 +1062,8 @@
           "click",
           `#${containerId} #swiper-wrapper-basic .a-right`,
           function () {
-            // 觸發 Google Analytics 的事件追蹤
-            gtag("event", "bhv_click_embedded_item" + test, {
-              send_to: GA4Key,
+            trackEmbeddedGaEvent("bhv_click_embedded_item" + test, {
+              action: "bhv_embedded_arrow_right",
               event_category: "swiper-wrapper-basic-embedded",
               event_label: "arrow-right",
               value: 10,

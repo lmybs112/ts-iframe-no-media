@@ -106,99 +106,17 @@ let isForReferral = window.location.href
   .includes("referral");
 let firstResult = {};
 
-// ===== GA4 事件追蹤（對齊 shirt-component：iframe 內不直接呼叫 gtag）=====
-// 僅 postMessage 給父頁，由父頁 GTM（如 gtm_*.js）轉發 gtag
-var GA4Key = ""; // measurement_id；空字串則交給父頁 GTM 預設 GA4KEY
-var TRACK_EVENT_PREFIX = "no-media_v2_";
-var TRACK_EVENT_CATEGORY = "inffits_route";
-var TRACK_EVENT_DEBOUNCE_MS = 800; // 同一事件防連擊時間窗
-var trackEventLastSent = {};
-
-function getGa4KeyFromUrl() {
-  try {
-    var params = new URLSearchParams(window.location.search);
-    return (params.get("ga") || "").trim();
-  } catch (_) {
-    return "";
-  }
-}
-
-GA4Key = getGa4KeyFromUrl();
-
-function isNoMediaGaDebug() {
-  try {
-    if (window.__NO_MEDIA_GA_DEBUG === true) return true;
-    if (localStorage.getItem("NO_MEDIA_GA_DEBUG") === "1") return true;
-  } catch (_) {}
-  return false;
-}
-
-function isEmbeddedInIframe() {
-  try {
-    return window.parent && window.parent !== window;
-  } catch (_) {
-    return true;
-  }
-}
-
-function getTrackEventDedupeKey(eventName, params) {
-  var p = params || {};
-  return [
-    eventName,
-    p.action || "",
-    p.event_label || "",
-    p.event_value || "",
-    p.category || "",
-    p.tag_group || "",
-    p.step != null ? String(p.step) : "",
-  ].join("|");
-}
-
-function trackInffitsEvent(eventName, params) {
-  var p = params || {};
-  var fullEventName =
-    eventName.indexOf(TRACK_EVENT_PREFIX) === 0
-      ? eventName
-      : TRACK_EVENT_PREFIX + eventName;
-
-  var now = Date.now();
-  var dedupeKey = getTrackEventDedupeKey(fullEventName, p);
-  var last = trackEventLastSent[dedupeKey] || 0;
-  if (now - last < TRACK_EVENT_DEBOUNCE_MS) return; // 防連擊
-  trackEventLastSent[dedupeKey] = now;
-
-  var eventLabel =
-    p.event_label != null && p.event_label !== ""
-      ? String(p.event_label)
-      : "Track/NoMediaV2";
-
-  var message = {
-    header: "GA4Event",
-    measurement_id: GA4Key || "",
-    event_action: fullEventName,
-    event_category: TRACK_EVENT_CATEGORY,
-    event_label: eventLabel,
-    value: typeof p.value === "number" ? p.value : 1,
-  };
-
-  // 開發對照用（父頁 GTM 若未接則不影響正式上報）
-  if (p.action) message.action = p.action;
-  if (Brand) message.brand = Brand;
-  if (Route || current_Route) message.route = Route || current_Route || "";
-
-  if (isNoMediaGaDebug()) {
-    try {
-      console.log("[NO_MEDIA_GA]", message, p);
-    } catch (_) {}
-  }
-
-  // 非 iframe 嵌入：不送 GA（僅 debug log），對齊 shirt-component
-  if (!isEmbeddedInIframe()) return;
-
-  try {
-    window.parent.postMessage(message, "*");
-  } catch (_) {}
-}
+// ===== GA4：共用 js/shared/ga.js（前綴 no-media_v2_）=====
+NoMediaGa.initNoMediaGa({
+  prefix: "no-media_v2_",
+  defaultLabel: "Track/NoMediaV2",
+  getBrand: function () {
+    return Brand || "";
+  },
+  getRoute: function () {
+    return Route || current_Route || "";
+  },
+});
 
 function throttle(fn, delay) {
   let isFirstCall = true; // 用來判斷是否是第一次調用

@@ -98,18 +98,10 @@
     var skuContent = shopline_sku(); //plain_me_sku()
     var show_up_position_before = "#" + containerId;
     var test = "A";
-    var GA4Key = "";
-
-    function getGa4KeyFromUrl() {
-      try {
-        var params = new URLSearchParams(window.location.search);
-        return (params.get("ga") || "").trim();
-      } catch (_) {
-        return "";
-      }
-    }
-
-    GA4Key = getGa4KeyFromUrl();
+    var GA4Key =
+      typeof NoMediaGa !== "undefined"
+        ? NoMediaGa.getGa4KeyFromUrl()
+        : "";
 
     function trackEmbeddedGaEvent(eventName, params) {
       var p = Object.assign({ event_category: "embedded" }, params || {});
@@ -117,29 +109,18 @@
         trackInffitsEvent(eventName, p);
         return;
       }
-      var prefix = "no-media_";
-      var fullEventName =
-        String(eventName || "").indexOf(prefix) === 0
-          ? eventName
-          : prefix + eventName;
-      var message = {
-        header: "GA4Event",
-        measurement_id: GA4Key || "",
-        event_action: fullEventName,
-        event_category: p.event_category || "embedded",
-        event_label:
-          p.event_label != null && p.event_label !== ""
-            ? String(p.event_label)
-            : "Track/NoMedia",
-        value: typeof p.value === "number" ? p.value : 1,
-      };
-      if (p.action) message.action = p.action;
-      if (Brand) message.brand = Brand;
-      try {
-        if (window.parent && window.parent !== window) {
-          window.parent.postMessage(message, "*");
-        }
-      } catch (_) {}
+      if (typeof NoMediaGa !== "undefined") {
+        NoMediaGa.createTrackInffitsEvent({
+          prefix:
+            (typeof TRACK_EVENT_PREFIX === "string" && TRACK_EVENT_PREFIX) ||
+            "no-media_",
+          category: "embedded",
+          measurementId: GA4Key,
+          getBrand: function () {
+            return Brand || "";
+          },
+        })(eventName, p);
+      }
     }
 
     // 移除全局模块注册代码

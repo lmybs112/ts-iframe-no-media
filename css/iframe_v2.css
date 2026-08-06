@@ -1,0 +1,361 @@
+/* v2-only styles: reel / change-group / tag slots */
+/* --- from iframe_ai_pd_style (shared animFadeIn selectors) --- */
+.container.update_delete.animFadeIn .axd_tag-slot {
+  width: -webkit-fit-content !important;
+  width: -moz-fit-content !important;
+  width: fit-content !important;
+  -ms-flex-direction: row !important;
+  flex-direction: row !important;
+}
+
+.container.update_delete.animFadeIn .axd_tag-slot.axd_tag-slot--swapping {
+  pointer-events: none;
+}
+
+.container.update_delete.animFadeIn .axd_tag-slot--inactive {
+  display: none !important;
+}
+
+.container.update_delete.animFadeIn .change-group-btn {
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-align: center;
+  align-items: center;
+  -ms-flex-pack: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 10px auto 0 auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-family: "Noto Sans TC", "Figtree", sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+  width: -webkit-fit-content;
+  width: -moz-fit-content;
+  width: fit-content;
+  box-shadow: none;
+  visibility: visible;
+  opacity: 1;
+  -webkit-transition: opacity 0.3s ease, visibility 0.3s ease;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.container.update_delete.animFadeIn .change-group-btn.change-group-btn--hidden {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.container.update_delete.animFadeIn .change-group-btn:hover {
+  background: transparent;
+  color: #fff;
+  box-shadow: none;
+  opacity: 0.85;
+  -webkit-transform: none;
+          transform: none;
+}
+
+.container.update_delete.animFadeIn .change-group-btn:active {
+  -webkit-transform: none;
+          transform: none;
+  opacity: 0.7;
+}
+
+.container.update_delete.animFadeIn .change-group-btn__icon {
+  width: 13px;
+  height: 13px;
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.container.update_delete.animFadeIn .change-group-btn__text {
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+}
+
+.container.update_delete.animFadeIn .change-group-btn.rotating .change-group-btn__icon {
+  -webkit-animation: rotate-icon 0.5s ease;
+          animation: rotate-icon 0.5s ease;
+}
+
+@-webkit-keyframes rotate-icon {
+  from {
+    -webkit-transform: rotate(0deg);
+            transform: rotate(0deg);
+  }
+  to {
+    -webkit-transform: rotate(360deg);
+            transform: rotate(360deg);
+  }
+}
+
+@keyframes rotate-icon {
+  from {
+    -webkit-transform: rotate(0deg);
+            transform: rotate(0deg);
+  }
+  to {
+    -webkit-transform: rotate(360deg);
+            transform: rotate(360deg);
+  }
+}
+
+/* --- from iframe_container_module inline --- */
+      /* 手機版結果頁 */
+      @media screen and (max-width: 479px) {
+        /* 圖片高度上限，確保卡片在 365px 容器內完整顯示 */
+        #container-recom a.update_delete img {
+          aspect-ratio: unset !important;
+          max-height: 142px !important;
+        }
+
+        /* 釘選後不做垂直抬升：手機水平捲動容器 overflow-y 未限制，translateY 會讓卡片溢出 */
+        #container-recom .reel-slot.reel-pinned .reel-link {
+          transform: none !important;
+        }
+
+        /* overflow-y 防溢出；padding-top 留給釘選外圈 box-shadow（1.5px），避免上緣被裁切 */
+        #container-recom .axd_selections {
+          overflow-y: hidden !important;
+          padding-top: 4px;
+          box-sizing: border-box;
+        }
+      }
+
+
+      /* 分組隱藏：必須用 !important 覆蓋 .axd_selection { display: flex !important } */
+      .update_delete .selection_scroll .axd_selection.axd_tag.axd_tag-group-hidden {
+        display: none !important;
+      }
+
+      /* 換組卡槽：沿用與第一組相同的 tagFadeInSmooth 淡入 */
+      .update_delete .selection_scroll .axd_tag-slot {
+        width: fit-content !important;
+        flex-direction: row !important;
+      }
+
+      .update_delete .selection_scroll .axd_tag-slot.axd_tag-slot--swapping {
+        pointer-events: none;
+      }
+
+      .update_delete .selection_scroll .axd_tag-slot--inactive {
+        display: none !important;
+      }
+
+      /* 換一組試試：圖二樣式 — 白字白 icon、無邊框 */
+      .update_delete .selection_scroll .change-group-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        margin: 10px auto 0;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: #fff;
+        font-family: "Noto Sans TC", "Figtree", sans-serif;
+        font-size: 13px;
+        font-weight: 400;
+        line-height: 1;
+        cursor: pointer;
+        width: fit-content;
+        box-shadow: none;
+        visibility: visible;
+        opacity: 1;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+      }
+
+      .update_delete .selection_scroll .change-group-btn.change-group-btn--hidden {
+        visibility: hidden;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .update_delete .selection_scroll .change-group-btn:hover,
+      .update_delete .selection_scroll .change-group-btn:active {
+        background: transparent;
+        color: #fff;
+        transform: none;
+        box-shadow: none;
+        opacity: 0.85;
+      }
+
+      .update_delete .selection_scroll .change-group-btn__icon {
+        width: 13px;
+        height: 13px;
+        flex-shrink: 0;
+        transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .update_delete .selection_scroll .change-group-btn__text {
+        font-size: inherit;
+        font-weight: inherit;
+        line-height: inherit;
+        color: inherit;
+      }
+
+      .update_delete .selection_scroll .change-group-btn.rotating .change-group-btn__icon {
+        animation: change-group-rotate 0.5s ease;
+      }
+
+      @keyframes change-group-rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      /* ===== 拉霸結果頁：沿用 demo 的轉動動畫 / 過場效果，不更動現有顏色與尺寸 ===== */
+      #container-recom .reel-slot {
+        position: relative;
+      }
+
+      #container-recom .reel-slot .reel-cat-label {
+        margin: 0 0 6px;
+        padding: 0 2px;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.2;
+        letter-spacing: 0.02em;
+        text-align: center;
+        opacity: 0.92;
+      }
+
+      #container-recom .reel-slot .reel-window {
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+      }
+
+      /* 轉動軌道：以 block 垂直堆疊；過場曲線由 JS 動態設定 (Apple 風格減速) */
+      #container-recom .reel-slot .reel-roller {
+        display: block;
+        will-change: transform;
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+      }
+
+      /* 輕微動態模糊：高速時模糊、接近落定時對焦 */
+      @keyframes reelMotionBlur {
+        0% { filter: blur(0); }
+        18% { filter: blur(2px); }
+        70% { filter: blur(1px); }
+        100% { filter: blur(0); }
+      }
+
+      /* 轉動期間關閉 hover 放大 / 縮放動畫，滾動時不放大圖片 */
+      #container-recom .reel-slot.reel-spinning .reel-link {
+        pointer-events: none;
+      }
+
+      #container-recom .reel-slot.reel-spinning:hover {
+        -webkit-transform: none !important;
+        transform: none !important;
+      }
+
+      #container-recom .reel-slot.reel-spinning:hover img {
+        -webkit-animation: none !important;
+        animation: none !important;
+      }
+
+      #container-recom .reel-slot .reel-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: #9a9a92;
+        font-size: 12px;
+        line-height: 1.5;
+        padding: 24px 12px;
+        min-height: 120px;
+      }
+
+      /* ===== 釘選按鈕：Apple 質感 (毛玻璃 + 彈性微互動) ===== */
+      #container-recom .reel-slot .reel-pin-btn {
+        position: absolute;
+        top: 4px;
+        left: 14px;
+        z-index: 5;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0.5px solid rgba(0, 0, 0, 0.06);
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.6);
+        color: #6e6e73;
+        cursor: pointer;
+        -webkit-backdrop-filter: blur(14px) saturate(180%);
+        backdrop-filter: blur(14px) saturate(180%);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.7);
+        -webkit-tap-highlight-color: transparent;
+        transition: background 0.3s ease, color 0.3s ease,
+          box-shadow 0.35s ease,
+          transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      #container-recom .reel-slot .reel-pin-btn svg {
+        transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      #container-recom .reel-slot .reel-pin-btn:hover {
+        color: #1d1d1f;
+        background: rgba(255, 255, 255, 0.82);
+        transform: scale(1.06);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.8);
+      }
+
+      #container-recom .reel-slot .reel-pin-btn:active {
+        transform: scale(0.9);
+        transition-duration: 0.12s;
+      }
+
+      /* 已釘選：實心深色膠囊 + 圖示輕微傾斜「釘入」感 + 落定彈跳 */
+      #container-recom .reel-slot.reel-pinned .reel-pin-btn {
+        background: #1d1d1f;
+        border-color: transparent;
+        color: #fff;
+        box-shadow: 0 6px 16px rgba(29, 29, 31, 0.38),
+          inset 0 0.5px 0 rgba(255, 255, 255, 0.18);
+        -webkit-animation: pinPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        animation: pinPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      #container-recom .reel-slot.reel-pinned .reel-pin-btn svg {
+        transform: rotate(-32deg);
+      }
+
+      #container-recom .reel-slot.reel-pinned .reel-pin-btn:hover {
+        background: #000;
+        transform: scale(1.06);
+      }
+
+      @keyframes pinPop {
+        0% { transform: scale(0.86); }
+        55% { transform: scale(1.16); }
+        100% { transform: scale(1); }
+      }
+
+      /* 已釘選欄位：柔和雙層光環 + 微抬升，取代生硬邊框 */
+      #container-recom .reel-slot .reel-link {
+        transition: box-shadow 0.4s ease,
+          transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      #container-recom .reel-slot.reel-pinned .reel-link {
+        border-color: transparent;
+        transform: translateY(-2px);
+        box-shadow: 0 0 0 1.5px rgba(29, 29, 31, 0.92),
+          0 10px 26px rgba(0, 0, 0, 0.16),
+          0 2px 6px rgba(0, 0, 0, 0.08);
+      }
+

@@ -152,6 +152,7 @@
     </div>
   </body>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="js/shared/version.js"></script>
   <script>
     (function ($) {
       // 動態添加 Google 字體連結
@@ -228,32 +229,13 @@
         });
 
         function getGaKeyFromUrl() {
-          try {
-            var params = new URLSearchParams(window.location.search);
-            return (params.get("ga") || "").trim();
-          } catch (_) {
-            return "";
-          }
-        }
-
-        function getVersionFromUrl() {
-          try {
-            var params = new URLSearchParams(window.location.search);
-            return (params.get("v") || "").trim();
-          } catch (_) {
-            return "";
-          }
+          return NoMediaVersion.getQueryParam("ga");
         }
 
         function getIframeContainerSrc() {
-          var src = "./iframe_container_module.html";
-          var query = [];
-          var version = getVersionFromUrl();
-          var ga = getGaKeyFromUrl();
-          if (version) query.push("v=" + encodeURIComponent(version));
-          if (ga) query.push("ga=" + encodeURIComponent(ga));
-          if (query.length) src += "?" + query.join("&");
-          return src;
+          return NoMediaVersion.getIframeContainerSrcFromLocation(
+            "./iframe_container_module.html"
+          );
         }
 
         function initGtagFromUrl() {
