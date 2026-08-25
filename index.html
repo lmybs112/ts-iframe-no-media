@@ -189,7 +189,7 @@
 
           if (data.header === "GA4Event") {
             try {
-              console.log("[GA4Event from iframe]", data);
+              // console.log("[GA4Event from iframe]", data);
             } catch (_) {}
             if (typeof gtag === "function" && data.event_action) {
               var gaPayload = {
