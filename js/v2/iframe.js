@@ -221,6 +221,14 @@ const get_recom_res = () => {
       capsule: Brand === "AURASTRO" ? "材質" : true,
       SpecifyTags: {},
       SpecifyKeywords: [],
+      LGVID: LGVID || "",
+      GVID: GVID || "",
+      MRID: MRID || "",
+      Device: /mobile|android|iphone|ipod|phone/.test(
+        (navigator.userAgent || "").toLowerCase()
+      )
+        ? "mobile"
+        : "pc",
     }),
   };
   if (isForReferral) {
