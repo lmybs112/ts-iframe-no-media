@@ -388,20 +388,7 @@
           // 初始化自訂欄位的可見性
           $('input[name="param-option"]:checked').trigger("change");
 
-          function getDefaultUtm() {
-            var hasReel =
-              typeof NoMediaVersion !== "undefined" &&
-              NoMediaVersion.resolveNoMediaVersion() === "v2";
-            return {
-              utm_source: "inffits",
-              utm_medium: "iframe_ai_product",
-              utm_campaign: hasReel ? "no-media-reel" : "no-media",
-              utm_term: "",
-              utm_content: "",
-            };
-          }
-
-          const recreateIframe = (id, brand, introMode, useRouteLinkedTags, showOriginPrice, utm) => {
+          const recreateIframe = (id, brand, introMode, useRouteLinkedTags, showOriginPrice) => {
             const oldIframe = document.getElementById("inffits_tryon_window");
             if (oldIframe) {
               oldIframe.remove();
@@ -433,11 +420,6 @@
                 LGVID: "",
                 use_route_linked_tags: !!useRouteLinkedTags,
                 show_origin_price: !!showOriginPrice,
-                utm_source: utm.utm_source,
-                utm_medium: utm.utm_medium,
-                utm_campaign: utm.utm_campaign,
-                utm_term: utm.utm_term,
-                utm_content: utm.utm_content,
               };
               if (introMode === "v1" || introMode === "v2") {
                 iframe_preview_obj.intro_mode = introMode;
@@ -473,8 +455,7 @@
               ":checked"
             );
             const showOriginPrice = $("#show-origin-price").is(":checked");
-            const utm = getDefaultUtm();
-            recreateIframe(id, brand, introMode, useRouteLinkedTags, showOriginPrice, utm);
+            recreateIframe(id, brand, introMode, useRouteLinkedTags, showOriginPrice);
           });
 
           // Initial load

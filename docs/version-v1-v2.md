@@ -76,7 +76,7 @@ css/
 | `intro_mode` | `v1` 簡化開始頁／`v2` 專屬資訊／省略則原規則 |
 | `use_route_linked_tags` | 是否依 `RouteLinkedTags` 過濾下一題 |
 | `show_origin_price` | 結果是否顯示原價（來源限制見下註） |
-| `utm_source` / `utm_medium` / `utm_campaign` / `utm_term` / `utm_content` | `from_preview` 固定帶入：`utm_source=inffits`、`utm_medium=iframe_ai_product`；`utm_campaign` 依有無拉霸：v1（無）`no-media`、v2（有）`no-media-reel`；`utm_term` 空白；`utm_content` 空白（點商品時該次事件動態帶入區塊，見下）。預覽頁無 UTM 輸入框 |
+| `utm_source` / `utm_medium` / `utm_campaign` / `utm_term` / `utm_content` | **iframe 內建**，宿主不必傳：`utm_source=inffits`、`utm_medium=iframe_ai_product`；`utm_campaign` 依有無拉霸：v1（無）`no-media`、v2（有）`no-media-reel`；`utm_term` 空白；`utm_content` 空白（點商品時該次事件動態帶入區塊，見下）。若 `from_preview` 有帶 `utm_*` 則覆寫（source／medium 空字串會回退預設） |
 | URL `?ga=` | GA4 Measurement ID，寫入事件的 `measurement_id`（非 `from_preview` 欄位） |
 
 > `show_origin_price`：**v1** 只讀 `from_preview` 頂層布林 `show_origin_price`；**v2** 另支援巢狀物件、`showOriginPrice` 駝峰，以及 iframe URL query（`show_origin_price`／`showOriginPrice`）。
@@ -87,7 +87,7 @@ css/
 - 透過 `postMessage({ header: "GA4Event", … })` 交給父頁／GTM 轉發
 - 共用實作：[`js/shared/ga.js`](../js/shared/ga.js)
 - 非空的 `utm_*` 會附在 `GA4Event` 上；父頁 `gtag` 對應為 `campaign_source`／`campaign_medium`／`campaign_name`／`campaign_term`／`campaign_content`（不重複傳 `utm_*`）
-- 點擊商品時，該次事件另帶 `utm_content`（區塊），**不帶** `utm_term`：v1 結果列表為 `recom_item`；v2 拉霸為 `reel_{分類}`（無分類則 `reel_item`）；intro「熱銷排行榜」為 `hot_sale`（`click_embedded_item*`）。其他事件不帶 `utm_content`（除非面板有填）
+- 點擊商品時，該次事件另帶 `utm_content`（區塊），**不帶** `utm_term`：v1 結果列表為 `recom_item`；v2 拉霸為 `reel_{分類}`（無分類則 `reel_item`）；intro「熱銷排行榜」為 `hot_sale`（`click_embedded_item*`）。其他事件不帶 `utm_content`
 - 除錯：`localStorage.setItem("NO_MEDIA_GA_DEBUG","1")` 或 `window.__NO_MEDIA_GA_DEBUG = true`
 
 ### 兩邊都有的 GA 事件（短名）
@@ -111,7 +111,7 @@ css/
 - 滾動提示箭頭（`scroll-control.js`）；v2 多了可滾動判斷、`refreshScrollDownArrow`（換組後重算）
 - Swiper、typewriter、優惠券 QR 等周邊能力
 - 打字進行中可點擊跳過：立刻顯示全文，標籤一次全部到位（`finishTypewriter(true)`／`skipTypewriterOnTap`）
-- `intro_mode`／`use_route_linked_tags`／`utm_*` 兩邊契約相同（僅在 `from_preview` 明確傳入時更新）
+- `intro_mode`／`use_route_linked_tags` 兩邊契約相同（僅在 `from_preview` 明確傳入時更新）；`utm_*` 由 iframe 內建預設，宿主未傳時仍會附在 `GA4Event`
 
 ---
 

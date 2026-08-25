@@ -1,5 +1,5 @@
 /**
- * UTM：from_preview 更新規則與 GA4Event 非空欄位
+ * UTM：組件內建 source／medium；from_preview 更新規則與 GA4Event 非空欄位
  * 執行：node tests/utm.test.js
  */
 var assert = require("assert");
@@ -33,6 +33,19 @@ function assertUtmEqual(actual, expected) {
   );
 }
 
+function testDefaultUtm() {
+  var loaded = loadNoMediaGa();
+  var def = loaded.NoMediaGa.defaultUtm;
+  assert.strictEqual(typeof def, "function", "defaultUtm 應存在");
+  assertUtmEqual(def(), {
+    utm_source: "inffits",
+    utm_medium: "iframe_ai_product",
+    utm_campaign: "",
+    utm_term: "",
+    utm_content: "",
+  });
+}
+
 function testApplyUtmFromPayload() {
   var loaded = loadNoMediaGa();
   var apply = loaded.NoMediaGa.applyUtmFromPayload;
@@ -40,28 +53,31 @@ function testApplyUtmFromPayload() {
 
   var empty = apply({}, null);
   assertUtmEqual(empty, {
-    utm_source: "",
-    utm_medium: "",
+    utm_source: "inffits",
+    utm_medium: "iframe_ai_product",
     utm_campaign: "",
     utm_term: "",
     utm_content: "",
   });
 
+  var kept = apply({ header: "from_preview", id: "route-a" }, empty);
+  assert.strictEqual(kept.utm_source, "inffits", "宿主未傳 utm_* 應維持組件預設");
+  assert.strictEqual(kept.utm_medium, "iframe_ai_product");
+
   var current = apply(
     {
-      utm_source: " inffits ",
-      utm_medium: "iframe_ai_product",
+      utm_source: " other ",
       utm_campaign: "no-media-v1",
     },
     empty
   );
-  assert.strictEqual(current.utm_source, "inffits");
-  assert.strictEqual(current.utm_medium, "iframe_ai_product");
+  assert.strictEqual(current.utm_source, "other");
+  assert.strictEqual(current.utm_medium, "iframe_ai_product", "未傳入的鍵應維持原值");
   assert.strictEqual(current.utm_campaign, "no-media-v1");
   assert.strictEqual(current.utm_term, "");
 
   var cleared = apply({ utm_source: "   " }, current);
-  assert.strictEqual(cleared.utm_source, "", "空字串應清除該欄");
+  assert.strictEqual(cleared.utm_source, "inffits", "空字串應回退預設 source");
   assert.strictEqual(cleared.utm_medium, "iframe_ai_product", "未傳入的鍵應維持原值");
 }
 
@@ -95,7 +111,8 @@ function testGa4EventWithoutGetUtm() {
   loaded.NoMediaGa.initNoMediaGa({ prefix: "no-media_" });
   loaded.window.trackInffitsEvent("click_start", { event_label: "開始" });
   var msg = loaded.messages[0];
-  assert.ok(!Object.prototype.hasOwnProperty.call(msg, "utm_source"));
+  assert.strictEqual(msg.utm_source, "inffits", "無 getUtm 仍應帶組件預設 source");
+  assert.strictEqual(msg.utm_medium, "iframe_ai_product");
   assert.ok(!Object.prototype.hasOwnProperty.call(msg, "utm_campaign"));
 }
 
@@ -168,11 +185,14 @@ function testWithReelCampaign() {
 
   var reel = withReel({ utm_campaign: "" }, true);
   assert.strictEqual(reel.utm_campaign, "no-media-reel");
+  assert.strictEqual(reel.utm_source, "inffits", "空 UTM 仍應補上預設 source");
+  assert.strictEqual(reel.utm_medium, "iframe_ai_product");
 
   var overwritten = withReel({ utm_campaign: "custom" }, true);
   assert.strictEqual(overwritten.utm_campaign, "no-media-reel");
 }
 
+testDefaultUtm();
 testApplyUtmFromPayload();
 testGa4EventOmitsEmptyUtm();
 testGa4EventWithoutGetUtm();

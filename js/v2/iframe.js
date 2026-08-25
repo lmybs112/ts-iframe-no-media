@@ -85,13 +85,7 @@ var showOriginPrice = resolveShowOriginPriceFromSearch(
 var useRouteLinkedTags = false;
 /** intro 版面：null=原規則；"v1"=簡化開始頁；"v2"=專屬資訊（資料不足時回退原規則） */
 var introMode = null;
-var utmParams = {
-  utm_source: "",
-  utm_medium: "",
-  utm_campaign: "",
-  utm_term: "",
-  utm_content: "",
-};
+var utmParams = NoMediaGa.defaultUtm();
 var SpecifyTags = [];
 var SpecifyKeywords = [];
 var themeBackgroundImages = [];

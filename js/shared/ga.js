@@ -52,24 +52,35 @@
     "utm_term",
     "utm_content",
   ];
+  var DEFAULT_UTM_SOURCE = "inffits";
+  var DEFAULT_UTM_MEDIUM = "iframe_ai_product";
 
-  function emptyUtm() {
+  /** 組件內建 UTM：source／medium 固定；campaign 由 withReelCampaign 依有無拉霸填入 */
+  function defaultUtm() {
     return {
-      utm_source: "",
-      utm_medium: "",
+      utm_source: DEFAULT_UTM_SOURCE,
+      utm_medium: DEFAULT_UTM_MEDIUM,
       utm_campaign: "",
       utm_term: "",
       utm_content: "",
     };
   }
 
+  function restoreDefaultSourceMedium(utm) {
+    if (!utm) return utm;
+    if (!String(utm.utm_source || "").trim()) utm.utm_source = DEFAULT_UTM_SOURCE;
+    if (!String(utm.utm_medium || "").trim()) utm.utm_medium = DEFAULT_UTM_MEDIUM;
+    return utm;
+  }
+
   /**
    * 依 from_preview 更新 UTM：鍵存在才覆寫（空字串＝清除），未出現的鍵維持原值。
+   * source／medium 清空後回退組件預設，不必等宿主傳 utm_*。
    * @param {object} payload
    * @param {object} [current]
    */
   function applyUtmFromPayload(payload, current) {
-    var next = emptyUtm();
+    var next = defaultUtm();
     var prev = current || {};
     var src = payload || {};
     UTM_KEYS.forEach(function (key) {
@@ -82,7 +93,7 @@
         next[key] = String(src[key] == null ? "" : src[key]).trim();
       }
     });
-    return next;
+    return restoreDefaultSourceMedium(next);
   }
 
   function appendNonEmptyUtm(message, utm) {
@@ -111,7 +122,7 @@
    * @param {boolean} hasReel
    */
   function withReelCampaign(utm, hasReel) {
-    var next = emptyUtm();
+    var next = defaultUtm();
     var src = utm || {};
     UTM_KEYS.forEach(function (key) {
       if (Object.prototype.hasOwnProperty.call(src, key)) {
@@ -119,7 +130,7 @@
       }
     });
     next.utm_campaign = hasReel ? "no-media-reel" : "no-media";
-    return next;
+    return restoreDefaultSourceMedium(next);
   }
 
   function utmFromEventParams(params) {
@@ -199,6 +210,7 @@
           : global.Route || global.current_Route || "";
       if (brand) message.brand = brand;
       if (route) message.route = route;
+      appendNonEmptyUtm(message, defaultUtm());
       if (typeof opts.getUtm === "function") {
         try {
           appendNonEmptyUtm(message, opts.getUtm() || {});
@@ -248,6 +260,7 @@
     applyUtmFromPayload: applyUtmFromPayload,
     productClickUtm: productClickUtm,
     withReelCampaign: withReelCampaign,
+    defaultUtm: defaultUtm,
     UTM_KEYS: UTM_KEYS,
   };
 })(typeof window !== "undefined" ? window : this);
