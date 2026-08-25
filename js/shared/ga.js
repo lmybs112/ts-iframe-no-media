@@ -45,6 +45,92 @@
     }
   }
 
+  var UTM_KEYS = [
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+  ];
+
+  function emptyUtm() {
+    return {
+      utm_source: "",
+      utm_medium: "",
+      utm_campaign: "",
+      utm_term: "",
+      utm_content: "",
+    };
+  }
+
+  /**
+   * 依 from_preview 更新 UTM：鍵存在才覆寫（空字串＝清除），未出現的鍵維持原值。
+   * @param {object} payload
+   * @param {object} [current]
+   */
+  function applyUtmFromPayload(payload, current) {
+    var next = emptyUtm();
+    var prev = current || {};
+    var src = payload || {};
+    UTM_KEYS.forEach(function (key) {
+      if (Object.prototype.hasOwnProperty.call(prev, key)) {
+        next[key] = String(prev[key] == null ? "" : prev[key]);
+      }
+    });
+    UTM_KEYS.forEach(function (key) {
+      if (Object.prototype.hasOwnProperty.call(src, key)) {
+        next[key] = String(src[key] == null ? "" : src[key]).trim();
+      }
+    });
+    return next;
+  }
+
+  function appendNonEmptyUtm(message, utm) {
+    if (!message || !utm) return;
+    UTM_KEYS.forEach(function (key) {
+      var val = utm[key] != null ? String(utm[key]).trim() : "";
+      if (val) message[key] = val;
+    });
+  }
+
+  /**
+   * 商品點擊用的 UTM：只帶 content＝區塊；utm_term 不自動填
+   * @param {{block?: string}} options
+   */
+  function productClickUtm(options) {
+    var opts = options || {};
+    var block = String(opts.block == null ? "" : opts.block).trim();
+    var out = {};
+    if (block) out.utm_content = block;
+    return out;
+  }
+
+  /**
+   * 依有無拉霸寫入 utm_campaign：無拉霸 no-media，有拉霸 no-media-reel
+   * @param {object} utm
+   * @param {boolean} hasReel
+   */
+  function withReelCampaign(utm, hasReel) {
+    var next = emptyUtm();
+    var src = utm || {};
+    UTM_KEYS.forEach(function (key) {
+      if (Object.prototype.hasOwnProperty.call(src, key)) {
+        next[key] = String(src[key] == null ? "" : src[key]);
+      }
+    });
+    next.utm_campaign = hasReel ? "no-media-reel" : "no-media";
+    return next;
+  }
+
+  function utmFromEventParams(params) {
+    var p = params || {};
+    var out = {};
+    UTM_KEYS.forEach(function (key) {
+      if (Object.prototype.hasOwnProperty.call(p, key)) out[key] = p[key];
+    });
+    return out;
+  }
+
   function getTrackEventDedupeKey(eventName, params) {
     var p = params || {};
     return [
@@ -65,6 +151,7 @@
    * @param {string} [options.defaultLabel=Track/NoMedia]
    * @param {function(): string} [options.getBrand]
    * @param {function(): string} [options.getRoute]
+   * @param {function(): object} [options.getUtm]
    * @param {string} [options.measurementId] - 可覆寫；預設讀 ?ga=
    */
   function createTrackInffitsEvent(options) {
@@ -112,6 +199,12 @@
           : global.Route || global.current_Route || "";
       if (brand) message.brand = brand;
       if (route) message.route = route;
+      if (typeof opts.getUtm === "function") {
+        try {
+          appendNonEmptyUtm(message, opts.getUtm() || {});
+        } catch (_) {}
+      }
+      appendNonEmptyUtm(message, utmFromEventParams(p));
 
       if (isNoMediaGaDebug()) {
         try {
@@ -141,6 +234,7 @@
       measurementId: global.GA4Key,
       getBrand: opts.getBrand,
       getRoute: opts.getRoute,
+      getUtm: opts.getUtm,
     });
     return global.trackInffitsEvent;
   }
@@ -151,5 +245,9 @@
     isEmbeddedInIframe: isEmbeddedInIframe,
     createTrackInffitsEvent: createTrackInffitsEvent,
     initNoMediaGa: initNoMediaGa,
+    applyUtmFromPayload: applyUtmFromPayload,
+    productClickUtm: productClickUtm,
+    withReelCampaign: withReelCampaign,
+    UTM_KEYS: UTM_KEYS,
   };
 })(typeof window !== "undefined" ? window : this);

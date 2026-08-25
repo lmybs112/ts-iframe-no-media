@@ -123,6 +123,18 @@
       }
     }
 
+    function embeddedProductClickUtm() {
+      if (
+        typeof NoMediaGa === "undefined" ||
+        typeof NoMediaGa.productClickUtm !== "function"
+      ) {
+        return {};
+      }
+      return NoMediaGa.productClickUtm({
+        block: String(containerId || "embedded_item").replace(/-/g, "_"),
+      });
+    }
+
     // 移除全局模块注册代码
 
     function member_id_91APP() {
@@ -980,12 +992,18 @@
           const title = $(this).data("title"); // 取得 data-title 屬性
           const link = $(this).data("link"); // 取得 data-link 屬性
 
-          trackEmbeddedGaEvent("click_embedded_item" + test, {
-            action: "embedded_item_click",
-            event_category: "embedded",
-            event_label: title,
-            event_value: link,
-          });
+          trackEmbeddedGaEvent(
+            "click_embedded_item" + test,
+            Object.assign(
+              {
+                action: "embedded_item_click",
+                event_category: "embedded",
+                event_label: title,
+                event_value: link,
+              },
+              embeddedProductClickUtm()
+            )
+          );
         });
         $(document).on("click", `#${containerId} .a-left`, function () {
           trackEmbeddedGaEvent("click_embedded_item" + test, {

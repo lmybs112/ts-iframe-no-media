@@ -85,6 +85,13 @@ var showOriginPrice = resolveShowOriginPriceFromSearch(
 var useRouteLinkedTags = false;
 /** intro 版面：null=原規則；"v1"=簡化開始頁；"v2"=專屬資訊（資料不足時回退原規則） */
 var introMode = null;
+var utmParams = {
+  utm_source: "",
+  utm_medium: "",
+  utm_campaign: "",
+  utm_term: "",
+  utm_content: "",
+};
 var SpecifyTags = [];
 var SpecifyKeywords = [];
 var themeBackgroundImages = [];
@@ -115,6 +122,9 @@ NoMediaGa.initNoMediaGa({
   },
   getRoute: function () {
     return Route || current_Route || "";
+  },
+  getUtm: function () {
+    return NoMediaGa.withReelCampaign(utmParams, true);
   },
 });
 
@@ -841,13 +851,21 @@ $(document).on("click", "#container-recom .reel-link", function () {
   const title = $slot.find(".recom-text").text() || "";
   const link = $(this).attr("href") || "";
   const price = $slot.find(".recom-price").text() || "";
-  trackInffitsEvent("click_reel_item", {
-    action: "reel_item_click",
-    event_label: title,
-    event_value: link,
-    category: cat,
-    price: price,
-  });
+  trackInffitsEvent(
+    "click_reel_item",
+    Object.assign(
+      {
+        action: "reel_item_click",
+        event_label: title,
+        event_value: link,
+        category: cat,
+        price: price,
+      },
+      NoMediaGa.productClickUtm({
+        block: cat ? "reel_" + cat : "reel_item",
+      })
+    )
+  );
 });
 
 const show_results = async (response, isFirst = false) => {
@@ -2460,6 +2478,11 @@ const fetchData = async () => {
                 show_origin_price: showOriginPrice,
                 use_route_linked_tags: useRouteLinkedTags,
                 intro_mode: introMode,
+                utm_source: utmParams.utm_source,
+                utm_medium: utmParams.utm_medium,
+                utm_campaign: utmParams.utm_campaign,
+                utm_term: utmParams.utm_term,
+                utm_content: utmParams.utm_content,
               };
 
               // 發送消息到接收窗口
@@ -2771,6 +2794,7 @@ window.addEventListener("message", async (event) => {
       var rawIntro = String(event.data.intro_mode || "").toLowerCase();
       introMode = rawIntro === "v1" || rawIntro === "v2" ? rawIntro : null;
     }
+    utmParams = NoMediaGa.applyUtmFromPayload(event.data, utmParams);
     await Initial();
     await fetchData();
     await fetchCoupon();

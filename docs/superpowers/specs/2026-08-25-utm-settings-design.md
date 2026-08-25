@@ -41,7 +41,7 @@ index.html 參數面板
 | 欄位（`from_preview` 鍵／input） | 載入預設 |
 |----------------------------------|----------|
 | `utm_source` | `inffits` |
-| `utm_medium` | `iframe` |
+| `utm_medium` | `iframe_ai_product` |
 | `utm_campaign` | 見下表 |
 | `utm_term` | 空 |
 | `utm_content` | 空 |

@@ -9,6 +9,13 @@ var showOriginPrice = false;
 var useRouteLinkedTags = false;
 /** intro 版面：null=原規則；"v1"=簡化開始頁；"v2"=專屬資訊（資料不足時回退原規則） */
 var introMode = null;
+var utmParams = {
+  utm_source: "",
+  utm_medium: "",
+  utm_campaign: "",
+  utm_term: "",
+  utm_content: "",
+};
 var SpecifyTags = [];
 var SpecifyKeywords = [];
 var themeBackgroundImages = [];
@@ -39,6 +46,9 @@ NoMediaGa.initNoMediaGa({
   },
   getRoute: function () {
     return Route || current_Route || "";
+  },
+  getUtm: function () {
+    return NoMediaGa.withReelCampaign(utmParams, false);
   },
 });
 
@@ -624,11 +634,21 @@ function openDetailDialog (){
 }
 
 $(document).on("click", "#container-recom .axd_selection a.update_delete", function () {
-  trackInffitsEvent("click_recom_item", {
-    action: "recom_item_click",
-    event_label: $(this).find(".recom-text").text() || "",
-    event_value: $(this).attr("href") || "",
-  });
+  var title = $(this).find(".recom-text").text() || "";
+  var href = $(this).attr("href") || "";
+  trackInffitsEvent(
+    "click_recom_item",
+    Object.assign(
+      {
+        action: "recom_item_click",
+        event_label: title,
+        event_value: href,
+      },
+      NoMediaGa.productClickUtm({
+        block: "recom_item",
+      })
+    )
+  );
 });
 
 function formatCssBackgroundUrl(url) {
@@ -1831,6 +1851,11 @@ const fetchData = async () => {
                 show_origin_price: showOriginPrice,
                 use_route_linked_tags: useRouteLinkedTags,
                 intro_mode: introMode,
+                utm_source: utmParams.utm_source,
+                utm_medium: utmParams.utm_medium,
+                utm_campaign: utmParams.utm_campaign,
+                utm_term: utmParams.utm_term,
+                utm_content: utmParams.utm_content,
               };
 
               // 發送消息到接收窗口
@@ -2157,6 +2182,7 @@ window.addEventListener("message", async (event) => {
       var rawIntro = String(event.data.intro_mode || "").toLowerCase();
       introMode = rawIntro === "v1" || rawIntro === "v2" ? rawIntro : null;
     }
+    utmParams = NoMediaGa.applyUtmFromPayload(event.data, utmParams);
     await Initial();
     await fetchData();
     await fetchCoupon();
