@@ -687,7 +687,7 @@ function animateReel(cat, finalIdx, done) {
   const _oh  = $window[0].offsetHeight;
   const _css = window.innerWidth >= 400 ? 280 : 224;
   let h = _bcr || _ch || _oh || _css;
-  console.log(`[reel][${cat}] h=${h} (bcr=${_bcr} ch=${_ch} oh=${_oh} css=${_css})`);
+  // console.log(`[reel][${cat}] h=${h} (bcr=${_bcr} ch=${_ch} oh=${_oh} css=${_css})`);
 
   if (pool.length === 0) {
     capsuleIndex[cat] = finalIdx;
