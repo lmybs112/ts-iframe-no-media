@@ -135,6 +135,18 @@
       });
     }
 
+    function embeddedProductHref(url) {
+      if (
+        typeof NoMediaGa === "undefined" ||
+        typeof NoMediaGa.appendUtmToProductUrl !== "function"
+      ) {
+        return url;
+      }
+      return NoMediaGa.appendUtmToProductUrl(url, {
+        block: String(containerId || "embedded_item").replace(/-/g, "_"),
+      });
+    }
+
     // 移除全局模块注册代码
 
     function member_id_91APP() {
@@ -969,7 +981,8 @@
 
         $(document).on("click", `#${containerId} .embeddedItem`, function () {
           const title = $(this).data("title"); // 取得 data-title 屬性
-          const link = $(this).data("link"); // 取得 data-link 屬性
+          const link = embeddedProductHref($(this).data("link") || $(this).attr("href"));
+          $(this).attr("href", link);
 
           trackEmbeddedGaEvent(
             "click_embedded_item" + test,
@@ -1385,7 +1398,7 @@
               (img) =>
                 `
     <a class="embeddedItem swiper-slide" href="${
-      img.link
+      embeddedProductHref(img.link)
     }" target="_blank" data-title="${img.title}" data-link="${img.link}">
       <div class="embeddedItem__img" style="position:relative;">
       <div class="embeddedItem__imgBox" style="background-color:#efefef;">

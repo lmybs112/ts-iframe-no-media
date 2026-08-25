@@ -46,6 +46,11 @@ NoMediaGa.initNoMediaGa({
   },
 });
 
+/** 商品連結加上 UTM（空連結／javascript: 不改） */
+function productHref(url, block) {
+  return NoMediaGa.appendUtmToProductUrl(url, { block: block });
+}
+
 function throttle(fn, delay) {
   let isFirstCall = true; // 用來判斷是否是第一次調用
   return function (...args) {
@@ -527,7 +532,7 @@ const show_results = (response, isFirst = false) => {
     $(`#container-recom`).find(".axd_selections").append(`
       <div class="axd_selection cursor-pointer update_delete">
  <a href="${
-   response.Item[i].Link
+   productHref(response.Item[i].Link, "recom_item")
  }" target="_blank" class="update_delete" style="text-decoration: none;" onclick="openDetailDialog()">
     <div style="overflow: hidden;">
          <img loading="lazy" class="c-recom" id="container-recom-${i}" data-item="0"  src="./../../img/img-default-large.png" data-src=" ${
@@ -629,7 +634,8 @@ function openDetailDialog (){
 
 $(document).on("click", "#container-recom .axd_selection a.update_delete", function () {
   var title = $(this).find(".recom-text").text() || "";
-  var href = $(this).attr("href") || "";
+  var href = productHref($(this).attr("href") || "", "recom_item");
+  $(this).attr("href", href);
   trackInffitsEvent(
     "click_recom_item",
     Object.assign(

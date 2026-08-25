@@ -73,6 +73,8 @@
     return utm;
   }
 
+  var activeGetUtm = null;
+
   /**
    * 依 from_preview 更新 UTM：鍵存在才覆寫（空字串＝清除），未出現的鍵維持原值。
    * source／medium 清空後回退組件預設，不必等宿主傳 utm_*。
@@ -102,6 +104,88 @@
       var val = utm[key] != null ? String(utm[key]).trim() : "";
       if (val) message[key] = val;
     });
+  }
+
+  /**
+   * 把非空 utm_* 寫進商品 URL query（已有同名鍵則覆寫；保留其他參數與 hash）
+   * @param {string} url
+   * @param {{block?: string, utm?: object, hasReel?: boolean}} [options]
+   */
+  function appendUtmToProductUrl(url, options) {
+    var raw = String(url == null ? "" : url).trim();
+    if (!raw || /^javascript:/i.test(raw) || raw === "#") return raw;
+
+    var opts = options || {};
+    var utm = defaultUtm();
+    if (typeof activeGetUtm === "function") {
+      try {
+        var current = activeGetUtm();
+        if (current) utm = current;
+      } catch (_) {}
+    }
+    if (opts.utm) {
+      UTM_KEYS.forEach(function (key) {
+        if (Object.prototype.hasOwnProperty.call(opts.utm, key)) {
+          utm[key] = String(opts.utm[key] == null ? "" : opts.utm[key]).trim();
+        }
+      });
+    }
+    var click = productClickUtm({ block: opts.block });
+    if (click.utm_content) utm.utm_content = click.utm_content;
+    if (!String(utm.utm_campaign || "").trim()) {
+      var hasReel = opts.hasReel;
+      if (hasReel == null) {
+        hasReel = global.TRACK_EVENT_PREFIX === "no-media_v2_";
+      }
+      utm = withReelCampaign(utm, !!hasReel);
+      if (click.utm_content) utm.utm_content = click.utm_content;
+    }
+    restoreDefaultSourceMedium(utm);
+
+    var pairs = [];
+    UTM_KEYS.forEach(function (key) {
+      var val = utm[key] != null ? String(utm[key]).trim() : "";
+      if (val) pairs.push([key, val]);
+    });
+    if (!pairs.length) return raw;
+
+    try {
+      if (/^https?:\/\//i.test(raw) && typeof URL === "function") {
+        var parsed = new URL(raw);
+        pairs.forEach(function (kv) {
+          parsed.searchParams.set(kv[0], kv[1]);
+        });
+        return parsed.toString();
+      }
+    } catch (_) {}
+
+    var hash = "";
+    var body = raw;
+    var hashIdx = raw.indexOf("#");
+    if (hashIdx >= 0) {
+      hash = raw.slice(hashIdx);
+      body = raw.slice(0, hashIdx);
+    }
+    var qIdx = body.indexOf("?");
+    var path = qIdx >= 0 ? body.slice(0, qIdx) : body;
+    var search = qIdx >= 0 ? body.slice(qIdx + 1) : "";
+    var parts = [];
+    if (search) {
+      search.split("&").forEach(function (part) {
+        if (!part) return;
+        var eq = part.indexOf("=");
+        var key = eq >= 0 ? part.slice(0, eq) : part;
+        try {
+          key = decodeURIComponent(key);
+        } catch (_) {}
+        if (UTM_KEYS.indexOf(key) >= 0) return;
+        parts.push(part);
+      });
+    }
+    pairs.forEach(function (kv) {
+      parts.push(encodeURIComponent(kv[0]) + "=" + encodeURIComponent(kv[1]));
+    });
+    return (parts.length ? path + "?" + parts.join("&") : path) + hash;
   }
 
   /**
@@ -248,6 +332,7 @@
       getRoute: opts.getRoute,
       getUtm: opts.getUtm,
     });
+    activeGetUtm = typeof opts.getUtm === "function" ? opts.getUtm : null;
     return global.trackInffitsEvent;
   }
 
@@ -261,6 +346,7 @@
     productClickUtm: productClickUtm,
     withReelCampaign: withReelCampaign,
     defaultUtm: defaultUtm,
+    appendUtmToProductUrl: appendUtmToProductUrl,
     UTM_KEYS: UTM_KEYS,
   };
 })(typeof window !== "undefined" ? window : this);

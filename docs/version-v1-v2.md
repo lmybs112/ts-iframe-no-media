@@ -88,6 +88,7 @@ css/
 - 共用實作：[`js/shared/ga.js`](../js/shared/ga.js)
 - 非空的 `utm_*` 會附在 `GA4Event` 上；父頁 `gtag` 對應為 `campaign_source`／`campaign_medium`／`campaign_name`／`campaign_term`／`campaign_content`（不重複傳 `utm_*`）
 - 點擊商品時，該次事件另帶 `utm_content`（區塊），**不帶** `utm_term`：v1 結果列表為 `recom_item`；v2 拉霸為 `reel_{分類}`（無分類則 `reel_item`）；intro「熱銷排行榜」為 `hot_sale`（`click_embedded_item*`）。其他事件不帶 `utm_content`
+- 點商品時，非空 `utm_*` 會寫進商品 `href` query（已有同名鍵則覆寫；`javascript:` 空連結不改）
 - 除錯：`localStorage.setItem("NO_MEDIA_GA_DEBUG","1")` 或 `window.__NO_MEDIA_GA_DEBUG = true`
 
 ### 兩邊都有的 GA 事件（短名）

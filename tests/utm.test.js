@@ -1,5 +1,5 @@
 /**
- * UTM：組件內建 source／medium；from_preview 更新規則與 GA4Event 非空欄位
+ * UTM：組件內建 source／medium；from_preview 更新規則、GA4Event 非空欄位、商品 URL 帶 UTM
  * 執行：node tests/utm.test.js
  */
 var assert = require("assert");
@@ -16,7 +16,7 @@ function loadNoMediaGa() {
       },
     },
   };
-  var sandbox = { window: window, console: console };
+  var sandbox = { window: window, console: console, URL: URL, URLSearchParams: URLSearchParams };
   vm.createContext(sandbox);
   vm.runInContext(
     fs.readFileSync(path.join(__dirname, "../js/shared/ga.js"), "utf8"),
@@ -192,6 +192,51 @@ function testWithReelCampaign() {
   assert.strictEqual(overwritten.utm_campaign, "no-media-reel");
 }
 
+function testAppendUtmToProductUrl() {
+  var loaded = loadNoMediaGa();
+  var append = loaded.NoMediaGa.appendUtmToProductUrl;
+  assert.strictEqual(typeof append, "function", "appendUtmToProductUrl 應存在");
+
+  var url = append("https://shop.example/p/1", { block: "recom_item" });
+  var parsed = new URL(url);
+  assert.strictEqual(parsed.searchParams.get("utm_source"), "inffits");
+  assert.strictEqual(parsed.searchParams.get("utm_medium"), "iframe_ai_product");
+  assert.strictEqual(parsed.searchParams.get("utm_campaign"), "no-media");
+  assert.strictEqual(parsed.searchParams.get("utm_content"), "recom_item");
+  assert.strictEqual(parsed.searchParams.get("utm_term"), null, "空的 utm_term 不寫進 URL");
+  assert.strictEqual(parsed.pathname, "/p/1");
+
+  loaded.NoMediaGa.initNoMediaGa({
+    prefix: "no-media_v2_",
+    getUtm: function () {
+      return loaded.NoMediaGa.withReelCampaign(loaded.NoMediaGa.defaultUtm(), true);
+    },
+  });
+  var reelUrl = append("https://shop.example/p/2?color=red#gallery", {
+    block: "reel_Tops",
+  });
+  var reelParsed = new URL(reelUrl);
+  assert.strictEqual(reelParsed.searchParams.get("color"), "red", "原有 query 應保留");
+  assert.strictEqual(reelParsed.searchParams.get("utm_campaign"), "no-media-reel");
+  assert.strictEqual(reelParsed.searchParams.get("utm_content"), "reel_Tops");
+  assert.strictEqual(reelParsed.hash, "#gallery");
+
+  var overwritten = append("https://shop.example/p/3?utm_source=other", {
+    block: "hot_sale",
+  });
+  assert.strictEqual(
+    new URL(overwritten).searchParams.get("utm_source"),
+    "inffits",
+    "組件 UTM 應覆寫商品原有同名鍵"
+  );
+
+  assert.strictEqual(
+    append("javascript:void(0)", { block: "recom_item" }),
+    "javascript:void(0)"
+  );
+  assert.strictEqual(append("", { block: "recom_item" }), "");
+}
+
 testDefaultUtm();
 testApplyUtmFromPayload();
 testGa4EventOmitsEmptyUtm();
@@ -199,4 +244,5 @@ testGa4EventWithoutGetUtm();
 testProductClickUtm();
 testGa4EventProductClickOverridesTermContent();
 testWithReelCampaign();
+testAppendUtmToProductUrl();
 console.log("utm.test.js ok");

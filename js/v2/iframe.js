@@ -122,6 +122,11 @@ NoMediaGa.initNoMediaGa({
   },
 });
 
+/** 商品連結加上 UTM（空連結／javascript: 不改） */
+function productHref(url, block) {
+  return NoMediaGa.appendUtmToProductUrl(url, { block: block });
+}
+
 function throttle(fn, delay) {
   let isFirstCall = true; // 用來判斷是否是第一次調用
   return function (...args) {
@@ -583,7 +588,10 @@ function renderCapsuleReel(cat) {
   const item = pool[capsuleIndex[cat]] || pool[0];
   const priceText = formatRecomPrice(item);
   const imgSrc = (item.Imgsrc || item.image_link || "").trim();
-  const link = item.Link || item.link || "javascript:void(0)";
+  const link = productHref(
+    item.Link || item.link || "javascript:void(0)",
+    cat ? "reel_" + cat : "reel_item"
+  );
 
   $slot.find(".reel-link").attr("href", link);
 
@@ -704,7 +712,13 @@ function animateReel(cat, finalIdx, done) {
   $slot.find(".recom-price").text(formatRecomPrice(fin));
   $slot
     .find(".reel-link")
-    .attr("href", fin.Link || fin.link || "javascript:void(0)");
+    .attr(
+      "href",
+      productHref(
+        fin.Link || fin.link || "javascript:void(0)",
+        cat ? "reel_" + cat : "reel_item"
+      )
+    );
 
   // 起始歸零（無過場），強制 reflow 後於下一影格啟動位移
   const $link = $slot.find(".reel-link");
@@ -843,7 +857,11 @@ $(document).on("click", "#container-recom .reel-link", function () {
   const $slot = $(this).closest(".reel-slot");
   const cat = $slot.attr("data-cat") || "";
   const title = $slot.find(".recom-text").text() || "";
-  const link = $(this).attr("href") || "";
+  const link = productHref(
+    $(this).attr("href") || "",
+    cat ? "reel_" + cat : "reel_item"
+  );
+  $(this).attr("href", link);
   const price = $slot.find(".recom-price").text() || "";
   trackInffitsEvent(
     "click_reel_item",
