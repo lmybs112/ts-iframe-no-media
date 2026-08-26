@@ -566,21 +566,16 @@ function recordReelUsage(action) {
     capsulePools,
     capsuleIndex
   );
-  var productCategory = pinned.ProductCategory;
-  var actionPtr = pinned.ActionPtr;
-  // Recom／Redirect／Close：ProductCategory 帶畫面各欄 key
-  if (action === "Recom" || action === "Redirect" || action === "Close") {
-    productCategory = [];
-    (reelCats || []).forEach(function (cat) {
-      var pool = capsulePools[cat] || [];
-      var idx = capsuleIndex[cat];
-      if (idx == null || idx < 0) idx = 0;
-      if (pool[idx]) productCategory.push(cat);
-    });
-  }
-  if (action === "Recom") {
-    actionPtr = [];
-  }
+  // 所有 Action：ProductCategory 都帶畫面三欄（有商品的欄位）類別
+  var productCategory = [];
+  (reelCats || []).forEach(function (cat) {
+    var pool = capsulePools[cat] || [];
+    var idx = capsuleIndex[cat];
+    if (idx == null || idx < 0) idx = 0;
+    if (pool[idx]) productCategory.push(cat);
+  });
+  // ActionPtr：Recom 不帶；其餘為當下釘選 index（空則省略）
+  var actionPtr = action === "Recom" ? [] : pinned.ActionPtr;
   var body = NoMediaUsageRecord.buildUsageBody({
     Brand: Brand || "",
     GVID: GVID || "",

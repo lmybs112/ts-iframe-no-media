@@ -52,18 +52,18 @@ v2/iframe.js
 
 | Action | `ProductInfo` | `ProductCategory` | `ActionPtr` |
 |--------|---------------|-------------------|-------------|
-| `Recom` | 畫面三件商品整包（陣列） | 畫面各欄 key（如 `Tops`／`Bottoms`／`Dresses`） | `[]` |
-| `Pin` | 畫面三件 | 操作**後**仍釘選的欄位 key | 對應 `reelCats` index |
-| `Refersh` | **刷新前**畫面三件 | **當下**釘選欄位 key | 對應 index |
-| `Redirect` | **重開前**畫面三件 | 畫面各欄 key（同 Recom） | 當下釘選 index（無則 `[]`） |
-| `Close` | **關閉前**畫面三件 | 畫面各欄 key（同 Recom） | 當下釘選 index（無則省略） |
+| `Recom` | 畫面三件商品整包（陣列） | 畫面三欄 key（如 `Tops`／`Bottoms`／`Dresses`） | 省略（不送） |
+| `Pin` | 畫面三件 | 畫面三欄 key（同上） | 操作**後**仍釘選的 index |
+| `Refersh` | **刷新前**畫面三件 | 畫面三欄 key（同上） | 當下釘選 index |
+| `Redirect` | **重開前**畫面三件 | 畫面三欄 key（同上） | 當下釘選 index |
+| `Close` | **關閉前**畫面三件 | 畫面三欄 key（同上） | 當下釘選 index |
 
 ### 資料組裝規則
 
 - `ProductInfo`：依 `reelCats` 順序，各取 `capsulePools[cat][capsuleIndex[cat]]`（缺則略過該欄）；商品物件原樣帶入。
-- `ProductCategory`：欄位 key **原樣**（如 `Tops`／`Bottoms`／`Dresses`，或動態材質名），不是 `upper`／`lower`／`dress`。
-- `ActionPtr`：上述 category 在 `reelCats` 的 0-based index；可多個。無釘選為 `[]`。
-- `Pin`：釘選與取消釘選都打 `Action: "Pin"`；Category／Ptr 為點擊後狀態（全取消則皆 `[]`）。
+- `ProductCategory`：**所有 Action** 都帶畫面有商品的欄位 key（通常三個），key **原樣**（如 `Tops`／`Bottoms`／`Dresses`，或動態材質名）。
+- `ActionPtr`：釘選欄位在 `reelCats` 的 0-based index；可多個。無釘選或 `Recom` 時不寫入 body。
+- `Pin`：釘選與取消釘選都打 `Action: "Pin"`；`ActionPtr` 為點擊後仍釘選的 index。
 
 ## 觸發時機
 
