@@ -4,6 +4,36 @@ var Brand = "";
 var MRID = "";
 var GVID = "";
 var LGVID = "";
+
+/** 產生訪客 id（與 embedded.js makeid 相同字元集） */
+function makeVisitorId(length) {
+  var result = "";
+  var characters =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  var charactersLength = characters.length;
+  for (var i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
+}
+
+/**
+ * from_preview 的 LGVID：有傳用傳入值；空則讀／寫 localStorage（同 embedded）
+ */
+function resolveLGVID(fromParent) {
+  var fromMsg = String(fromParent == null ? "" : fromParent).trim();
+  if (fromMsg) return fromMsg;
+  try {
+    var stored = localStorage.getItem("LGVID");
+    if (stored) return stored;
+  } catch (_) {}
+  var id = makeVisitorId(20);
+  try {
+    localStorage.setItem("LGVID", id);
+  } catch (_) {}
+  return id;
+}
+
 function normalizeShowOriginPriceFlag(rawValue, fallbackValue) {
   if (rawValue === undefined || rawValue === null) return fallbackValue;
   if (typeof rawValue === "boolean") return rawValue;
@@ -172,6 +202,7 @@ $(document).ready(function () {
     if ($(e.target).closest(".intro-content").length) {
       return; // 如果點擊在 .intro-content 內，則不執行後續操作
     }
+    recordReelUsageClose();
     const messageData = {
       type: "closeModal",
       value: true,
@@ -513,6 +544,63 @@ let capsuleIndex = {};
 let capsulePinned = {};
 let isSpinning = false;
 let reelImgCache = {}; // src -> HTMLImageElement，跨函式共享已下載的 img 物件
+/** 同一輪結果是否已打過 Recom；Initial／startover 重設 */
+var usageRecomSentThisRound = false;
+/** Close 防重複（ms timestamp） */
+var usageCloseSentAt = 0;
+
+function isReelResultPageVisible() {
+  try {
+    return $("#container-recom").is(":visible");
+  } catch (_) {
+    return false;
+  }
+}
+
+/** 拉霸 usage_record：組當下畫面商品與釘選狀態後 fire-and-forget */
+function recordReelUsage(action) {
+  if (typeof NoMediaUsageRecord === "undefined") return;
+  var pinned = NoMediaUsageRecord.getPinnedState(reelCats, capsulePinned);
+  var productInfo = NoMediaUsageRecord.getVisibleProducts(
+    reelCats,
+    capsulePools,
+    capsuleIndex
+  );
+  var productCategory = pinned.ProductCategory;
+  var actionPtr = pinned.ActionPtr;
+  // Recom／Redirect／Close：ProductCategory 帶畫面各欄 key
+  if (action === "Recom" || action === "Redirect" || action === "Close") {
+    productCategory = [];
+    (reelCats || []).forEach(function (cat) {
+      var pool = capsulePools[cat] || [];
+      var idx = capsuleIndex[cat];
+      if (idx == null || idx < 0) idx = 0;
+      if (pool[idx]) productCategory.push(cat);
+    });
+  }
+  if (action === "Recom") {
+    actionPtr = [];
+  }
+  var body = NoMediaUsageRecord.buildUsageBody({
+    Brand: Brand || "",
+    GVID: GVID || "",
+    LGVID: LGVID || "",
+    MRID: MRID || "",
+    Action: action,
+    ProductInfo: productInfo,
+    ProductCategory: productCategory,
+    ActionPtr: actionPtr,
+  });
+  NoMediaUsageRecord.postUsageRecord(body);
+}
+
+function recordReelUsageClose() {
+  if (!isReelResultPageVisible()) return;
+  var now = Date.now();
+  if (now - usageCloseSentAt < 2000) return;
+  usageCloseSentAt = now;
+  recordReelUsage("Close");
+}
 
 // 判斷 Item 是否為「分類 → 商品陣列」的分組結構
 function isGroupedCapsuleItem(item) {
@@ -850,6 +938,7 @@ function toggleCapsulePin(cat) {
     event_value: capsulePinned[cat] ? "pin" : "unpin",
     pinned: capsulePinned[cat],
   });
+  recordReelUsage("Pin");
 }
 
 // 釘選按鈕事件 (事件委託；button 在 <a> 之外，不會觸發跳轉)
@@ -1046,6 +1135,17 @@ const show_results = async (response, isFirst = false) => {
     // 揭開：先顯示結果頁（此時靜態圖已就緒），再開始動畫
     $("#loadingbar_recom").hide();
     $("#container-recom").show();
+
+    // 同步最終 index，讓 usage Recom 的 ProductInfo 對應當下畫面
+    reelCats.forEach(function (cat) {
+      if (Object.prototype.hasOwnProperty.call(finalIdxMap, cat)) {
+        capsuleIndex[cat] = finalIdxMap[cat];
+      }
+    });
+    if (!usageRecomSentThisRound) {
+      recordReelUsage("Recom");
+      usageRecomSentThisRound = true;
+    }
 
     // 等兩個 rAF 讓圖片 paint 一幀，用戶先看到靜態圖，再啟動拉霸
     requestAnimationFrame(function () {
@@ -2759,6 +2859,7 @@ $("#recommend-btn").on(tap, function () {
     event_value: "spin",
     categories: (reelCats || []).join(","),
   });
+  recordReelUsage("Refersh");
   $("#loadingbar_recom").hide();
 
   window.parent.postMessage({ type: "result", value: true }, "*");
@@ -2780,6 +2881,8 @@ $("#startover").on(tap, function () {
     action: "startover_btn",
     event_label: "重新開始",
   });
+  recordReelUsage("Redirect");
+  usageRecomSentThisRound = false;
   $("#loadingbar_recom").hide();
   Initial();
   reset();
@@ -2791,6 +2894,7 @@ const Initial = () => {
   $("#container-recom").hide();
 
   tags_chosen = {};
+  usageRecomSentThisRound = false;
 };
 
 window.addEventListener("message", async (event) => {
@@ -2800,7 +2904,7 @@ window.addEventListener("message", async (event) => {
     Brand = event.data.brand;
     MRID = event.data.MRID || "";
     GVID = event.data.GVID || "";
-    LGVID = event.data.LGVID || "";
+    LGVID = resolveLGVID(event.data.LGVID);
     // 僅在明確傳入時更新，避免重新開始未帶欄位時被重設；支援巢狀/駝峰命名
     showOriginPrice = resolveShowOriginPriceFromPayload(
       event.data,
@@ -2820,6 +2924,11 @@ window.addEventListener("message", async (event) => {
     await fetchCoupon();
 
     $("#intro-page").fadeIn(800);
+  }
+
+  if (event.data && event.data.header == "parent_close_modal") {
+    recordReelUsageClose();
+    return;
   }
 
   if (event.data.header == "close_coupon") {
@@ -2848,4 +2957,11 @@ window.addEventListener("message", async (event) => {
       }
     }
   }
+});
+
+window.addEventListener("pagehide", function () {
+  recordReelUsageClose();
+});
+window.addEventListener("beforeunload", function () {
+  recordReelUsageClose();
 });

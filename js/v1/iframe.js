@@ -10,6 +10,35 @@ var useRouteLinkedTags = false;
 /** intro 版面：null=原規則；"v1"=簡化開始頁；"v2"=專屬資訊（資料不足時回退原規則） */
 var introMode = null;
 var utmParams = NoMediaGa.defaultUtm();
+
+/** 產生訪客 id（與 embedded.js makeid 相同字元集） */
+function makeVisitorId(length) {
+  var result = "";
+  var characters =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  var charactersLength = characters.length;
+  for (var i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
+}
+
+/**
+ * from_preview 的 LGVID：有傳用傳入值；空則讀／寫 localStorage（同 embedded）
+ */
+function resolveLGVID(fromParent) {
+  var fromMsg = String(fromParent == null ? "" : fromParent).trim();
+  if (fromMsg) return fromMsg;
+  try {
+    var stored = localStorage.getItem("LGVID");
+    if (stored) return stored;
+  } catch (_) {}
+  var id = makeVisitorId(20);
+  try {
+    localStorage.setItem("LGVID", id);
+  } catch (_) {}
+  return id;
+}
 var SpecifyTags = [];
 var SpecifyKeywords = [];
 var themeBackgroundImages = [];
@@ -2170,7 +2199,7 @@ window.addEventListener("message", async (event) => {
     Brand = event.data.brand;
     MRID = event.data.MRID || "";
     GVID = event.data.GVID || "";
-    LGVID = event.data.LGVID || "";
+    LGVID = resolveLGVID(event.data.LGVID);
     // 僅在明確傳入時更新，避免重新開始未帶欄位時被重設成 false
     if (Object.prototype.hasOwnProperty.call(event.data, "show_origin_price")) {
       showOriginPrice = !!event.data.show_origin_price;

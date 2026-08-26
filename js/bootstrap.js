@@ -39,6 +39,7 @@
 
   if (version === "v2") {
     writeStylesheet("css/iframe_v2.css");
+    writeScript("js/shared/usage-record.js");
   }
 
   writeScript("js/" + version + "/scroll-control.js");

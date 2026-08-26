@@ -52,11 +52,11 @@ v2/iframe.js
 
 | Action | `ProductInfo` | `ProductCategory` | `ActionPtr` |
 |--------|---------------|-------------------|-------------|
-| `Recom` | 畫面三件商品整包（陣列） | `[]` | `[]` |
+| `Recom` | 畫面三件商品整包（陣列） | 畫面各欄 key（如 `Tops`／`Bottoms`／`Dresses`） | `[]` |
 | `Pin` | 畫面三件 | 操作**後**仍釘選的欄位 key | 對應 `reelCats` index |
 | `Refersh` | **刷新前**畫面三件 | **當下**釘選欄位 key | 對應 index |
-| `Redirect` | **重開前**畫面三件 | 當下釘選 | 對應 index |
-| `Close` | **關閉前**畫面三件 | 當下釘選 | 對應 index |
+| `Redirect` | **重開前**畫面三件 | 畫面各欄 key（同 Recom） | 當下釘選 index（無則 `[]`） |
+| `Close` | **關閉前**畫面三件 | 畫面各欄 key（同 Recom） | 當下釘選 index（無則省略） |
 
 ### 資料組裝規則
 
@@ -73,7 +73,7 @@ v2/iframe.js
 | `Pin` | `toggleCapsulePin` 更新狀態與 UI 之後。 |
 | `Refersh` | `#recommend-btn` 點擊後、`spinCapsuleReels` **之前**。 |
 | `Redirect` | `#startover` 點擊後、`Initial`／`reset` **之前**。 |
-| `Close` | 僅當結果頁可見（`#container-recom` 為顯示中）：(1) intro／容器外側觸發的 `closeModal`；(2) `pagehide`／`beforeunload`。intro 關閉不打。 |
+| `Close` | 僅當結果頁可見（`#container-recom` 為顯示中）：(1) 父頁關閉彈窗時 `postMessage({ header: "parent_close_modal" })`（預覽 `index.html` 點遮罩／關閉鈕會送）；(2) intro 外側觸發的 `closeModal`（結果頁時 intro 已藏，通常不走此路）；(3) `pagehide`／`beforeunload`。intro 關閉不打。 |
 
 `Close` 防重複：同一次離開若 `closeModal` 與 `pagehide` 連續觸發，以短時間 flag／debounce 只送一筆。
 
@@ -91,7 +91,7 @@ v2/iframe.js
 
 ## 驗證
 
-1. 進結果頁 → Network 一筆 `Recom`，`ProductCategory`／`ActionPtr` 為 `[]`，`ProductInfo` 長度為畫面欄數。
+1. 進結果頁 → Network 一筆 `Recom`，`ProductCategory` 為畫面欄位 key、`ActionPtr` 為 `[]`，`ProductInfo` 長度為畫面欄數。
 2. 釘兩欄 → 兩筆 `Pin`，`ActionPtr` 漸增。
 3. 取消一欄 → 再一筆 `Pin`，`ActionPtr` 變少。
 4. 刷新 → 一筆 `Refersh`（刷新前三件＋當下釘選），無第二筆 `Recom`。

@@ -90,7 +90,7 @@
       </div>
       <div style="margin-bottom: 10px;">
         <input type="radio" id="opt-ob91" name="param-option" value="ob91" />
-        <label for="opt-ob91" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OB91 <span style='color:#888;'>(ID: 2026-06-25-05-22-26-4)</span></label>
+        <label for="opt-ob91" style="margin-left: 6px; font-weight: 500; cursor: pointer;">OB91 <span style='color:#888;'>(ID: 2026-06-25-05-22-26-2)</span></label>
       </div>
       <div style="margin-bottom: 10px; display: flex; align-items: flex-start;">
         <input type="radio" id="opt-custom" name="param-option" value="custom" style="margin-top: 4px;" />
@@ -240,6 +240,26 @@
           }
         });
 
+        function notifyIframeParentClose() {
+          var iframe = document.getElementById("inffits_tryon_window");
+          if (iframe && iframe.contentWindow) {
+            try {
+              iframe.contentWindow.postMessage(
+                { header: "parent_close_modal" },
+                "*"
+              );
+            } catch (_) {}
+          }
+        }
+
+        function closeInffitsOverlay() {
+          notifyIframeParentClose();
+          $("#inffits_cblock--overlay").fadeOut();
+          $(".ai-pd-container__trigger").toggleClass(
+            "ai-pd-container__trigger--search ai-pd-container__trigger--close"
+          );
+        }
+
         function getGaKeyFromUrl() {
           return NoMediaVersion.getQueryParam("ga");
         }
@@ -375,7 +395,7 @@
             olivo5: { id: "1759626608273", brand: "OLIVO" },
             jerscy: { id: "1734582962432", brand: "JERSCY" },
             almi: { id: "2025-05-29-18-00-13-2", brand: "ALMI" },
-            ob91: { id: "2026-06-25-05-22-26-4", brand: "OB91" },
+            ob91: { id: "2026-06-25-05-22-26-2", brand: "OB91" },
           };
 
           $('input[name="param-option"]').on("change", function () {
@@ -467,18 +487,16 @@
         $(".ai-pd-container__trigger").on("pointerdown", function (event) {
           if ($(this).hasClass("ai-pd-container__trigger--search")) {
             $("#inffits_cblock--overlay").fadeIn();
+            $(this).toggleClass(
+              "ai-pd-container__trigger--search ai-pd-container__trigger--close"
+            );
           } else {
-            $("#inffits_cblock--overlay").fadeOut();
+            closeInffitsOverlay();
           }
-          $(this).toggleClass(
-            "ai-pd-container__trigger--search ai-pd-container__trigger--close"
-          );
         });
         $("#inffits_cblock--overlay").on("pointerdown", function (event) {
-          $("#inffits_cblock--overlay").fadeOut();
-          $(".ai-pd-container__trigger").toggleClass(
-            "ai-pd-container__trigger--search ai-pd-container__trigger--close"
-          );
+          if (event.target !== this) return;
+          closeInffitsOverlay();
         });
 
         var breakpoint = 992;
