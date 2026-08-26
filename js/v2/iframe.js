@@ -557,8 +557,12 @@ function isReelResultPageVisible() {
   }
 }
 
-/** 拉霸 usage_record：組當下畫面商品與釘選狀態後 fire-and-forget */
-function recordReelUsage(action) {
+/**
+ * 拉霸 usage_record：組當下畫面商品與釘選狀態後 fire-and-forget
+ * @param {string} action
+ * @param {{ RedirectPtr?: number }} [extra] Redirect 可帶被點欄位 index
+ */
+function recordReelUsage(action, extra) {
   if (typeof NoMediaUsageRecord === "undefined") return;
   var pinned = NoMediaUsageRecord.getPinnedState(reelCats, capsulePinned);
   var productInfo = NoMediaUsageRecord.getVisibleProducts(
@@ -576,7 +580,7 @@ function recordReelUsage(action) {
   });
   // ActionPtr：Recom 不帶；其餘為當下釘選 index（空則省略）
   var actionPtr = action === "Recom" ? [] : pinned.ActionPtr;
-  var body = NoMediaUsageRecord.buildUsageBody({
+  var opts = {
     Brand: Brand || "",
     GVID: GVID || "",
     LGVID: LGVID || "",
@@ -585,7 +589,11 @@ function recordReelUsage(action) {
     ProductInfo: productInfo,
     ProductCategory: productCategory,
     ActionPtr: actionPtr,
-  });
+  };
+  if (extra && typeof extra.RedirectPtr === "number") {
+    opts.RedirectPtr = extra.RedirectPtr;
+  }
+  var body = NoMediaUsageRecord.buildUsageBody(opts);
   NoMediaUsageRecord.postUsageRecord(body);
 }
 
@@ -970,6 +978,12 @@ $(document).on("click", "#container-recom .reel-link", function () {
       })
     )
   );
+  var clickIdx = (reelCats || []).indexOf(cat);
+  if (clickIdx >= 0) {
+    recordReelUsage("Redirect", { RedirectPtr: clickIdx });
+  } else {
+    recordReelUsage("Redirect");
+  }
 });
 
 const show_results = async (response, isFirst = false) => {
@@ -2876,7 +2890,7 @@ $("#startover").on(tap, function () {
     action: "startover_btn",
     event_label: "重新開始",
   });
-  recordReelUsage("Redirect");
+  recordReelUsage("Restart");
   usageRecomSentThisRound = false;
   $("#loadingbar_recom").hide();
   Initial();

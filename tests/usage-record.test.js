@@ -126,6 +126,53 @@ function testBuildUsageBody() {
   });
   assert.ok(!Object.prototype.hasOwnProperty.call(pinNone, "ProductCategory"));
   assert.ok(!Object.prototype.hasOwnProperty.call(pinNone, "ActionPtr"));
+
+  var redirect = api.buildUsageBody({
+    Brand: "OB91",
+    Action: "Redirect",
+    ProductInfo: [item, { id: "b" }, { id: "c" }],
+    ProductCategory: ["Tops", "Bottoms", "Dresses"],
+    ActionPtr: [1],
+    RedirectPtr: 2,
+  });
+  assert.strictEqual(redirect.RedirectPtr, 2, "Redirect 帶被點欄位 index");
+  assertJsonEqual(redirect.ActionPtr, [1], "Redirect 仍可帶釘選 ActionPtr");
+
+  var redirectNoPtr = api.buildUsageBody({
+    Brand: "OB91",
+    Action: "Redirect",
+    ProductInfo: [item],
+    ProductCategory: ["Tops"],
+  });
+  assert.ok(
+    !Object.prototype.hasOwnProperty.call(redirectNoPtr, "RedirectPtr"),
+    "未帶 RedirectPtr 不寫入 body"
+  );
+
+  var redirectBadPtr = api.buildUsageBody({
+    Brand: "OB91",
+    Action: "Redirect",
+    ProductInfo: [item],
+    ProductCategory: ["Tops"],
+    RedirectPtr: -1,
+  });
+  assert.ok(
+    !Object.prototype.hasOwnProperty.call(redirectBadPtr, "RedirectPtr"),
+    "無效 RedirectPtr 不寫入 body"
+  );
+
+  var pinNoRedirect = api.buildUsageBody({
+    Brand: "OB91",
+    Action: "Pin",
+    ProductInfo: [item],
+    ProductCategory: ["Tops"],
+    ActionPtr: [0],
+    RedirectPtr: 0,
+  });
+  assert.ok(
+    !Object.prototype.hasOwnProperty.call(pinNoRedirect, "RedirectPtr"),
+    "非 Redirect 不寫 RedirectPtr"
+  );
 }
 
 function testPostUsageRecord() {

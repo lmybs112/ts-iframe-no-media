@@ -44,6 +44,7 @@
    * @param {array} [opts.ProductInfo]
    * @param {array} [opts.ProductCategory]
    * @param {array} [opts.ActionPtr]
+   * @param {number} [opts.RedirectPtr] Redirect 專用：被點欄位在 reelCats／ProductInfo 的 index
    */
   function buildUsageBody(opts) {
     var o = opts || {};
@@ -66,6 +67,13 @@
     // 空陣列不寫進 body，避免送出無意義的 ProductCategory／ActionPtr
     if (productCategory.length) body.ProductCategory = productCategory;
     if (actionPtr.length) body.ActionPtr = actionPtr;
+    // RedirectPtr：僅 Redirect，且須為有效的非負整數
+    if (action === "Redirect" && typeof o.RedirectPtr === "number") {
+      var redirectPtr = o.RedirectPtr;
+      if (redirectPtr >= 0 && Math.floor(redirectPtr) === redirectPtr) {
+        body.RedirectPtr = redirectPtr;
+      }
+    }
     return body;
   }
 

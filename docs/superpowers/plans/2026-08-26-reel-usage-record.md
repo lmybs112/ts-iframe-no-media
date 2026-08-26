@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** v2 結果頁對 `usage_record` 發送 Recom／Pin／Refersh／Redirect／Close。
+**Goal:** v2 結果頁對 `usage_record` 發送 Recom／Pin／Refersh／Redirect／Restart／Close。
 
 **Architecture:** 純函式放 `js/shared/usage-record.js`（可測）；`bootstrap.js` 於 v2 載入；`js/v2/iframe.js` 掛觸發點。
 
@@ -37,7 +37,7 @@
 - [x] `recordReelUsage(action)` 組狀態並呼叫 shared post
 - [x] flag：`usageRecomSentThisRound`（Initial／startover 重設）
 - [x] Close debounce flag
-- [x] 掛 Recom／Pin／Refersh／Redirect／Close
+- [x] 掛 Recom／Pin／Refersh／Redirect（商品）／Restart（startover）／Close
 - [x] 更新 `docs/version-v1-v2.md` 一句
 
 ### Task 3: 驗證

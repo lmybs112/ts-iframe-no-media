@@ -172,7 +172,7 @@ css/
 | `no-media_v2_click_reel_item` | 點擊拉霸商品 |
 | `no-media_v2_click_change_group` | 換一組試試 |
 
-另：v2 結果頁會打營運 `usage_record`（`Recom`／`Pin`／`Refersh`／`Redirect`／`Close`），見 [`js/shared/usage-record.js`](../js/shared/usage-record.js)。
+另：v2 結果頁會打營運 `usage_record`（`Recom`／`Pin`／`Refersh`／`Redirect`＝點商品／`Restart`＝重新開始／`Close`），見 [`js/shared/usage-record.js`](../js/shared/usage-record.js)。
 
 共用事件在 v1 為 `no-media_*`，在 v2 為 `no-media_v2_*`（例如 `no-media_click_start` vs `no-media_v2_click_start`）。
 
