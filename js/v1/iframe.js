@@ -540,8 +540,11 @@ const show_results = (response, isFirst = false) => {
       JSON.stringify([])
     );
     return;
-  } else {
+    } else {
     $("#container-recom").show();
+    if (typeof IntroTour !== "undefined") {
+      IntroTour.onResultsReady();
+    }
   }
   // const finalitem = getRandomNumbers(itemCount - 1, 3);
   const finalitem = isFirst
@@ -1034,6 +1037,9 @@ function startTypewriterEffect(containerRoute) {
       } else {
         typewriterContainer.innerHTML = '';
       }
+      if (typeof IntroTour !== "undefined") {
+        IntroTour.onQuestionPageReady(targetRoute);
+      }
       return;
     }
 
@@ -1173,8 +1179,15 @@ function startTypewriterEffect(containerRoute) {
         if (instantTags) {
           // 點擊跳過：標籤一次全部顯示
           tags.forEach((tag) => tag.classList.add("tag-fade-in"));
+          if (typeof IntroTour !== "undefined") {
+            IntroTour.onQuestionPageReady(targetRoute);
+          }
         } else {
-          fadeInTagsSequentially(tags, 200);
+          fadeInTagsSequentially(tags, 200).then(function () {
+            if (typeof IntroTour !== "undefined") {
+              IntroTour.onQuestionPageReady(targetRoute);
+            }
+          });
         }
       }
 
@@ -1229,6 +1242,9 @@ function startTypewriterEffect(containerRoute) {
         });
         
         typewriterContainer.innerHTML = '';
+        if (typeof IntroTour !== "undefined") {
+          IntroTour.onQuestionPageReady(targetRoute);
+        }
         return;
       }
       
@@ -1242,7 +1258,11 @@ function startTypewriterEffect(containerRoute) {
       });
       
       // 標籤按順序依序淡入
-      fadeInTagsSequentially(tagElements, 200);
+      fadeInTagsSequentially(tagElements, 200).then(function () {
+        if (typeof IntroTour !== "undefined") {
+          IntroTour.onQuestionPageReady(targetRoute);
+        }
+      });
     }
   }
 }
@@ -1706,6 +1726,9 @@ const fetchData = async () => {
                 event_value: currentRoute,
                 step: fs + 1,
               });
+              if (typeof IntroTour !== "undefined") {
+                IntroTour.notifyQuestionAnswered();
+              }
               var tag = `c-${all_Route[fs]}`;
               $(`.${tag}.tag-selected`).removeClass("tag-selected");
               $(".tag-selected").removeClass("tag-selected");
@@ -1787,6 +1810,9 @@ const fetchData = async () => {
                 tag_group: all_Route[fs],
                 step: fs + 1,
               });
+              if (typeof IntroTour !== "undefined") {
+                IntroTour.notifyQuestionAnswered();
+              }
               if (fs == all_Route.length - 1) {
                 $("#container-" + currentRoute).hide();
 
@@ -1962,6 +1988,9 @@ $(document).on(tap, "#start-button", function () {
     action: "start_button",
     event_label: "開始導購",
   });
+  if (typeof IntroTour !== "undefined") {
+    IntroTour.notifyIntroStartClicked();
+  }
   $("#recommend-title").text("專屬商品推薦");
   $("#recommend-desc").text("根據您的偏好，精選以下單品。"); // 使用淡入動畫
   $("#recommend-btn").text("刷新推薦");
@@ -2210,6 +2239,13 @@ window.addEventListener("message", async (event) => {
     if (Object.prototype.hasOwnProperty.call(event.data, "intro_mode")) {
       var rawIntro = String(event.data.intro_mode || "").toLowerCase();
       introMode = rawIntro === "v1" || rawIntro === "v2" ? rawIntro : null;
+      if (typeof IntroTour !== "undefined") {
+        IntroTour.setIntroModeEnabled(introMode, event.data.enable_guide === true);
+      }
+    } else if (Object.prototype.hasOwnProperty.call(event.data, "enable_guide")) {
+      if (typeof IntroTour !== "undefined") {
+        IntroTour.setGuideFeatureEnabled(event.data.enable_guide === true);
+      }
     }
     utmParams = NoMediaGa.applyUtmFromPayload(event.data, utmParams);
     await Initial();
@@ -2217,6 +2253,40 @@ window.addEventListener("message", async (event) => {
     await fetchCoupon();
 
     $("#intro-page").fadeIn(800);
+  }
+
+  if (event.data && event.data.header == "parent_start_intro") {
+    if (Object.prototype.hasOwnProperty.call(event.data, "intro_mode")) {
+      var restartIntro = String(event.data.intro_mode || "").toLowerCase();
+      introMode = restartIntro === "v1" || restartIntro === "v2" ? restartIntro : null;
+    }
+    if (typeof IntroTour !== "undefined") {
+      IntroTour.setIntroModeEnabled(
+        introMode,
+        Object.prototype.hasOwnProperty.call(event.data, "enable_guide")
+          ? event.data.enable_guide === true
+          : true
+      );
+    }
+    try {
+      $("#container-recom").hide();
+      $("#loadingbar_recom").hide();
+      $(".update_delete[id^='container-']").not("#container-recom").hide();
+      $("#intro-page").show();
+      if (typeof IntroTour !== "undefined") {
+        IntroTour.restart();
+      }
+    } catch (e) {
+      console.warn("parent_start_intro 處理失敗:", e);
+    }
+    return;
+  }
+
+  if (event.data && event.data.header == "parent_close_modal") {
+    if (typeof IntroTour !== "undefined") {
+      IntroTour.dismiss(false);
+    }
+    return;
   }
 
   if (event.data.header == "close_coupon") {

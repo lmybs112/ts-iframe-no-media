@@ -1319,12 +1319,18 @@
           $("#intro-content-simple").remove();
           $("#intro-content-advanced").show();
           $("#loadingbar").hide();
+          if (typeof IntroTour !== "undefined") {
+            IntroTour.onIntroPageReady();
+          }
         }
 
         function showIntroSimple() {
           if ($("#intro-content-simple").length) {
             $("#intro-content-advanced").remove();
             $("#loadingbar").hide();
+            if (typeof IntroTour !== "undefined") {
+              IntroTour.onIntroPageReady();
+            }
             return;
           }
           const simpleContent = `
@@ -1407,8 +1413,15 @@
             if (loadedImages >= totalImages) {
               setTimeout(() => {
                 $simpleContent.css("opacity", "1");
+                if (typeof IntroTour !== "undefined") {
+                  IntroTour.onIntroPageReady();
+                }
               }, 100);
             }
+          }
+
+          if (totalImages === 0 && typeof IntroTour !== "undefined") {
+            IntroTour.onIntroPageReady();
           }
         }
 

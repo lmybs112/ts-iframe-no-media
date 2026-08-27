@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** v2 結果頁對 `usage_record` 發送 Recom／Pin／Refersh／Redirect／Restart／Close。
+**Goal:** v2 結果頁對 `usage_record` 發送 Recom／Pin／Refresh／Redirect／Restart／Close。
 
 **Architecture:** 純函式放 `js/shared/usage-record.js`（可測）；`bootstrap.js` 於 v2 載入；`js/v2/iframe.js` 掛觸發點。
 
@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Action 拼字：`Refersh`（不改正）
+- Action 拼字：`Refresh`
 - `ProductCategory` 用欄位 key 原樣
 - `Recom` 的 Category／Ptr 固定 `[]`
 - `Close` 僅結果頁可見時
@@ -37,7 +37,7 @@
 - [x] `recordReelUsage(action)` 組狀態並呼叫 shared post
 - [x] flag：`usageRecomSentThisRound`（Initial／startover 重設）
 - [x] Close debounce flag
-- [x] 掛 Recom／Pin／Refersh／Redirect（商品）／Restart（startover）／Close
+- [x] 掛 Recom／Pin／Refresh／Redirect（商品）／Restart（startover）／Close
 - [x] 更新 `docs/version-v1-v2.md` 一句
 
 ### Task 3: 驗證

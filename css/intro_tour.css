@@ -1,0 +1,68 @@
+/* iframe 內多步驟遮罩引導（intro_mode v1/v2） */
+.intro-tour {
+  position: fixed;
+  inset: 0;
+  z-index: 1999999980;
+  pointer-events: none;
+}
+.intro-tour[hidden] {
+  display: none !important;
+}
+.intro-tour__spotlight {
+  position: fixed;
+  z-index: 1999999981;
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  transition: top 0.2s ease, left 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+.intro-tour__spotlight[hidden] {
+  display: none !important;
+}
+.intro-tour__card {
+  position: fixed;
+  z-index: 1999999982;
+  box-sizing: border-box;
+  max-width: min(280px, calc(100vw - 32px));
+  min-width: 200px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 0.5px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  color: #1e1e19;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: left;
+  pointer-events: auto;
+}
+.intro-tour__card[hidden] {
+  display: none !important;
+}
+.intro-tour__text {
+  margin: 0 0 12px;
+}
+.intro-tour__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.intro-tour__btn {
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1;
+}
+.intro-tour__btn--skip {
+  background: transparent;
+  color: #6b6b63;
+}
+.intro-tour__btn--next {
+  background: #1e1e19;
+  color: #ffffff;
+}

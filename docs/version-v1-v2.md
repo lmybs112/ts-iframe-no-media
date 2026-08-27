@@ -67,6 +67,22 @@ css/
 3. 作答完成 → 呼叫推薦 API → 結果頁
 4. 可「重新開始」、開啟優惠券／優惠推薦
 
+### iframe 內遮罩引導（`enable_guide` + `intro_mode`）
+
+需父頁傳 `enable_guide: true`，且 `intro_mode` 為 `v1` 或 `v2`，iframe 才會顯示多步驟 spotlight 引導：
+
+1. Intro 首屏「開始」按鈕
+2. 問答頁選標籤／略過
+3. （可選）「換一組試試」（僅該頁有換組鈕時）
+4. 結果頁標題
+5. 結果頁操作（刷新／重新開始）
+
+- 實作：[`js/shared/intro-tour.js`](../js/shared/intro-tour.js)、[`css/intro_tour.css`](../css/intro_tour.css)
+- 記住狀態：`localStorage` key `inf-marketing-iframe-intro-tour-dismissed`
+- 父頁「再看一次」→ `postMessage({ header: "parent_start_intro", intro_mode, enable_guide: true })`：回到 intro 並強制重跑引導
+- 父頁關閉彈窗 → `parent_close_modal`：僅關閉當次引導 UI（不寫 dismiss）
+- **預設關閉**：未傳或 `enable_guide !== true` 時不跑引導（`intro_mode` 仍可控制 intro 版面）
+
 ### 共用參數（`from_preview`；`?ga=` 為 URL）
 
 | 參數 | 說明 |
@@ -74,6 +90,7 @@ css/
 | `brand` / `id`（Route） | 品牌與路線 |
 | `MRID` / `GVID` / `LGVID` | 會員／訪客識別 |
 | `intro_mode` | `v1` 簡化開始頁／`v2` 專屬資訊／省略則原規則 |
+| `enable_guide` | `true` 才啟用 iframe 內多步驟遮罩引導（預設關閉；需搭配 `intro_mode`） |
 | `use_route_linked_tags` | 是否依 `RouteLinkedTags` 過濾下一題 |
 | `show_origin_price` | 結果是否顯示原價（來源限制見下註） |
 | `utm_source` / `utm_medium` / `utm_campaign` / `utm_term` / `utm_content` | **iframe 內建**，宿主不必傳：`utm_source=inffits`、`utm_medium=iframe_ai_product`；`utm_campaign` 依有無拉霸：v1（無）`no-media`、v2（有）`no-media-reel`；`utm_term` 空白；`utm_content` 空白（點商品時該次事件動態帶入區塊，見下）。若 `from_preview` 有帶 `utm_*` 則覆寫（source／medium 空字串會回退預設） |
@@ -172,7 +189,7 @@ css/
 | `no-media_v2_click_reel_item` | 點擊拉霸商品 |
 | `no-media_v2_click_change_group` | 換一組試試 |
 
-另：v2 結果頁會打營運 `usage_record`（`Recom`／`Pin`／`Refersh`／`Redirect`＝點商品／`Restart`＝重新開始／`Close`），見 [`js/shared/usage-record.js`](../js/shared/usage-record.js)。
+另：v2 結果頁會打營運 `usage_record`（`Recom`／`Pin`／`Refresh`／`Redirect`＝點商品／`Restart`＝重新開始／`Close`），見 [`js/shared/usage-record.js`](../js/shared/usage-record.js)。
 
 共用事件在 v1 為 `no-media_*`，在 v2 為 `no-media_v2_*`（例如 `no-media_click_start` vs `no-media_v2_click_start`）。
 

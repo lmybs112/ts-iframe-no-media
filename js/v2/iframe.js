@@ -1144,6 +1144,9 @@ const show_results = async (response, isFirst = false) => {
     // 揭開：先顯示結果頁（此時靜態圖已就緒），再開始動畫
     $("#loadingbar_recom").hide();
     $("#container-recom").show();
+    if (typeof IntroTour !== "undefined") {
+      IntroTour.onResultsReady();
+    }
 
     // 同步最終 index，讓 usage Recom 的 ProductInfo 對應當下畫面
     reelCats.forEach(function (cat) {
@@ -1837,6 +1840,9 @@ function startTypewriterEffect(containerRoute) {
         typewriterContainer.innerHTML = "";
       }
       showChangeGroupBtn(targetRoute);
+      if (typeof IntroTour !== "undefined") {
+        IntroTour.onQuestionPageReady(targetRoute);
+      }
       return;
     }
 
@@ -1920,8 +1926,15 @@ function startTypewriterEffect(containerRoute) {
             window.refreshScrollDownArrow();
           }
           showChangeGroupBtn(targetRoute);
+          if (typeof IntroTour !== "undefined") {
+            IntroTour.onQuestionPageReady(targetRoute);
+          }
         } else {
-          fadeInTagsSequentially(targetRoute, tags, 200);
+          fadeInTagsSequentially(targetRoute, tags, 200).then(function () {
+            if (typeof IntroTour !== "undefined") {
+              IntroTour.onQuestionPageReady(targetRoute);
+            }
+          });
         }
       }
 
@@ -1969,6 +1982,9 @@ function startTypewriterEffect(containerRoute) {
         
         typewriterContainer.innerHTML = "";
         showChangeGroupBtn(targetRoute);
+        if (typeof IntroTour !== "undefined") {
+          IntroTour.onQuestionPageReady(targetRoute);
+        }
         return;
       }
       
@@ -1982,7 +1998,11 @@ function startTypewriterEffect(containerRoute) {
       });
       
       // 標籤按順序依序淡入
-      fadeInTagsSequentially(targetRoute, tagElements, 200);
+      fadeInTagsSequentially(targetRoute, tagElements, 200).then(function () {
+        if (typeof IntroTour !== "undefined") {
+          IntroTour.onQuestionPageReady(targetRoute);
+        }
+      });
     }
   }
 }
@@ -2438,6 +2458,9 @@ const fetchData = async () => {
                 event_value: currentRoute,
                 step: fs + 1,
               });
+              if (typeof IntroTour !== "undefined") {
+                IntroTour.notifyQuestionAnswered();
+              }
               var tag = `c-${all_Route[fs]}`;
               $(`.${tag}.tag-selected`).removeClass("tag-selected");
               $(".tag-selected").removeClass("tag-selected");
@@ -2515,6 +2538,9 @@ const fetchData = async () => {
                 tag_group: all_Route[fs],
                 step: fs + 1,
               });
+              if (typeof IntroTour !== "undefined") {
+                IntroTour.notifyQuestionAnswered();
+              }
               if (fs == all_Route.length - 1) {
                 $("#container-" + currentRoute).hide();
 
@@ -2716,6 +2742,9 @@ $(document).on(tap, "#start-button", function () {
     action: "start_button",
     event_label: "開始導購",
   });
+  if (typeof IntroTour !== "undefined") {
+    IntroTour.notifyIntroStartClicked();
+  }
   $("#recommend-title").text("專屬商品推薦");
   $("#recommend-desc").text("根據您的偏好，精選以下單品。"); // 使用淡入動畫
   $("#recommend-btn").text("刷新推薦");
@@ -2868,7 +2897,7 @@ $("#recommend-btn").on(tap, function () {
     event_value: "spin",
     categories: (reelCats || []).join(","),
   });
-  recordReelUsage("Refersh");
+  recordReelUsage("Refresh");
   $("#loadingbar_recom").hide();
 
   window.parent.postMessage({ type: "result", value: true }, "*");
@@ -2922,10 +2951,16 @@ window.addEventListener("message", async (event) => {
     if (Object.prototype.hasOwnProperty.call(event.data, "use_route_linked_tags")) {
       useRouteLinkedTags = !!event.data.use_route_linked_tags;
     }
-    // intro_mode: "v1" | "v2"；僅在明確傳入時更新
     if (Object.prototype.hasOwnProperty.call(event.data, "intro_mode")) {
       var rawIntro = String(event.data.intro_mode || "").toLowerCase();
       introMode = rawIntro === "v1" || rawIntro === "v2" ? rawIntro : null;
+      if (typeof IntroTour !== "undefined") {
+        IntroTour.setIntroModeEnabled(introMode, event.data.enable_guide === true);
+      }
+    } else if (Object.prototype.hasOwnProperty.call(event.data, "enable_guide")) {
+      if (typeof IntroTour !== "undefined") {
+        IntroTour.setGuideFeatureEnabled(event.data.enable_guide === true);
+      }
     }
     utmParams = NoMediaGa.applyUtmFromPayload(event.data, utmParams);
     await Initial();
@@ -2935,8 +2970,39 @@ window.addEventListener("message", async (event) => {
     $("#intro-page").fadeIn(800);
   }
 
+  if (event.data && event.data.header == "parent_start_intro") {
+    if (Object.prototype.hasOwnProperty.call(event.data, "intro_mode")) {
+      var restartIntro = String(event.data.intro_mode || "").toLowerCase();
+      introMode = restartIntro === "v1" || restartIntro === "v2" ? restartIntro : null;
+    }
+    if (typeof IntroTour !== "undefined") {
+      IntroTour.setIntroModeEnabled(
+        introMode,
+        Object.prototype.hasOwnProperty.call(event.data, "enable_guide")
+          ? event.data.enable_guide === true
+          : true
+      );
+    }
+    // 回到 intro 首屏並重跑遮罩引導
+    try {
+      $("#container-recom").hide();
+      $("#loadingbar_recom").hide();
+      $(".update_delete[id^='container-']").not("#container-recom").hide();
+      $("#intro-page").show();
+      if (typeof IntroTour !== "undefined") {
+        IntroTour.restart();
+      }
+    } catch (e) {
+      console.warn("parent_start_intro 處理失敗:", e);
+    }
+    return;
+  }
+
   if (event.data && event.data.header == "parent_close_modal") {
     recordReelUsageClose();
+    if (typeof IntroTour !== "undefined") {
+      IntroTour.dismiss(false);
+    }
     return;
   }
 

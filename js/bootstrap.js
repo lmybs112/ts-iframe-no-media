@@ -36,6 +36,8 @@
 
   // 共用 GA（必須在 iframe / embedded 之前）
   writeScript("js/shared/ga.js");
+  writeStylesheet("css/intro_tour.css");
+  writeScript("js/shared/intro-tour.js");
 
   if (version === "v2") {
     writeStylesheet("css/iframe_v2.css");
