@@ -19,6 +19,13 @@
 .intro-tour__spotlight[hidden] {
   display: none !important;
 }
+/* 第二高亮：僅描邊，避免雙重遮罩把中間區域挖成大洞 */
+.intro-tour__spotlight--secondary {
+  box-shadow: none;
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+  background: transparent;
+}
 .intro-tour__card {
   position: fixed;
   z-index: 1999999982;

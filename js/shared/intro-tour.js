@@ -27,7 +27,7 @@
     intro: "點「開始」進入個人化選購",
     question: "選一個最符合你的選項",
     questionBack: "上方左箭頭可以返回上一題",
-    questionSkip: "上方右箭頭可以略過這一題",
+    questionSkip: "上方右箭頭或右下方「略過」都可以略過這一題",
     changeGroup: "沒找到心儀選項？可以「換一組試試」",
     results: "這是依你的選擇精選的商品",
     resultsProduct: "點商品可以開啟商品頁查看詳情",
@@ -72,6 +72,7 @@
     root.hidden = true;
     root.innerHTML =
       '<div class="intro-tour__spotlight" hidden></div>' +
+      '<div class="intro-tour__spotlight intro-tour__spotlight--secondary" hidden></div>' +
       '<div class="intro-tour__card" hidden>' +
       '  <p class="intro-tour__text"></p>' +
       '  <div class="intro-tour__actions">' +
@@ -175,15 +176,33 @@
     return isTourTargetVisible(back) ? back : null;
   }
 
-  /** 上方右箭頭：略過這一題 */
+  /** 略過引導：回傳上方右箭頭；右下方「略過」由 secondary spotlight 一併標出 */
   function getQuestionSkipArrowTarget() {
+    var parts = getQuestionSkipTargets();
+    return parts.primary || null;
+  }
+
+  function getQuestionSkipTargets() {
     var container = getVisibleQuestionContainer();
-    if (!container) return null;
-    var skip =
+    if (!container) return { primary: null, secondary: null };
+
+    var topSkip =
       container.querySelector(".c_header .type_backarrow.skip") ||
       container.querySelector("img.type_backarrow.skip") ||
       container.querySelector(".c_header img.skip");
-    return isTourTargetVisible(skip) ? skip : null;
+    var bottomSkip =
+      container.querySelector(".con-footer a.skip") ||
+      container.querySelector("a.skip");
+
+    var topOk = isTourTargetVisible(topSkip);
+    var bottomOk = isTourTargetVisible(bottomSkip);
+
+    if (topOk && bottomOk) {
+      return { primary: topSkip, secondary: bottomSkip };
+    }
+    if (topOk) return { primary: topSkip, secondary: null };
+    if (bottomOk) return { primary: bottomSkip, secondary: null };
+    return { primary: null, secondary: null };
   }
 
   /** 商品卡引導：涵蓋結果頁商品區 */
@@ -248,9 +267,12 @@
     if (!root || root.hidden || !state.step) return;
 
     var target = getTargetForStep(state.step);
-    var spotlight = root.querySelector(".intro-tour__spotlight");
+    var spotlight = root.querySelector(".intro-tour__spotlight:not(.intro-tour__spotlight--secondary)");
+    var spotlight2 = root.querySelector(".intro-tour__spotlight--secondary");
     var card = root.querySelector(".intro-tour__card");
     if (!spotlight || !card) return;
+
+    if (spotlight2) spotlight2.hidden = true;
 
     if (!target) {
       spotlight.hidden = true;
@@ -273,6 +295,19 @@
     spotlight.style.left = rect.left - PAD + "px";
     spotlight.style.width = rect.width + PAD * 2 + "px";
     spotlight.style.height = rect.height + PAD * 2 + "px";
+
+    // 略過步驟：同時標出右下方「略過」
+    if (state.step === "questionSkip" && spotlight2) {
+      var skipParts = getQuestionSkipTargets();
+      if (skipParts.secondary && isTourTargetVisible(skipParts.secondary)) {
+        var rect2 = skipParts.secondary.getBoundingClientRect();
+        spotlight2.hidden = false;
+        spotlight2.style.top = rect2.top - PAD + "px";
+        spotlight2.style.left = rect2.left - PAD + "px";
+        spotlight2.style.width = rect2.width + PAD * 2 + "px";
+        spotlight2.style.height = rect2.height + PAD * 2 + "px";
+      }
+    }
 
     var cardRect = card.getBoundingClientRect();
     var cardWidth = cardRect.width || 240;
@@ -323,9 +358,11 @@
     var root = getRoot();
     if (!root) return;
     root.hidden = true;
-    var spotlight = root.querySelector(".intro-tour__spotlight");
+    var spotlight = root.querySelector(".intro-tour__spotlight:not(.intro-tour__spotlight--secondary)");
+    var spotlight2 = root.querySelector(".intro-tour__spotlight--secondary");
     var card = root.querySelector(".intro-tour__card");
     if (spotlight) spotlight.hidden = true;
+    if (spotlight2) spotlight2.hidden = true;
     if (card) card.hidden = true;
     state.step = null;
   }
