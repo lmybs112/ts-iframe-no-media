@@ -650,6 +650,15 @@
       }
     },
 
+    /** 使用者點「換一組試試」：結束此步，避免按鈕隱藏後引導框仍留著 */
+    notifyChangeGroupClicked: function () {
+      if (!state.active) return;
+      state.changeGroupTourDone = true;
+      if (state.step === "changeGroup") {
+        hideTourUi();
+      }
+    },
+
     /** 使用者選標籤或略過：不略過尚未介紹的箭頭／換一組，下一題再補 */
     notifyQuestionAnswered: function () {
       if (!state.active) return;

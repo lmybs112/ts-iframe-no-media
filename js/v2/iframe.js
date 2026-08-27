@@ -2698,6 +2698,10 @@ $(document).on(tap, ".change-group-btn", function () {
     to_group: nextGroup,
   });
 
+  if (typeof IntroTour !== "undefined") {
+    IntroTour.notifyChangeGroupClicked();
+  }
+
   $btn.addClass("rotating change-group-btn--hidden");
   $btn.attr("data-current-group", nextGroup);
 
