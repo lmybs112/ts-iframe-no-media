@@ -406,6 +406,18 @@
     if (persist) {
       markDismissedStored();
     }
+    notifyParentTourActive(false);
+  }
+
+  function notifyParentTourActive(active) {
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(
+          { header: "iframe_intro_tour", active: !!active },
+          "*"
+        );
+      }
+    } catch (e) {}
   }
 
   function resetSessionFlags() {
@@ -421,11 +433,15 @@
       state.forced = true;
       clearDismissedStored();
     }
-    if (!shouldRun()) return;
+    if (!shouldRun()) {
+      notifyParentTourActive(false);
+      return;
+    }
 
     clearTimers();
     resetSessionFlags();
     state.active = true;
+    notifyParentTourActive(true);
     showStep("intro");
   }
 
