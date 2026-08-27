@@ -1,6 +1,6 @@
 /**
  * iframe 內多步驟遮罩引導（intro_mode 為 v1 / v2 時啟用）
- * 步驟：intro → 問答選標籤 → 返回／略過箭頭 →（可選）換一組 → 結果頁 → 點商品 →（可選）釘選 → 再玩一次
+ * 步驟：intro → 問答選標籤 → 返回／略過箭頭 →（可選）換一組 → 結果頁 → 點商品 →（可選）釘選 → 刷新推薦 → 再玩一次
  */
 (function (global) {
   "use strict";
@@ -34,6 +34,7 @@
     results: "這是依你的選擇精選的商品",
     resultsProduct: "點商品可以開啟商品頁查看詳情",
     resultsPin: "點圖釘可釘選喜歡的商品（可多選），刷新時會保留",
+    resultsRefresh: "點「刷新推薦」可換一批商品；已釘選的會保留",
     resultsStartover: "想重新體驗？點這裡再玩一次",
   };
 
@@ -151,6 +152,9 @@
     }
     if (step === "resultsPin") {
       return getPinTourTarget();
+    }
+    if (step === "resultsRefresh") {
+      return document.querySelector("#recommend-btn");
     }
     if (step === "resultsStartover") {
       return document.querySelector("#startover");
@@ -456,6 +460,9 @@
       return advanceAfterResultsProduct();
     }
     if (state.step === "resultsPin") {
+      return advanceAfterResultsPin();
+    }
+    if (state.step === "resultsRefresh") {
       showStep("resultsStartover");
       return;
     }
@@ -518,6 +525,14 @@
   function advanceAfterResultsProduct() {
     if (getTargetForStep("resultsPin")) {
       showStep("resultsPin");
+      return;
+    }
+    return advanceAfterResultsPin();
+  }
+
+  function advanceAfterResultsPin() {
+    if (getTargetForStep("resultsRefresh")) {
+      showStep("resultsRefresh");
       return;
     }
     showStep("resultsStartover");

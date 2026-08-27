@@ -79,7 +79,8 @@ css/
 6. 結果頁標題
 7. 點推薦商品可跳轉商品頁
 8. （可選）釘選圖釘（僅 v2 拉霸有 `.reel-pin-btn` 時）
-9. 「再玩一次」`#startover`
+9. 「刷新推薦」`#recommend-btn`
+10. 「再玩一次」`#startover`
 
 - 實作：[`js/shared/intro-tour.js`](../js/shared/intro-tour.js)、[`css/intro_tour.css`](../css/intro_tour.css)
 - 記住狀態：`localStorage` key `inf-marketing-iframe-intro-tour-dismissed`
