@@ -72,12 +72,14 @@ css/
 需父頁傳 `enable_guide: true`，且 `intro_mode` 為 `v1` 或 `v2`，iframe 才會顯示多步驟 spotlight 引導：
 
 1. Intro 首屏「開始」按鈕
-2. 問答頁選標籤／略過
-3. （可選）「換一組試試」（僅該頁有換組鈕時）
-4. 結果頁標題
-5. 點推薦商品可跳轉商品頁
-6. （可選）釘選圖釘（僅 v2 拉霸有 `.reel-pin-btn` 時）
-7. 「再玩一次」`#startover`
+2. 問答頁選標籤
+3. 上方左箭頭＝返回上一題（箭頭可見時）
+4. 上方右箭頭＝略過這一題（箭頭可見時）
+5. （可選）「換一組試試」（僅該頁有換組鈕時）
+6. 結果頁標題
+7. 點推薦商品可跳轉商品頁
+8. （可選）釘選圖釘（僅 v2 拉霸有 `.reel-pin-btn` 時）
+9. 「再玩一次」`#startover`
 
 - 實作：[`js/shared/intro-tour.js`](../js/shared/intro-tour.js)、[`css/intro_tour.css`](../css/intro_tour.css)
 - 記住狀態：`localStorage` key `inf-marketing-iframe-intro-tour-dismissed`

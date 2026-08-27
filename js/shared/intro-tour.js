@@ -1,6 +1,6 @@
 /**
  * iframe 內多步驟遮罩引導（intro_mode 為 v1 / v2 時啟用）
- * 步驟：intro 首屏 → 問答選標籤 →（可選）換一組 → 結果頁 → 點商品跳轉 →（可選）釘選 → 再玩一次
+ * 步驟：intro → 問答選標籤 → 返回／略過箭頭 →（可選）換一組 → 結果頁 → 點商品 →（可選）釘選 → 再玩一次
  */
 (function (global) {
   "use strict";
@@ -25,7 +25,9 @@
 
   var STEP_COPY = {
     intro: "點「開始」進入個人化選購",
-    question: "選一個最符合你的選項；不確定也可點「略過」",
+    question: "選一個最符合你的選項",
+    questionBack: "上方左箭頭可以返回上一題",
+    questionSkip: "上方右箭頭可以略過這一題",
     changeGroup: "沒找到心儀選項？可以「換一組試試」",
     results: "這是依你的選擇精選的商品",
     resultsProduct: "點商品可以開啟商品頁查看詳情",
@@ -122,6 +124,12 @@
         container.querySelector(".axd_selection")
       );
     }
+    if (step === "questionBack") {
+      return getQuestionBackArrowTarget();
+    }
+    if (step === "questionSkip") {
+      return getQuestionSkipArrowTarget();
+    }
     if (step === "changeGroup") {
       var qContainer = getVisibleQuestionContainer();
       if (!qContainer) return null;
@@ -145,6 +153,37 @@
       return document.querySelector("#startover");
     }
     return null;
+  }
+
+  function isTourTargetVisible(el) {
+    if (!el) return false;
+    var style = global.getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
+      return false;
+    }
+    var rect = el.getBoundingClientRect();
+    return rect.width >= 1 && rect.height >= 1;
+  }
+
+  /** 上方左箭頭：返回上一題（或回 intro） */
+  function getQuestionBackArrowTarget() {
+    var container = getVisibleQuestionContainer();
+    if (!container) return null;
+    var back =
+      container.querySelector(".c_header .type_backarrow:not(.skip)") ||
+      container.querySelector("img.type_backarrow:not(.skip)");
+    return isTourTargetVisible(back) ? back : null;
+  }
+
+  /** 上方右箭頭：略過這一題 */
+  function getQuestionSkipArrowTarget() {
+    var container = getVisibleQuestionContainer();
+    if (!container) return null;
+    var skip =
+      container.querySelector(".c_header .type_backarrow.skip") ||
+      container.querySelector("img.type_backarrow.skip") ||
+      container.querySelector(".c_header img.skip");
+    return isTourTargetVisible(skip) ? skip : null;
   }
 
   /** 商品卡引導：涵蓋結果頁商品區 */
@@ -340,13 +379,13 @@
 
     if (state.step === "question") {
       state.questionTourDone = true;
-      // 若有「換一組」且尚未提示，接著引導
-      if (!state.changeGroupTourDone && getTargetForStep("changeGroup")) {
-        showStep("changeGroup");
-        return;
-      }
-      hideTourUi();
-      return;
+      return advanceAfterQuestionSelect();
+    }
+    if (state.step === "questionBack") {
+      return advanceAfterQuestionBack();
+    }
+    if (state.step === "questionSkip") {
+      return advanceAfterQuestionSkip();
     }
     if (state.step === "changeGroup") {
       state.changeGroupTourDone = true;
@@ -370,6 +409,30 @@
     if (state.step === "resultsStartover") {
       dismissTour(true);
     }
+  }
+
+  function advanceAfterQuestionSelect() {
+    if (getTargetForStep("questionBack")) {
+      showStep("questionBack");
+      return;
+    }
+    return advanceAfterQuestionBack();
+  }
+
+  function advanceAfterQuestionBack() {
+    if (getTargetForStep("questionSkip")) {
+      showStep("questionSkip");
+      return;
+    }
+    return advanceAfterQuestionSkip();
+  }
+
+  function advanceAfterQuestionSkip() {
+    if (!state.changeGroupTourDone && getTargetForStep("changeGroup")) {
+      showStep("changeGroup");
+      return;
+    }
+    hideTourUi();
   }
 
   function advanceAfterResultsProduct() {
