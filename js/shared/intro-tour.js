@@ -315,22 +315,15 @@
     var cardWidth = cardRect.width || 240;
     var cardHeight = cardRect.height || 100;
     var gap = 12;
-    var preferBottom =
-      state.step === "question" ||
-      state.step === "questionBack" ||
-      state.step === "questionSkip" ||
-      state.step === "changeGroup";
+    // 僅「選標籤」固定下方，避免擋住標題；箭頭／換一組仍貼近目標
+    var pinCardToBottom = state.step === "question";
 
     var top;
     var left = rect.left + rect.width / 2 - cardWidth / 2;
 
-    if (preferBottom) {
-      // 問答相關步驟：文案卡固定偏下方，避免擋住上方標題／箭頭
+    if (pinCardToBottom) {
       top = global.innerHeight - cardHeight - 24;
-      // 若目標在下方（如「略過」「換一組」），改放在目標上方一點，避免重疊
-      if (rect.bottom > global.innerHeight * 0.65) {
-        top = Math.min(top, rect.top - cardHeight - gap);
-      }
+      left = (global.innerWidth - cardWidth) / 2;
     } else {
       top = rect.top - cardHeight - gap;
       if (top < 12) {
