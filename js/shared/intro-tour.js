@@ -1,6 +1,6 @@
 /**
  * iframe 內多步驟遮罩引導（intro_mode 為 v1 / v2 時啟用）
- * 步驟：intro 首屏 → 問答選標籤 →（可選）換一組 → 結果頁 → 結果操作
+ * 步驟：intro 首屏 → 問答選標籤 →（可選）換一組 → 結果頁 → 點商品跳轉 →（可選）釘選 → 再玩一次
  */
 (function (global) {
   "use strict";
@@ -26,9 +26,11 @@
   var STEP_COPY = {
     intro: "點「開始」進入個人化選購",
     question: "選一個最符合你的選項；不確定也可點「略過」",
-    changeGroup: "選項太多？可以「換一組試試」",
+    changeGroup: "沒找到心儀選項？可以「換一組試試」",
     results: "這是依你的選擇精選的商品",
-    resultsActions: "可刷新推薦或重新開始",
+    resultsProduct: "點商品可以開啟商品頁查看詳情",
+    resultsPin: "點圖釘可釘選喜歡的商品（可多選），刷新時會保留",
+    resultsStartover: "想重新體驗？點這裡再玩一次",
   };
 
   function isDismissedStored() {
@@ -133,14 +135,60 @@
         document.querySelector("#container-recom")
       );
     }
-    if (step === "resultsActions") {
-      return (
-        document.querySelector("#container-recom .result-actions") ||
-        document.querySelector("#recommend-btn") ||
-        document.querySelector("#startover")
-      );
+    if (step === "resultsProduct") {
+      return getProductTourTarget();
+    }
+    if (step === "resultsPin") {
+      return getPinTourTarget();
+    }
+    if (step === "resultsStartover") {
+      return document.querySelector("#startover");
     }
     return null;
+  }
+
+  /** 商品卡引導：涵蓋結果頁商品區 */
+  function getProductTourTarget() {
+    var area =
+      document.querySelector("#container-recom .axd_selections") ||
+      document.querySelector("#container-recom .selection") ||
+      document.querySelector("#container-recom .reel-link") ||
+      document.querySelector("#container-recom .axd_selection a.update_delete") ||
+      document.querySelector("#container-recom .axd_selection");
+    return area || null;
+  }
+
+  /** 釘選引導：涵蓋可見圖釘區域；無釘選鈕則回 null（v1 會跳過） */
+  function getPinTourTarget() {
+    var pins = document.querySelectorAll("#container-recom .reel-pin-btn");
+    if (!pins.length) return null;
+
+    var minL = Infinity;
+    var minT = Infinity;
+    var maxR = -Infinity;
+    var maxB = -Infinity;
+    var found = false;
+    for (var i = 0; i < pins.length; i++) {
+      var rect = pins[i].getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) continue;
+      found = true;
+      minL = Math.min(minL, rect.left);
+      minT = Math.min(minT, rect.top);
+      maxR = Math.max(maxR, rect.right);
+      maxB = Math.max(maxB, rect.bottom);
+    }
+    if (!found) return pins[0];
+
+    var proxy = pins[0];
+    proxy.__introTourUnionRect = {
+      left: minL,
+      top: minT,
+      width: maxR - minL,
+      height: maxB - minT,
+      right: maxR,
+      bottom: maxB,
+    };
+    return proxy;
   }
 
   function getVisibleQuestionContainer() {
@@ -173,7 +221,9 @@
       return;
     }
 
-    var rect = target.getBoundingClientRect();
+    var rect = target.__introTourUnionRect
+      ? target.__introTourUnionRect
+      : target.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) {
       spotlight.hidden = true;
       return;
@@ -304,12 +354,30 @@
       return;
     }
     if (state.step === "results") {
-      showStep("resultsActions");
+      if (getTargetForStep("resultsProduct")) {
+        showStep("resultsProduct");
+        return;
+      }
+      return advanceAfterResultsProduct();
+    }
+    if (state.step === "resultsProduct") {
+      return advanceAfterResultsProduct();
+    }
+    if (state.step === "resultsPin") {
+      showStep("resultsStartover");
       return;
     }
-    if (state.step === "resultsActions") {
+    if (state.step === "resultsStartover") {
       dismissTour(true);
     }
+  }
+
+  function advanceAfterResultsProduct() {
+    if (getTargetForStep("resultsPin")) {
+      showStep("resultsPin");
+      return;
+    }
+    showStep("resultsStartover");
   }
 
   function maybeShowChangeGroupStep(routeKey) {

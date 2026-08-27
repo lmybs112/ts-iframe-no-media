@@ -75,7 +75,9 @@ css/
 2. 問答頁選標籤／略過
 3. （可選）「換一組試試」（僅該頁有換組鈕時）
 4. 結果頁標題
-5. 結果頁操作（刷新／重新開始）
+5. 點推薦商品可跳轉商品頁
+6. （可選）釘選圖釘（僅 v2 拉霸有 `.reel-pin-btn` 時）
+7. 「再玩一次」`#startover`
 
 - 實作：[`js/shared/intro-tour.js`](../js/shared/intro-tour.js)、[`css/intro_tour.css`](../css/intro_tour.css)
 - 記住狀態：`localStorage` key `inf-marketing-iframe-intro-tour-dismissed`
