@@ -15,7 +15,9 @@
     active: false,
     forced: false,
     step: null,
-    questionTourDone: false,
+    questionTourDone: false, // 選標籤介紹是否已過
+    questionBackSeen: false,
+    questionSkipSeen: false,
     changeGroupTourDone: false,
     pendingChangeGroupRoute: null,
     changeGroupTimer: null,
@@ -313,12 +315,29 @@
     var cardWidth = cardRect.width || 240;
     var cardHeight = cardRect.height || 100;
     var gap = 12;
-    var top = rect.top - cardHeight - gap;
+    var preferBottom =
+      state.step === "question" ||
+      state.step === "questionBack" ||
+      state.step === "questionSkip" ||
+      state.step === "changeGroup";
+
+    var top;
     var left = rect.left + rect.width / 2 - cardWidth / 2;
 
-    if (top < 12) {
-      top = rect.bottom + gap;
+    if (preferBottom) {
+      // 問答相關步驟：文案卡固定偏下方，避免擋住上方標題／箭頭
+      top = global.innerHeight - cardHeight - 24;
+      // 若目標在下方（如「略過」「換一組」），改放在目標上方一點，避免重疊
+      if (rect.bottom > global.innerHeight * 0.65) {
+        top = Math.min(top, rect.top - cardHeight - gap);
+      }
+    } else {
+      top = rect.top - cardHeight - gap;
+      if (top < 12) {
+        top = rect.bottom + gap;
+      }
     }
+
     left = Math.max(12, Math.min(left, global.innerWidth - cardWidth - 12));
     top = Math.max(12, Math.min(top, global.innerHeight - cardHeight - 12));
 
@@ -394,6 +413,8 @@
 
   function resetSessionFlags() {
     state.questionTourDone = false;
+    state.questionBackSeen = false;
+    state.questionSkipSeen = false;
     state.changeGroupTourDone = false;
     state.pendingChangeGroupRoute = null;
   }
@@ -419,9 +440,11 @@
       return advanceAfterQuestionSelect();
     }
     if (state.step === "questionBack") {
+      state.questionBackSeen = true;
       return advanceAfterQuestionBack();
     }
     if (state.step === "questionSkip") {
+      state.questionSkipSeen = true;
       return advanceAfterQuestionSkip();
     }
     if (state.step === "changeGroup") {
@@ -449,18 +472,15 @@
   }
 
   function advanceAfterQuestionSelect() {
-    if (getTargetForStep("questionBack")) {
-      showStep("questionBack");
-      return;
-    }
-    return advanceAfterQuestionBack();
+    return resumeQuestionChromeTour();
   }
 
   function advanceAfterQuestionBack() {
-    if (getTargetForStep("questionSkip")) {
+    if (!state.questionSkipSeen && getTargetForStep("questionSkip")) {
       showStep("questionSkip");
       return;
     }
+    state.questionSkipSeen = true;
     return advanceAfterQuestionSkip();
   }
 
@@ -472,6 +492,36 @@
     hideTourUi();
   }
 
+  /** 補播尚未看過的：返回箭頭 → 略過 → 換一組 */
+  function resumeQuestionChromeTour() {
+    if (!state.questionBackSeen && getTargetForStep("questionBack")) {
+      showStep("questionBack");
+      return true;
+    }
+    state.questionBackSeen = true;
+
+    if (!state.questionSkipSeen && getTargetForStep("questionSkip")) {
+      showStep("questionSkip");
+      return true;
+    }
+    state.questionSkipSeen = true;
+
+    if (!state.changeGroupTourDone && getTargetForStep("changeGroup")) {
+      showStep("changeGroup");
+      return true;
+    }
+    hideTourUi();
+    return false;
+  }
+
+  function hasPendingQuestionChrome() {
+    return (
+      !state.questionBackSeen ||
+      !state.questionSkipSeen ||
+      !state.changeGroupTourDone
+    );
+  }
+
   function advanceAfterResultsProduct() {
     if (getTargetForStep("resultsPin")) {
       showStep("resultsPin");
@@ -481,7 +531,6 @@
   }
 
   function maybeShowChangeGroupStep(routeKey) {
-    // 僅記錄；實際顯示在問答「知道了」之後
     state.pendingChangeGroupRoute = String(routeKey || "").replaceAll(/[\s\.]/g, "");
   }
 
@@ -540,34 +589,48 @@
 
     /** 問答頁顯示且打字／標籤就緒後 */
     onQuestionPageReady: function (routeKey) {
-      if (!state.active || state.questionTourDone) return;
+      if (!state.active) return;
+
+      maybeShowChangeGroupStep(routeKey);
 
       if (state.questionTimer) {
         clearTimeout(state.questionTimer);
       }
       state.questionTimer = setTimeout(function () {
         state.questionTimer = null;
-        if (!state.active || state.questionTourDone) return;
+        if (!state.active) return;
         if (!getVisibleQuestionContainer()) return;
-        showStep("question");
-        maybeShowChangeGroupStep(routeKey);
+
+        // 尚未介紹「選標籤」
+        if (!state.questionTourDone) {
+          showStep("question");
+          return;
+        }
+
+        // 已選過標籤但還沒看完左右箭頭／換一組 → 在這一題補播
+        if (hasPendingQuestionChrome()) {
+          resumeQuestionChromeTour();
+        }
       }, 500);
     },
 
     /** 換一組按鈕剛顯示時（可選 hook） */
     onChangeGroupRevealed: function (routeKey) {
-      if (!state.active || state.changeGroupTourDone || state.questionTourDone) return;
+      if (!state.active || state.changeGroupTourDone) return;
       maybeShowChangeGroupStep(routeKey);
+      // 若正卡在換一組步驟等待按鈕出現，補顯示
+      if (state.questionTourDone && state.questionBackSeen && state.questionSkipSeen) {
+        if (!state.step && getTargetForStep("changeGroup")) {
+          showStep("changeGroup");
+        }
+      }
     },
 
-    /** 使用者選標籤或略過 */
+    /** 使用者選標籤或略過：不略過尚未介紹的箭頭／換一組，下一題再補 */
     notifyQuestionAnswered: function () {
       if (!state.active) return;
       state.questionTourDone = true;
-      state.changeGroupTourDone = true;
-      if (state.step === "question" || state.step === "changeGroup") {
-        hideTourUi();
-      }
+      hideTourUi();
       clearTimers();
     },
 
