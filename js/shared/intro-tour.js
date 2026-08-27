@@ -23,7 +23,7 @@
     changeGroupTimer: null,
     questionTimer: null,
     resultsTimer: null,
-  };
+    resultsTourStarted: false,
 
   var STEP_COPY = {
     intro: "點「開始」進入個人化選購",
@@ -104,6 +104,117 @@
 
     global.addEventListener("resize", scheduleLayout, { passive: true });
     global.addEventListener("scroll", scheduleLayout, true);
+    // 點 spotlight 目標即推進（touchend／click 皆聽，避免漏接）
+    document.addEventListener("click", onDocTargetInteract, true);
+    document.addEventListener("touchend", onDocTargetInteract, true);
+  }
+
+  /** 文案要求「點 X」的步驟：點目標等同「知道了」／關閉該步 */
+  var TARGET_CLICK_STEPS = {
+    intro: true,
+    changeGroup: true,
+    questionBack: true,
+    questionSkip: true,
+    resultsProduct: true,
+    resultsPin: true,
+    resultsRefresh: true,
+    resultsStartover: true,
+  };
+
+  var lastTargetAdvanceAt = 0;
+
+  function onDocTargetInteract(e) {
+    if (!state.active || !state.step) return;
+    if (!TARGET_CLICK_STEPS[state.step]) return;
+    if (!isEventOnCurrentSpotlight(e)) return;
+    var now = Date.now();
+    if (now - lastTargetAdvanceAt < 400) return;
+    lastTargetAdvanceAt = now;
+    onSpotlightTargetClicked();
+  }
+
+  function isEventOnCurrentSpotlight(e) {
+    var el = e.target;
+    if (!el || !el.closest) return false;
+    // 引導卡按鈕自行處理，勿當成目標互動
+    if (el.closest("#intro-tour-root .intro-tour__card")) return false;
+
+    var step = state.step;
+    if (step === "intro") {
+      return !!el.closest("#start-button");
+    }
+    if (step === "changeGroup") {
+      return !!el.closest(".change-group-btn");
+    }
+    if (step === "questionBack") {
+      var back = getTargetForStep("questionBack");
+      return !!(back && (back === el || back.contains(el)));
+    }
+    if (step === "questionSkip") {
+      var skipParts = getQuestionSkipTargets();
+      if (skipParts.primary && (skipParts.primary === el || skipParts.primary.contains(el))) {
+        return true;
+      }
+      if (skipParts.secondary && (skipParts.secondary === el || skipParts.secondary.contains(el))) {
+        return true;
+      }
+      return false;
+    }
+    if (step === "resultsProduct") {
+      return !!(
+        el.closest("#container-recom .reel-link") ||
+        el.closest("#container-recom .axd_selection a") ||
+        el.closest("#container-recom .recom-item") ||
+        el.closest("#container-recom .axd_selection")
+      );
+    }
+    if (step === "resultsPin") {
+      return !!el.closest("#container-recom .reel-pin-btn");
+    }
+    if (step === "resultsRefresh") {
+      return !!el.closest("#recommend-btn");
+    }
+    if (step === "resultsStartover") {
+      return !!el.closest("#startover");
+    }
+    return false;
+  }
+
+  function onSpotlightTargetClicked() {
+    if (!state.active || !state.step) return;
+
+    if (state.step === "intro") {
+      hideTourUi();
+      return;
+    }
+    if (state.step === "changeGroup") {
+      state.changeGroupTourDone = true;
+      hideTourUi();
+      return;
+    }
+    // 點返回會換頁，只標記已看過並收起，勿在當頁開下一步
+    if (state.step === "questionBack") {
+      state.questionBackSeen = true;
+      hideTourUi();
+      return;
+    }
+    if (state.step === "questionSkip") {
+      state.questionSkipSeen = true;
+      return advanceAfterQuestionSkip();
+    }
+    if (state.step === "resultsProduct") {
+      return advanceAfterResultsProduct();
+    }
+    if (state.step === "resultsPin") {
+      return advanceAfterResultsPin();
+    }
+    if (state.step === "resultsRefresh") {
+      showStep("resultsStartover");
+      return;
+    }
+    if (state.step === "resultsStartover") {
+      dismissTour(true);
+    }
   }
 
   function getRoot() {
@@ -426,6 +537,7 @@
     state.questionSkipSeen = false;
     state.changeGroupTourDone = false;
     state.pendingChangeGroupRoute = null;
+    state.resultsTourStarted = false;
   }
 
   function startTour(options) {
@@ -663,13 +775,24 @@
     notifyQuestionAnswered: function () {
       if (!state.active) return;
       state.questionTourDone = true;
-      hideTourUi();
       clearTimers();
+      // 目標點擊可能已推進到略過／換一組；勿再 hide 蓋掉下一步
+      if (
+        state.step === "questionSkip" ||
+        state.step === "questionBack" ||
+        state.step === "changeGroup"
+      ) {
+        return;
+      }
+      hideTourUi();
     },
 
-    /** 結果頁顯示 */
+    /** 結果頁顯示（同一輪引導只開一次；刷新推薦勿從頭重播） */
     onResultsReady: function () {
       if (!state.active) return;
+      if (state.resultsTourStarted) return;
+
+      state.resultsTourStarted = true;
       clearTimers();
       hideTourUi();
 
