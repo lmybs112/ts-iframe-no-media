@@ -1255,6 +1255,11 @@
               if (hasEnoughData) {
                 $(`#${containerId} .embeddedAdContainer`).show();
                 updatePopAd(jsonData);
+                if (containerId === "hot-sale" && typeof IntroTour !== "undefined") {
+                  window.requestAnimationFrame(function () {
+                    IntroTour.onIntroHotSaleReady();
+                  });
+                }
               }
               applyIntroDisplay({
                 prefer: introMode,

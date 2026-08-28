@@ -1,6 +1,6 @@
 /**
  * iframe 內多步驟遮罩引導（intro_mode 為 v1 / v2 時啟用）
- * 步驟：intro → 問答選標籤 → 返回／略過箭頭 →（可選）換一組 → 結果頁 → 點商品 →（可選）釘選 → 刷新推薦 → 再玩一次
+ * 步驟：intro（v2 先 introHotSale）→ 問答選標籤 → …
  */
 (function (global) {
   "use strict";
@@ -25,10 +25,12 @@
     questionTimer: null,
     resultsTimer: null,
     resultsTourStarted: false,
+    introHotSaleSeen: false,
   };
 
   var STEP_COPY = {
     intro: "點「開始」進入個人化選購",
+    introHotSale: "熱銷排行商品可以點擊查看詳情",
     question: "選一個最符合你的選項",
     questionBack: "上方左箭頭可以返回上一題",
     questionSkip: "上方右箭頭或右下方「略過」都可以略過這一題",
@@ -135,6 +137,7 @@
   /** 文案要求「點 X」的步驟：點目標等同「知道了」／關閉該步 */
   var TARGET_CLICK_STEPS = {
     intro: true,
+    introHotSale: true,
     changeGroup: true,
     questionBack: true,
     questionSkip: true,
@@ -165,6 +168,9 @@
     var step = state.step;
     if (step === "intro") {
       return !!el.closest("#start-button");
+    }
+    if (step === "introHotSale") {
+      return !!el.closest("#hot-sale .embeddedItem");
     }
     if (step === "changeGroup") {
       return !!el.closest(".change-group-btn");
@@ -210,6 +216,11 @@
       hideTourUi();
       return;
     }
+    if (state.step === "introHotSale") {
+      state.introHotSaleSeen = true;
+      showStep("intro");
+      return;
+    }
     if (state.step === "changeGroup") {
       state.changeGroupTourDone = true;
       hideTourUi();
@@ -252,6 +263,9 @@
   function getTargetForStep(step) {
     if (step === "intro") {
       return document.querySelector("#start-button");
+    }
+    if (step === "introHotSale") {
+      return getIntroHotSaleTourTarget();
     }
     if (step === "question") {
       var container = getVisibleQuestionContainer();
@@ -354,6 +368,48 @@
       document.querySelector("#container-recom .axd_selection a.update_delete") ||
       document.querySelector("#container-recom .axd_selection");
     return area || null;
+  }
+
+  /** v2 專屬資訊：熱銷排行商品列 */
+  function getIntroHotSaleTourTarget() {
+    var hotSale = document.getElementById("hot-sale");
+    if (!hotSale || !isTourTargetVisible(hotSale)) return null;
+    var items = hotSale.querySelectorAll(".embeddedItem");
+    if (!items.length) return null;
+
+    var minL = Infinity;
+    var minT = Infinity;
+    var maxR = -Infinity;
+    var maxB = -Infinity;
+    var found = false;
+    for (var i = 0; i < items.length; i++) {
+      var rect = items[i].getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) continue;
+      found = true;
+      minL = Math.min(minL, rect.left);
+      minT = Math.min(minT, rect.top);
+      maxR = Math.max(maxR, rect.right);
+      maxB = Math.max(maxB, rect.bottom);
+    }
+    if (!found) {
+      var container = hotSale.querySelector(".embeddedAdContainer");
+      return container && isTourTargetVisible(container) ? container : null;
+    }
+
+    var proxy = items[0];
+    proxy.__introTourUnionRect = {
+      left: minL,
+      top: minT,
+      width: maxR - minL,
+      height: maxB - minT,
+      right: maxR,
+      bottom: maxB,
+    };
+    return proxy;
+  }
+
+  function isIntroHotSaleTargetReady() {
+    return !!getIntroHotSaleTourTarget();
   }
 
   /** 釘選引導：涵蓋可見圖釘區域；無釘選鈕則回 null（v1 會跳過） */
@@ -463,7 +519,7 @@
 
     if (!target) {
       spotlight.hidden = true;
-      if (state.step === "changeGroup") {
+      if (state.step === "changeGroup" || state.step === "introHotSale") {
         hideTourUi();
         return;
       }
@@ -547,8 +603,12 @@
   function showStep(step) {
     if (!state.active) return;
 
-    // 換一組按鈕尚未露出時不顯示引導卡（避免只有文案、無高亮）
+    // 換一組／熱銷排行按鈕尚未露出時不顯示引導卡
     if (step === "changeGroup" && !isChangeGroupTargetReady()) {
+      hideTourUi();
+      return;
+    }
+    if (step === "introHotSale" && !isIntroHotSaleTargetReady()) {
       hideTourUi();
       return;
     }
@@ -634,6 +694,15 @@
     state.changeGroupTourDone = false;
     state.pendingChangeGroupRoute = null;
     state.resultsTourStarted = false;
+    state.introHotSaleSeen = false;
+  }
+
+  function showFirstIntroStep() {
+    if (state.introMode === "v2" && !state.introHotSaleSeen && isIntroHotSaleTargetReady()) {
+      showStep("introHotSale");
+      return;
+    }
+    showStep("intro");
   }
 
   function startTour(options) {
@@ -650,12 +719,17 @@
     resetSessionFlags();
     state.active = true;
     notifyParentTourActive(true);
-    showStep("intro");
+    showFirstIntroStep();
   }
 
   function onNextClick() {
     if (!state.active) return;
 
+    if (state.step === "introHotSale") {
+      state.introHotSaleSeen = true;
+      showStep("intro");
+      return;
+    }
     if (state.step === "question") {
       state.questionTourDone = true;
       return advanceAfterQuestionSelect();
@@ -819,11 +893,21 @@
     /** intro 版面就緒（showIntroSimple / showIntroAdvanced 後） */
     onIntroPageReady: function () {
       if (!shouldRun()) return;
-      if (state.active && state.step === "intro") {
+      if (state.active && (state.step === "intro" || state.step === "introHotSale")) {
         scheduleLayout();
         return;
       }
       startTour();
+    },
+
+    /** v2 熱銷排行商品載入完成 */
+    onIntroHotSaleReady: function () {
+      if (!state.active || state.introHotSaleSeen) return;
+      if (state.introMode !== "v2") return;
+      if (!isIntroHotSaleTargetReady()) return;
+      if (state.step === "intro" || !state.step) {
+        showStep("introHotSale");
+      }
     },
 
     /** 使用者點 intro「開始」 */
