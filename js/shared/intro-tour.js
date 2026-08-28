@@ -75,6 +75,7 @@
     root.className = "intro-tour";
     root.hidden = true;
     root.innerHTML =
+      '<div class="intro-tour__blocker"></div>' +
       '<div class="intro-tour__spotlight" hidden></div>' +
       '<div class="intro-tour__spotlight intro-tour__spotlight--secondary" hidden></div>' +
       '<div class="intro-tour__card" hidden>' +
@@ -85,6 +86,16 @@
       "  </div>" +
       "</div>";
     document.body.appendChild(root);
+
+    var blocker = root.querySelector(".intro-tour__blocker");
+    if (blocker) {
+      function swallowMaskPointer(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      blocker.addEventListener("click", swallowMaskPointer, true);
+      blocker.addEventListener("touchend", swallowMaskPointer, true);
+    }
 
     var skipBtn = root.querySelector(".intro-tour__btn--skip");
     var nextBtn = root.querySelector(".intro-tour__btn--next");
@@ -380,23 +391,54 @@
     return null;
   }
 
+  function updateBlockerClip(blocker, holeRects) {
+    if (!blocker) return;
+    if (!holeRects || !holeRects.length) {
+      blocker.style.clipPath = "none";
+      blocker.style.webkitClipPath = "none";
+      return;
+    }
+    var w = global.innerWidth;
+    var h = global.innerHeight;
+    var parts =
+      "polygon(evenodd, 0px 0px, " + w + "px 0px, " + w + "px " + h + "px, 0px " + h + "px";
+    for (var i = 0; i < holeRects.length; i++) {
+      var r = holeRects[i];
+      var right = r.left + r.width;
+      var bottom = r.top + r.height;
+      parts += ", " + r.left + "px " + r.top + "px";
+      parts += ", " + right + "px " + r.top + "px";
+      parts += ", " + right + "px " + bottom + "px";
+      parts += ", " + r.left + "px " + bottom + "px";
+    }
+    parts += ")";
+    blocker.style.clipPath = parts;
+    blocker.style.webkitClipPath = parts;
+  }
+
   function updateLayout() {
     var root = getRoot();
     if (!root || root.hidden || !state.step) return;
 
     var target = getTargetForStep(state.step);
+    var blocker = root.querySelector(".intro-tour__blocker");
     var spotlight = root.querySelector(".intro-tour__spotlight:not(.intro-tour__spotlight--secondary)");
     var spotlight2 = root.querySelector(".intro-tour__spotlight--secondary");
     var card = root.querySelector(".intro-tour__card");
     if (!spotlight || !card) return;
 
+    if (blocker) blocker.hidden = false;
+
     if (spotlight2) spotlight2.hidden = true;
+
+    var holeRects = [];
 
     if (!target) {
       spotlight.hidden = true;
       card.style.left = "50%";
       card.style.top = "50%";
       card.style.transform = "translate(-50%, -50%)";
+      updateBlockerClip(blocker, []);
       return;
     }
 
@@ -405,27 +447,42 @@
       : target.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) {
       spotlight.hidden = true;
+      updateBlockerClip(blocker, []);
       return;
     }
 
+    var sl = rect.left - PAD;
+    var st = rect.top - PAD;
+    var sw = rect.width + PAD * 2;
+    var sh = rect.height + PAD * 2;
+
     spotlight.hidden = false;
-    spotlight.style.top = rect.top - PAD + "px";
-    spotlight.style.left = rect.left - PAD + "px";
-    spotlight.style.width = rect.width + PAD * 2 + "px";
-    spotlight.style.height = rect.height + PAD * 2 + "px";
+    spotlight.style.top = st + "px";
+    spotlight.style.left = sl + "px";
+    spotlight.style.width = sw + "px";
+    spotlight.style.height = sh + "px";
+
+    holeRects.push({ left: sl, top: st, width: sw, height: sh });
 
     // 略過步驟：同時標出右下方「略過」
     if (state.step === "questionSkip" && spotlight2) {
       var skipParts = getQuestionSkipTargets();
       if (skipParts.secondary && isTourTargetVisible(skipParts.secondary)) {
         var rect2 = skipParts.secondary.getBoundingClientRect();
+        var s2l = rect2.left - PAD;
+        var s2t = rect2.top - PAD;
+        var s2w = rect2.width + PAD * 2;
+        var s2h = rect2.height + PAD * 2;
         spotlight2.hidden = false;
-        spotlight2.style.top = rect2.top - PAD + "px";
-        spotlight2.style.left = rect2.left - PAD + "px";
-        spotlight2.style.width = rect2.width + PAD * 2 + "px";
-        spotlight2.style.height = rect2.height + PAD * 2 + "px";
+        spotlight2.style.top = s2t + "px";
+        spotlight2.style.left = s2l + "px";
+        spotlight2.style.width = s2w + "px";
+        spotlight2.style.height = s2h + "px";
+        holeRects.push({ left: s2l, top: s2t, width: s2w, height: s2h });
       }
     }
+
+    updateBlockerClip(blocker, holeRects);
 
     var cardRect = card.getBoundingClientRect();
     var cardWidth = cardRect.width || 240;

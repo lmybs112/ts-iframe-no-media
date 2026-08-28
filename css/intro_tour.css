@@ -8,6 +8,13 @@
 .intro-tour[hidden] {
   display: none !important;
 }
+.intro-tour__blocker {
+  position: fixed;
+  inset: 0;
+  z-index: 1999999979;
+  pointer-events: auto;
+  background: transparent;
+}
 .intro-tour__spotlight {
   position: fixed;
   z-index: 1999999981;
