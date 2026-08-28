@@ -336,6 +336,14 @@
     return parts.primary || null;
   }
 
+  /** 問答題目文字（tag-desc-container） */
+  function getQuestionTitleTarget() {
+    var container = getVisibleQuestionContainer();
+    if (!container) return null;
+    var title = container.querySelector(".tag-desc-container");
+    return isTourTargetVisible(title) ? title : null;
+  }
+
   function getQuestionSkipTargets() {
     var container = getVisibleQuestionContainer();
     if (!container) return { primary: null, secondary: null };
@@ -551,6 +559,24 @@
     spotlight.style.height = sh + "px";
 
     holeRects.push({ left: sl, top: st, width: sw, height: sh });
+
+    // 選標籤步驟：同時標出上方題目文字
+    if (state.step === "question" && spotlight2) {
+      var titleEl = getQuestionTitleTarget();
+      if (titleEl) {
+        var rectTitle = titleEl.getBoundingClientRect();
+        var ttl = rectTitle.left - PAD;
+        var ttt = rectTitle.top - PAD;
+        var ttw = rectTitle.width + PAD * 2;
+        var tth = rectTitle.height + PAD * 2;
+        spotlight2.hidden = false;
+        spotlight2.style.top = ttt + "px";
+        spotlight2.style.left = ttl + "px";
+        spotlight2.style.width = ttw + "px";
+        spotlight2.style.height = tth + "px";
+        holeRects.push({ left: ttl, top: ttt, width: ttw, height: tth });
+      }
+    }
 
     // 略過步驟：同時標出右下方「略過」
     if (state.step === "questionSkip" && spotlight2) {
