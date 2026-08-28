@@ -268,13 +268,7 @@
       return getIntroHotSaleTourTarget();
     }
     if (step === "question") {
-      var container = getVisibleQuestionContainer();
-      if (!container) return null;
-      return (
-        container.querySelector(".axd_selections.selection") ||
-        container.querySelector(".selection_scroll") ||
-        container.querySelector(".axd_selection")
-      );
+      return getQuestionTourTarget();
     }
     if (step === "questionBack") {
       return getQuestionBackArrowTarget();
@@ -336,12 +330,53 @@
     return parts.primary || null;
   }
 
-  /** 問答題目文字（tag-desc-container） */
-  function getQuestionTitleTarget() {
+  /** 選標籤引導：題目 + 選項合併為單一高亮區 */
+  function getQuestionTourTarget() {
     var container = getVisibleQuestionContainer();
     if (!container) return null;
+
+    var parts = [];
     var title = container.querySelector(".tag-desc-container");
-    return isTourTargetVisible(title) ? title : null;
+    if (isTourTargetVisible(title)) parts.push(title);
+
+    var selections =
+      container.querySelector(".axd_selections.selection") ||
+      container.querySelector(".selection_scroll .axd_selections") ||
+      container.querySelector(".axd_selection");
+    if (isTourTargetVisible(selections)) parts.push(selections);
+
+    if (!parts.length) {
+      var scroll = container.querySelector(".selection_scroll");
+      return isTourTargetVisible(scroll) ? scroll : null;
+    }
+
+    if (parts.length === 1) {
+      delete parts[0].__introTourUnionRect;
+      return parts[0];
+    }
+
+    var minL = Infinity;
+    var minT = Infinity;
+    var maxR = -Infinity;
+    var maxB = -Infinity;
+    for (var i = 0; i < parts.length; i++) {
+      var r = parts[i].getBoundingClientRect();
+      minL = Math.min(minL, r.left);
+      minT = Math.min(minT, r.top);
+      maxR = Math.max(maxR, r.right);
+      maxB = Math.max(maxB, r.bottom);
+    }
+
+    var proxy = parts[0];
+    proxy.__introTourUnionRect = {
+      left: minL,
+      top: minT,
+      width: maxR - minL,
+      height: maxB - minT,
+      right: maxR,
+      bottom: maxB,
+    };
+    return proxy;
   }
 
   function getQuestionSkipTargets() {
@@ -524,6 +559,13 @@
     if (spotlight2) spotlight2.hidden = true;
 
     var holeRects = [];
+    var isQuestionStep = state.step === "question";
+    var padX = isQuestionStep ? 14 : PAD;
+    var padY = isQuestionStep ? 16 : PAD;
+
+    if (spotlight) {
+      spotlight.classList.toggle("intro-tour__spotlight--question", isQuestionStep);
+    }
 
     if (!target) {
       spotlight.hidden = true;
@@ -547,10 +589,10 @@
       return;
     }
 
-    var sl = rect.left - PAD;
-    var st = rect.top - PAD;
-    var sw = rect.width + PAD * 2;
-    var sh = rect.height + PAD * 2;
+    var sl = rect.left - padX;
+    var st = rect.top - padY;
+    var sw = rect.width + padX * 2;
+    var sh = rect.height + padY * 2;
 
     spotlight.hidden = false;
     spotlight.style.top = st + "px";
@@ -559,24 +601,6 @@
     spotlight.style.height = sh + "px";
 
     holeRects.push({ left: sl, top: st, width: sw, height: sh });
-
-    // 選標籤步驟：同時標出上方題目文字
-    if (state.step === "question" && spotlight2) {
-      var titleEl = getQuestionTitleTarget();
-      if (titleEl) {
-        var rectTitle = titleEl.getBoundingClientRect();
-        var ttl = rectTitle.left - PAD;
-        var ttt = rectTitle.top - PAD;
-        var ttw = rectTitle.width + PAD * 2;
-        var tth = rectTitle.height + PAD * 2;
-        spotlight2.hidden = false;
-        spotlight2.style.top = ttt + "px";
-        spotlight2.style.left = ttl + "px";
-        spotlight2.style.width = ttw + "px";
-        spotlight2.style.height = tth + "px";
-        holeRects.push({ left: ttl, top: ttt, width: ttw, height: tth });
-      }
-    }
 
     // 略過步驟：同時標出右下方「略過」
     if (state.step === "questionSkip" && spotlight2) {
@@ -602,14 +626,25 @@
     var cardWidth = cardRect.width || 240;
     var cardHeight = cardRect.height || 100;
     var gap = 12;
-    // 僅「選標籤」固定下方，避免擋住標題；箭頭／換一組仍貼近目標
-    var pinCardToBottom = state.step === "question";
+    var pinCardToBottom = isQuestionStep;
 
     var top;
     var left = rect.left + rect.width / 2 - cardWidth / 2;
 
     if (pinCardToBottom) {
-      top = global.innerHeight - cardHeight - 24;
+      var spotlightBottom = st + sh;
+      var marginBottom = 20;
+      var preferredTop = spotlightBottom + gap;
+      if (preferredTop + cardHeight + marginBottom <= global.innerHeight) {
+        top = preferredTop;
+      } else {
+        var preferredAbove = st - cardHeight - gap;
+        if (preferredAbove >= 12) {
+          top = preferredAbove;
+        } else {
+          top = global.innerHeight - cardHeight - marginBottom;
+        }
+      }
       left = (global.innerWidth - cardWidth) / 2;
     } else {
       top = rect.top - cardHeight - gap;

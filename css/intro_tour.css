@@ -15,23 +15,30 @@
   pointer-events: auto;
   background: transparent;
 }
+.intro-tour__spotlight[hidden] {
+  display: none !important;
+}
 .intro-tour__spotlight {
   position: fixed;
   z-index: 1999999981;
   border-radius: 12px;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
   pointer-events: none;
-  transition: top 0.2s ease, left 0.2s ease, width 0.2s ease, height 0.2s ease;
+  transition: top 0.22s ease, left 0.22s ease, width 0.22s ease, height 0.22s ease;
 }
-.intro-tour__spotlight[hidden] {
-  display: none !important;
+.intro-tour__spotlight--question {
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 9999px rgba(0, 0, 0, 0.48),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 /* 第二高亮：僅描邊，避免雙重遮罩把中間區域挖成大洞 */
 .intro-tour__spotlight--secondary {
   box-shadow: none;
-  outline: 2px solid #ffffff;
-  outline-offset: 2px;
+  outline: 1px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 3px;
   background: transparent;
+  border-radius: 10px;
 }
 .intro-tour__card {
   position: fixed;
