@@ -24,6 +24,7 @@
     questionTimer: null,
     resultsTimer: null,
     resultsTourStarted: false,
+  };
 
   var STEP_COPY = {
     intro: "點「開始」進入個人化選購",
