@@ -262,7 +262,7 @@
       if (!qContainer) return null;
       var btn = qContainer.querySelector(".change-group-btn");
       if (!btn || btn.classList.contains("change-group-btn--hidden")) return null;
-      return btn;
+      return isTourTargetVisible(btn) ? btn : null;
     }
     if (step === "results") {
       return (
@@ -416,6 +416,23 @@
     blocker.style.webkitClipPath = parts;
   }
 
+  function hasChangeGroupFeatureOnCurrentQuestion() {
+    var qContainer = getVisibleQuestionContainer();
+    if (!qContainer) return false;
+    return !!qContainer.querySelector(".change-group-btn");
+  }
+
+  function isChangeGroupTargetReady() {
+    return !!getTargetForStep("changeGroup");
+  }
+
+  function tryShowChangeGroupStep() {
+    if (!state.active || state.changeGroupTourDone) return false;
+    if (!isChangeGroupTargetReady()) return false;
+    showStep("changeGroup");
+    return true;
+  }
+
   function updateLayout() {
     var root = getRoot();
     if (!root || root.hidden || !state.step) return;
@@ -435,6 +452,10 @@
 
     if (!target) {
       spotlight.hidden = true;
+      if (state.step === "changeGroup") {
+        hideTourUi();
+        return;
+      }
       card.style.left = "50%";
       card.style.top = "50%";
       card.style.transform = "translate(-50%, -50%)";
@@ -514,6 +535,12 @@
 
   function showStep(step) {
     if (!state.active) return;
+
+    // 換一組按鈕尚未露出時不顯示引導卡（避免只有文案、無高亮）
+    if (step === "changeGroup" && !isChangeGroupTargetReady()) {
+      hideTourUi();
+      return;
+    }
 
     ensureDom();
     var root = getRoot();
@@ -671,8 +698,12 @@
   }
 
   function advanceAfterQuestionSkip() {
-    if (!state.changeGroupTourDone && getTargetForStep("changeGroup")) {
+    if (!state.changeGroupTourDone && isChangeGroupTargetReady()) {
       showStep("changeGroup");
+      return;
+    }
+    if (!state.changeGroupTourDone && hasChangeGroupFeatureOnCurrentQuestion()) {
+      hideTourUi();
       return;
     }
     hideTourUi();
@@ -692,8 +723,12 @@
     }
     state.questionSkipSeen = true;
 
-    if (!state.changeGroupTourDone && getTargetForStep("changeGroup")) {
+    if (!state.changeGroupTourDone && isChangeGroupTargetReady()) {
       showStep("changeGroup");
+      return true;
+    }
+    if (!state.changeGroupTourDone && hasChangeGroupFeatureOnCurrentQuestion()) {
+      hideTourUi();
       return true;
     }
     hideTourUi();
@@ -787,6 +822,11 @@
 
       maybeShowChangeGroupStep(routeKey);
 
+      // 換頁後若換一組鈕尚未就緒，收起引導避免空提示框
+      if (state.step === "changeGroup" && !isChangeGroupTargetReady()) {
+        hideTourUi();
+      }
+
       if (state.questionTimer) {
         clearTimeout(state.questionTimer);
       }
@@ -808,16 +848,14 @@
       }, 500);
     },
 
-    /** 換一組按鈕剛顯示時（可選 hook） */
+    /** 換一組按鈕剛顯示時（iframe showChangeGroupBtn 呼叫） */
     onChangeGroupRevealed: function (routeKey) {
       if (!state.active || state.changeGroupTourDone) return;
       maybeShowChangeGroupStep(routeKey);
-      // 若正卡在換一組步驟等待按鈕出現，補顯示
-      if (state.questionTourDone && state.questionBackSeen && state.questionSkipSeen) {
-        if (!state.step && getTargetForStep("changeGroup")) {
-          showStep("changeGroup");
-        }
+      if (!state.questionTourDone || !state.questionBackSeen || !state.questionSkipSeen) {
+        return;
       }
+      tryShowChangeGroupStep();
     },
 
     /** 使用者點「換一組試試」：結束此步，避免按鈕隱藏後引導框仍留著 */

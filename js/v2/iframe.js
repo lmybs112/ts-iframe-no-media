@@ -1508,6 +1508,9 @@ function showChangeGroupBtn(target, delayMs = CHANGE_GROUP_BTN_DELAY_MS) {
     if (!canShowChangeGroupBtn(target)) return;
     const btn = document.querySelector(`#container-${target} .change-group-btn`);
     if (btn) btn.classList.remove("change-group-btn--hidden");
+    if (typeof IntroTour !== "undefined") {
+      IntroTour.onChangeGroupRevealed(target);
+    }
   }, delayMs);
 }
 
