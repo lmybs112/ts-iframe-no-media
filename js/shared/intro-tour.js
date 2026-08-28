@@ -12,6 +12,7 @@
     enabled: false,
     featureEnabled: false,
     introModeOk: false,
+    introMode: null,
     active: false,
     forced: false,
     step: null,
@@ -38,6 +39,16 @@
     resultsRefresh: "點「刷新推薦」可換一批商品；已釘選的會保留",
     resultsStartover: "想重新體驗？點這裡再玩一次",
   };
+
+  function getStepCopy(step) {
+    if (step === "intro") {
+      if (state.introMode === "v2") {
+        return "點「個人化購物」開始體驗";
+      }
+      return STEP_COPY.intro;
+    }
+    return STEP_COPY[step] || "";
+  }
 
   function isDismissedStored() {
     try {
@@ -552,7 +563,7 @@
     state.step = step;
     root.hidden = false;
     card.hidden = false;
-    text.textContent = STEP_COPY[step] || "";
+    text.textContent = getStepCopy(step) || "";
 
     if (step === "intro") {
       if (nextBtn) nextBtn.hidden = true;
@@ -765,11 +776,18 @@
 
   global.IntroTour = {
     setIntroModeEnabled: function (mode, featureEnabled) {
-      state.introModeOk = mode === "v1" || mode === "v2";
+      state.introMode = mode === "v1" || mode === "v2" ? mode : null;
+      state.introModeOk = state.introMode !== null;
       if (typeof featureEnabled !== "undefined") {
         state.featureEnabled = !!featureEnabled;
       }
       refreshEnabled();
+      if (state.active && state.step === "intro") {
+        var root = getRoot();
+        var textEl = root && root.querySelector(".intro-tour__text");
+        if (textEl) textEl.textContent = getStepCopy("intro");
+        scheduleLayout();
+      }
       if (!state.enabled && state.active) {
         dismissTour(false);
       }
