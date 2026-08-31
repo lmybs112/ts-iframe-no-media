@@ -26,6 +26,7 @@
     resultsTimer: null,
     resultsTourStarted: false,
     introHotSaleSeen: false,
+    introReadyTimer: null,
   };
 
   var STEP_COPY = {
@@ -314,6 +315,50 @@
     return rect.width >= 1 && rect.height >= 1;
   }
 
+  /** 含父層 opacity / display（intro 淡入完成前不算就緒） */
+  function isElementVisibleInDom(el) {
+    if (!el || !isTourTargetVisible(el)) return false;
+    var node = el;
+    while (node && node !== document.documentElement) {
+      var style = global.getComputedStyle(node);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+      if (parseFloat(style.opacity) < 0.01) return false;
+      node = node.parentElement;
+    }
+    return true;
+  }
+
+  function isIntroStartTargetReady() {
+    var btn = document.getElementById("start-button");
+    return isElementVisibleInDom(btn);
+  }
+
+  function waitForIntroStartButton(callback) {
+    if (state.introReadyTimer) {
+      clearTimeout(state.introReadyTimer);
+      state.introReadyTimer = null;
+    }
+    var attempts = 0;
+    var maxAttempts = 80;
+
+    function tick() {
+      if (!state.active) return;
+      if (isIntroStartTargetReady()) {
+        state.introReadyTimer = null;
+        if (typeof callback === "function") callback();
+        return;
+      }
+      attempts += 1;
+      if (attempts >= maxAttempts) {
+        state.introReadyTimer = null;
+        return;
+      }
+      state.introReadyTimer = global.setTimeout(tick, 100);
+    }
+
+    tick();
+  }
+
   /** 上方左箭頭：返回上一題（或回 intro） */
   function getQuestionBackArrowTarget() {
     var container = getVisibleQuestionContainer();
@@ -569,8 +614,17 @@
 
     if (!target) {
       spotlight.hidden = true;
-      if (state.step === "changeGroup" || state.step === "introHotSale") {
-        hideTourUi();
+      if (state.step === "changeGroup" || state.step === "introHotSale" || state.step === "intro") {
+        var pendingIntro = state.step === "intro";
+        hideTourPanel();
+        if (pendingIntro && state.active) {
+          waitForIntroStartButton(function () {
+            if (!state.active) return;
+            showStep("intro");
+          });
+        } else {
+          state.step = null;
+        }
         return;
       }
       card.style.left = "50%";
@@ -673,6 +727,15 @@
       hideTourUi();
       return;
     }
+    if (step === "intro" && !isIntroStartTargetReady()) {
+      state.step = "intro";
+      hideTourPanel();
+      waitForIntroStartButton(function () {
+        if (!state.active) return;
+        showStep("intro");
+      });
+      return;
+    }
 
     ensureDom();
     var root = getRoot();
@@ -698,7 +761,7 @@
     });
   }
 
-  function hideTourUi() {
+  function hideTourPanel() {
     var root = getRoot();
     if (!root) return;
     root.hidden = true;
@@ -708,6 +771,10 @@
     if (spotlight) spotlight.hidden = true;
     if (spotlight2) spotlight2.hidden = true;
     if (card) card.hidden = true;
+  }
+
+  function hideTourUi() {
+    hideTourPanel();
     state.step = null;
   }
 
@@ -723,6 +790,10 @@
     if (state.resultsTimer) {
       clearTimeout(state.resultsTimer);
       state.resultsTimer = null;
+    }
+    if (state.introReadyTimer) {
+      clearTimeout(state.introReadyTimer);
+      state.introReadyTimer = null;
     }
   }
 
@@ -955,6 +1026,13 @@
     onIntroPageReady: function () {
       if (!shouldRun()) return;
       if (state.active && (state.step === "intro" || state.step === "introHotSale")) {
+        if (state.step === "intro" && !isIntroStartTargetReady()) {
+          waitForIntroStartButton(function () {
+            if (!state.active) return;
+            showStep("intro");
+          });
+          return;
+        }
         scheduleLayout();
         return;
       }
