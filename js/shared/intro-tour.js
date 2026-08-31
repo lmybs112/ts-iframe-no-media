@@ -45,12 +45,27 @@
 
   function getStepCopy(step) {
     if (step === "intro") {
-      if (state.introMode === "v2") {
+      if (isIntroAdvancedUi()) {
         return "點「個人化購物」開始體驗";
       }
       return STEP_COPY.intro;
     }
     return STEP_COPY[step] || "";
+  }
+
+  /** 依實際 intro 版面（非僅 intro_mode 選項）判斷是否為 v2 專屬資訊頁 */
+  function isIntroAdvancedUi() {
+    var simple = document.getElementById("intro-content-simple");
+    if (simple && isElementVisibleInDom(simple)) return false;
+
+    var advanced = document.getElementById("intro-content-advanced");
+    if (advanced && isElementVisibleInDom(advanced)) return true;
+
+    var btn = document.getElementById("start-button");
+    if (btn && isElementVisibleInDom(btn)) {
+      return (btn.textContent || "").indexOf("個人化購物") >= 0;
+    }
+    return false;
   }
 
   function isDismissedStored() {
@@ -599,6 +614,11 @@
     var card = root.querySelector(".intro-tour__card");
     if (!spotlight || !card) return;
 
+    if (state.step === "intro") {
+      var introTextEl = root.querySelector(".intro-tour__text");
+      if (introTextEl) introTextEl.textContent = getStepCopy("intro") || "";
+    }
+
     if (blocker) blocker.hidden = false;
 
     if (spotlight2) spotlight2.hidden = true;
@@ -830,7 +850,11 @@
   }
 
   function showFirstIntroStep() {
-    if (state.introMode === "v2" && !state.introHotSaleSeen && isIntroHotSaleTargetReady()) {
+    if (
+      isIntroAdvancedUi()
+      && !state.introHotSaleSeen
+      && isIntroHotSaleTargetReady()
+    ) {
       showStep("introHotSale");
       return;
     }
@@ -1042,7 +1066,7 @@
     /** v2 熱銷排行商品載入完成 */
     onIntroHotSaleReady: function () {
       if (!state.active || state.introHotSaleSeen) return;
-      if (state.introMode !== "v2") return;
+      if (!isIntroAdvancedUi()) return;
       if (!isIntroHotSaleTargetReady()) return;
       if (state.step === "intro" || !state.step) {
         showStep("introHotSale");
