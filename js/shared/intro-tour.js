@@ -300,10 +300,7 @@
       return isTourTargetVisible(btn) ? btn : null;
     }
     if (step === "results") {
-      return (
-        document.querySelector("#container-recom .c_header") ||
-        document.querySelector("#container-recom")
-      );
+      return getProductTourTarget() || document.querySelector("#container-recom");
     }
     if (step === "resultsProduct") {
       return getProductTourTarget();
@@ -462,15 +459,47 @@
     return { primary: null, secondary: null };
   }
 
-  /** 商品卡引導：涵蓋結果頁商品區 */
+  /** 商品卡引導：涵蓋結果頁中間商品區（三件／多件卡 union） */
   function getProductTourTarget() {
+    var cards = document.querySelectorAll(
+      "#container-recom .axd_selection.update_delete, #container-recom .reel-slot, #container-recom .axd_selection"
+    );
+    var minL = Infinity;
+    var minT = Infinity;
+    var maxR = -Infinity;
+    var maxB = -Infinity;
+    var found = false;
+    var proxy = null;
+    for (var i = 0; i < cards.length; i++) {
+      var el = cards[i];
+      if (!isTourTargetVisible(el)) continue;
+      var rect = el.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) continue;
+      found = true;
+      if (!proxy) proxy = el;
+      minL = Math.min(minL, rect.left);
+      minT = Math.min(minT, rect.top);
+      maxR = Math.max(maxR, rect.right);
+      maxB = Math.max(maxB, rect.bottom);
+    }
+    if (found && proxy) {
+      proxy.__introTourUnionRect = {
+        left: minL,
+        top: minT,
+        width: maxR - minL,
+        height: maxB - minT,
+        right: maxR,
+        bottom: maxB,
+      };
+      return proxy;
+    }
+
     var area =
       document.querySelector("#container-recom .axd_selections") ||
       document.querySelector("#container-recom .selection") ||
       document.querySelector("#container-recom .reel-link") ||
-      document.querySelector("#container-recom .axd_selection a.update_delete") ||
-      document.querySelector("#container-recom .axd_selection");
-    return area || null;
+      document.querySelector("#container-recom .axd_selection a.update_delete");
+    return area && isTourTargetVisible(area) ? area : null;
   }
 
   /** v2 專屬資訊：熱銷排行商品列 */
