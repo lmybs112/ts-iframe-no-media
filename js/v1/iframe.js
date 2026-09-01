@@ -24,6 +24,11 @@ function applyUiLang() {
   $(".change-group-btn__text").text(uiT("question.changeGroup"));
 }
 
+function localizeCouponText(text) {
+  if (text === "敬請期待") return uiT("coupon.comingSoon");
+  return text;
+}
+
 /** 產生訪客 id（與 embedded.js makeid 相同字元集） */
 function makeVisitorId(length) {
   var result = "";
@@ -762,10 +767,10 @@ const fetchCoupon = async () => {
   const currentData = responseData.find(item => item.Module === 'Personalized_Landing_Widget');
   // console.log('currentData', currentData)
   const data = currentData?.ConfigData?.Discount_Info || [{
-    Title: '敬請期待',
-    Description: '敬請期待',
+    Title: uiT("coupon.comingSoon"),
+    Description: uiT("coupon.comingSoon"),
     TimeValid: null,
-    Code: '敬請期待',
+    Code: uiT("coupon.comingSoon"),
     status: false,
   }];
   if (data && data.length > 0) {}
@@ -795,9 +800,9 @@ const fetchCoupon = async () => {
                   </svg>
                 </div>
                 <div class="intro-coupon-modal__content-container-content-text">
-                  <p>${item.Title}</p>
+                  <p>${localizeCouponText(item.Title)}</p>
                   <div class="intro-coupon-modal__content-container-content-footer">
-                    <p>${item.Description}</p>
+                    <p>${localizeCouponText(item.Description)}</p>
                     <button class="intro-coupon-modal__btn--coupon intro-coupon-modal__btn--coupon--disabled">領取</button>
                   </div>
                 </div>
@@ -819,7 +824,7 @@ const fetchCoupon = async () => {
                   color: #666;
                   border-radius: 8px;
                 ">
-                  敬請期待
+                  ${uiT("coupon.comingSoon")}
                 </div>
               </div>
         `;
