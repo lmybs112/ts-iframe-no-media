@@ -48,42 +48,7 @@
       "tour.gotIt": "知道了",
     },
     en: {
-      "loading.text": "Finding great picks for you…",
-      "recommend.title": "Picked for you",
-      "recommend.desc": "Based on your preferences, here are our top picks.",
-      "recommend.descFallback": "No exact matches — here are popular picks for you.",
-      "recommend.titleMore": "More picks for you",
-      "recommend.descMore": "Items you might also like",
-      "recommend.titleFallback": "You might like",
-      "recommend.refresh": "Refresh picks",
-      "intro.exclusiveInfo": "For you",
-      "intro.hotSale": "Best sellers",
-      "intro.coupon": "Offers",
-      "intro.journey": "Your journey",
-      "intro.footerDefault": "Start your personalized shopping journey",
-      "intro.personalShop": "Personalized shop",
-      "intro.simpleTitle": "Start your tailored shopping journey",
-      "intro.start": "Start",
-      "intro.privacy":
-        'By using this service, you agree to infFITS <a href="https://inffits.com/Privacy.html" target="_blank">Privacy Policy</a> and <a href="https://inffits.com/Terms.html" target="_blank">Terms of Use</a>.',
-      "intro.reminder":
-        "You can skip some questions, but completing the flow helps us recommend more accurately.",
-      "question.skip": "Skip",
-      "question.changeGroup": "Try another set",
-      "coupon.notStarted": "Not started yet",
-      "tour.intro": 'Tap "Start" for personalized shopping',
-      "tour.introAdvanced": 'Tap "Personalized shop" to begin',
-      "tour.introHotSale": "Tap a best seller to view details",
-      "tour.question": "Choose the option that fits you best",
-      "tour.questionBack": "Use the top-left arrow to go back",
-      "tour.questionSkip": 'Use the top-right arrow or "Skip" below to skip',
-      "tour.changeGroup": "Not finding a match? Tap \"Try another set\"",
-      "tour.results": "Items picked for you — tap to view details",
-      "tour.resultsPin": "Pin items you like (multi-select); pins stay when you refresh",
-      "tour.resultsRefresh": 'Tap "Refresh picks" for new items; pinned ones stay',
-      "tour.resultsStartover": "Want to start over? Tap here",
-      "tour.skip": "Skip",
-      "tour.gotIt": "Got it",
+      "loading.text": "Curating the perfect picks for you…", "recommend.title": "Picked Just for You", "recommend.desc": "Curated based on your preferences.", "recommend.descFallback": "No exact matches found — here are some popular picks you may like.", "recommend.titleMore": "More Picks for You", "recommend.descMore": "More items you might love", "recommend.titleFallback": "You Might Like", "recommend.refresh": "Refresh Picks", "intro.exclusiveInfo": "Personalized Picks", "intro.hotSale": "Best Sellers", "intro.coupon": "Special Offers", "intro.journey": "Your Shopping Journey", "intro.footerDefault": "Start Your Personalized Shopping Journey", "intro.personalShop": "Personalized Shopping", "intro.simpleTitle": "Start Your Personalized Shopping Journey", "intro.start": "Start", "intro.privacy": 'By using this service, you agree to the infFITS <a href="https://inffits.com/Privacy.html" target="_blank">Privacy Policy</a> and <a href="https://inffits.com/Terms.html" target="_blank">Terms of Use</a>.', "intro.reminder": "You can skip some questions, but completing the full experience helps us make more accurate recommendations.", "question.skip": "Skip", "question.changeGroup": "Try Another Set", "coupon.notStarted": "Not Started", "tour.intro": 'Tap "Start" to begin your personalized shopping experience', "tour.introAdvanced": 'Tap "Personalized Shopping" to get started', "tour.introHotSale": "Tap a best seller to view its details", "tour.question": "Choose the option that best matches you", "tour.questionBack": "Tap the arrow in the top-left to go back", "tour.questionSkip": 'Tap the top-right arrow or "Skip" below to skip this question', "tour.changeGroup": 'Can’t find what you like? Tap "Try Another Set"', "tour.results": "These picks are curated based on your choices. Tap an item to view its details", "tour.resultsPin": "Tap the pin to save your favorites. You can select multiple items, and your picks will stay when you refresh", "tour.resultsRefresh": 'Tap "Refresh Picks" to discover a new selection. Your saved picks will stay', "tour.resultsStartover": "Want to start over? Tap here to try again", "tour.skip": "Skip", "tour.gotIt": "Got It",
     },
   };
 
@@ -111,7 +76,7 @@
     try {
       document.documentElement.lang =
         currentLang === "en" ? "en" : "zh-Hant";
-    } catch (_) {}
+    } catch (_) { }
     return currentLang;
   }
 
@@ -150,7 +115,7 @@
       if (global.IntroTour && typeof global.IntroTour.refreshUiCopy === "function") {
         global.IntroTour.refreshUiCopy();
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   function initFromReady() {

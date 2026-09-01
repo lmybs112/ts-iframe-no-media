@@ -30,34 +30,26 @@
   };
 
   var STEP_COPY = {
-    intro: "tour.intro",
-    introHotSale: "tour.introHotSale",
-    question: "tour.question",
-    questionBack: "tour.questionBack",
-    questionSkip: "tour.questionSkip",
-    changeGroup: "tour.changeGroup",
-    results: "tour.results",
-    resultsPin: "tour.resultsPin",
-    resultsRefresh: "tour.resultsRefresh",
-    resultsStartover: "tour.resultsStartover",
+    intro: "點「開始」進入個人化選購",
+    introHotSale: "熱銷排行商品可以點擊查看詳情",
+    question: "選一個最符合你的選項",
+    questionBack: "上方左箭頭可以返回上一題",
+    questionSkip: "上方右箭頭或右下方「略過」都可以略過這一題",
+    changeGroup: "沒找到心儀選項？可以「換一組試試」",
+    results: "這是依你的選擇精選的商品，點商品可查看詳情",
+    resultsPin: "點圖釘可釘選喜歡的商品（可多選），刷新時會保留",
+    resultsRefresh: "點「刷新推薦」可換一批商品；已釘選的會保留",
+    resultsStartover: "想重新體驗？點這裡再玩一次",
   };
-
-  function translate(key) {
-    if (global.NoMediaI18n && typeof global.NoMediaI18n.t === "function") {
-      return global.NoMediaI18n.t(key);
-    }
-    return key;
-  }
 
   function getStepCopy(step) {
     if (step === "intro") {
       if (isIntroAdvancedUi()) {
-        return translate("tour.introAdvanced");
+        return "點「個人化購物」開始體驗";
       }
-      return translate("tour.intro");
+      return STEP_COPY.intro;
     }
-    var copyKey = STEP_COPY[step];
-    return copyKey ? translate(copyKey) : "";
+    return STEP_COPY[step] || "";
   }
 
   /** 依實際 intro 版面（非僅 intro_mode 選項）判斷是否為 v2 專屬資訊頁 */
@@ -70,7 +62,7 @@
 
     var btn = document.getElementById("start-button");
     if (btn && isElementVisibleInDom(btn)) {
-      return btn.getAttribute("data-intro-variant") === "advanced";
+      return (btn.textContent || "").indexOf("個人化購物") >= 0;
     }
     return false;
   }
@@ -117,12 +109,11 @@
       '<div class="intro-tour__card" hidden>' +
       '  <p class="intro-tour__text"></p>' +
       '  <div class="intro-tour__actions">' +
-      '    <button type="button" class="intro-tour__btn intro-tour__btn--skip"></button>' +
-      '    <button type="button" class="intro-tour__btn intro-tour__btn--next"></button>' +
+      '    <button type="button" class="intro-tour__btn intro-tour__btn--skip">略過</button>' +
+      '    <button type="button" class="intro-tour__btn intro-tour__btn--next">知道了</button>' +
       "  </div>" +
       "</div>";
     document.body.appendChild(root);
-    refreshUiCopy();
 
     var blocker = root.querySelector(".intro-tour__blocker");
     if (blocker) {
@@ -1031,19 +1022,6 @@
     state.pendingChangeGroupRoute = String(routeKey || "").replaceAll(/[\s\.]/g, "");
   }
 
-  function refreshUiCopy() {
-    var root = document.getElementById("intro-tour-root");
-    if (!root) return;
-    var skipBtn = root.querySelector(".intro-tour__btn--skip");
-    var nextBtn = root.querySelector(".intro-tour__btn--next");
-    if (skipBtn) skipBtn.textContent = translate("tour.skip");
-    if (nextBtn) nextBtn.textContent = translate("tour.gotIt");
-    if (state.active && state.step) {
-      var textEl = root.querySelector(".intro-tour__text");
-      if (textEl) textEl.textContent = getStepCopy(state.step);
-    }
-  }
-
   global.IntroTour = {
     setIntroModeEnabled: function (mode, featureEnabled) {
       state.introMode = mode === "v1" || mode === "v2" ? mode : null;
@@ -1081,8 +1059,6 @@
     dismiss: function (persist) {
       dismissTour(persist !== false);
     },
-
-    refreshUiCopy: refreshUiCopy,
 
     isActive: function () {
       return state.active;
