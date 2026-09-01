@@ -36,8 +36,7 @@
     questionBack: "上方左箭頭可以返回上一題",
     questionSkip: "上方右箭頭或右下方「略過」都可以略過這一題",
     changeGroup: "沒找到心儀選項？可以「換一組試試」",
-    results: "這是依你的選擇精選的商品",
-    resultsProduct: "點商品可以開啟商品頁查看詳情",
+    results: "這是依你的選擇精選的商品，點商品可查看詳情",
     resultsPin: "點圖釘可釘選喜歡的商品（可多選），刷新時會保留",
     resultsRefresh: "點「刷新推薦」可換一批商品；已釘選的會保留",
     resultsStartover: "想重新體驗？點這裡再玩一次",
@@ -157,7 +156,7 @@
     changeGroup: true,
     questionBack: true,
     questionSkip: true,
-    resultsProduct: true,
+    results: true,
     resultsPin: true,
     resultsRefresh: true,
     resultsStartover: true,
@@ -205,7 +204,7 @@
       }
       return false;
     }
-    if (step === "resultsProduct") {
+    if (step === "results") {
       return !!(
         el.closest("#container-recom .reel-link") ||
         el.closest("#container-recom .axd_selection a") ||
@@ -252,7 +251,7 @@
       state.questionSkipSeen = true;
       return advanceAfterQuestionSkip();
     }
-    if (state.step === "resultsProduct") {
+    if (state.step === "results") {
       return advanceAfterResultsProduct();
     }
     if (state.step === "resultsPin") {
@@ -301,9 +300,6 @@
     }
     if (step === "results") {
       return getProductTourTarget() || document.querySelector("#container-recom");
-    }
-    if (step === "resultsProduct") {
-      return getProductTourTarget();
     }
     if (step === "resultsPin") {
       return getPinTourTarget();
@@ -933,13 +929,6 @@
       return;
     }
     if (state.step === "results") {
-      if (getTargetForStep("resultsProduct")) {
-        showStep("resultsProduct");
-        return;
-      }
-      return advanceAfterResultsProduct();
-    }
-    if (state.step === "resultsProduct") {
       return advanceAfterResultsProduct();
     }
     if (state.step === "resultsPin") {
