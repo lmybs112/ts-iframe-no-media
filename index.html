@@ -137,6 +137,17 @@
           <label for="intro-mode-v2" style="margin-left: 6px; cursor: pointer;">v2 專屬資訊</label>
         </div>
       </div>
+      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid #e8e8e8;">
+        <p style="font-size: 0.95em; font-weight: 600; color: #333; margin: 0 0 8px 0;">lang</p>
+        <div style="margin-bottom: 6px;">
+          <input type="radio" id="ui-lang-zh" name="ui-lang" value="zh-TW" checked />
+          <label for="ui-lang-zh" style="margin-left: 6px; cursor: pointer;">zh-TW（繁體中文）</label>
+        </div>
+        <div style="margin-bottom: 6px;">
+          <input type="radio" id="ui-lang-en" name="ui-lang" value="en" />
+          <label for="ui-lang-en" style="margin-left: 6px; cursor: pointer;">en（English）</label>
+        </div>
+      </div>
       <div style="margin-top: 12px;">
         <label style="font-size: 0.95em; font-weight: 600; color: #333; cursor: pointer;">
           <input type="checkbox" id="use-route-linked-tags" style="margin-right: 6px;" />
@@ -408,7 +419,7 @@
           // 初始化自訂欄位的可見性
           $('input[name="param-option"]:checked').trigger("change");
 
-          const recreateIframe = (id, brand, introMode, useRouteLinkedTags, showOriginPrice) => {
+          const recreateIframe = (id, brand, introMode, useRouteLinkedTags, showOriginPrice, uiLang) => {
             const oldIframe = document.getElementById("inffits_tryon_window");
             if (oldIframe) {
               oldIframe.remove();
@@ -444,6 +455,9 @@
               if (introMode === "v1" || introMode === "v2") {
                 iframe_preview_obj.intro_mode = introMode;
               }
+              if (uiLang) {
+                iframe_preview_obj.lang = uiLang;
+              }
               iframe_container.postMessage(iframe_preview_obj, "*");
             };
 
@@ -475,7 +489,8 @@
               ":checked"
             );
             const showOriginPrice = $("#show-origin-price").is(":checked");
-            recreateIframe(id, brand, introMode, useRouteLinkedTags, showOriginPrice);
+            const uiLang = $('input[name="ui-lang"]:checked').val() || "zh-TW";
+            recreateIframe(id, brand, introMode, useRouteLinkedTags, showOriginPrice, uiLang);
           });
 
           // Initial load

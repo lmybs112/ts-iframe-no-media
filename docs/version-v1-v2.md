@@ -95,6 +95,7 @@ css/
 | `brand` / `id`（Route） | 品牌與路線 |
 | `MRID` / `GVID` / `LGVID` | 會員／訪客識別 |
 | `intro_mode` | `v1` 簡化開始頁／`v2` 專屬資訊／省略則原規則 |
+| `lang` | UI 語系：`zh-TW`（預設）／`en`；父頁 `from_preview` 傳入，重新開始會沿用 |
 | `enable_guide` | `true` 才啟用 iframe 內多步驟遮罩引導（預設關閉；需搭配 `intro_mode`） |
 | `use_route_linked_tags` | 是否依 `RouteLinkedTags` 過濾下一題 |
 | `show_origin_price` | 結果是否顯示原價（來源限制見下註） |

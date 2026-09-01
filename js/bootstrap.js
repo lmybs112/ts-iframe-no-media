@@ -36,6 +36,7 @@
 
   // 共用 GA（必須在 iframe / embedded 之前）
   writeScript("js/shared/ga.js");
+  writeScript("js/shared/i18n.js");
   writeStylesheet("css/intro_tour.css");
   writeScript("js/shared/intro-tour.js");
 

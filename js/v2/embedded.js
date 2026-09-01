@@ -1309,6 +1309,11 @@
         }
 
         function showIntroSimple() {
+          function uiT(key) {
+            return window.NoMediaI18n && typeof window.NoMediaI18n.t === "function"
+              ? window.NoMediaI18n.t(key)
+              : key;
+          }
           // 若已是 simple 則不重插
           if ($("#intro-content-simple").length) {
             $("#intro-content-advanced").remove();
@@ -1326,9 +1331,9 @@
                               <div class="intro-logo intro-modal__logo">
                                 <img src="img/start-animation.gif" alt="start animation" loading="lazy" />
                               </div>
-                              <p class="intro-modal__title">開啟精準購物之旅</p>
+                              <p class="intro-modal__title" data-i18n="intro.simpleTitle">${uiT("intro.simpleTitle")}</p>
                               <button id="start-button" class="intro-modal__btn--start">
-                                <div>開始</div>
+                                <div data-i18n="intro.start">${uiT("intro.start")}</div>
                                 <img
                                   src="img/start-arrow.svg"
                                   alt="start arrow"
@@ -1339,24 +1344,13 @@
                                 <div class="intro-modal__icon--inffits">
                                   <div class="icon-inffits"></div>
                                   <div class="text-inffits">
-                                    <p>
-                                      使用本服務，即代表您同意 infFITS
-                                      <a href="https://inffits.com/Privacy.html" target="_blank"
-                                        >隱私權聲明</a
-                                      >
-                                      及
-                                      <a href="https://inffits.com/Terms.html" target="_blank"
-                                        >使用條款</a
-                                      >。
-                                    </p>
+                                    <p data-i18n-html="intro.privacy">${uiT("intro.privacy")}</p>
                                   </div>
                                 </div>
                                 <div class="intro-modal__icon--reminder">
                                   <div class="icon-reminder"></div>
                                   <div class="text-reminder">
-                                    <p>
-                                      您可以跳過部分提問，但我們建議完成整個選購流程，推薦結果將更精準。
-                                    </p>
+                                    <p data-i18n="intro.reminder">${uiT("intro.reminder")}</p>
                                   </div>
                                 </div>
                               </div>

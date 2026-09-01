@@ -116,6 +116,20 @@ var useRouteLinkedTags = false;
 /** intro 版面：null=原規則；"v1"=簡化開始頁；"v2"=專屬資訊（資料不足時回退原規則） */
 var introMode = null;
 var utmParams = NoMediaGa.defaultUtm();
+
+function uiT(key) {
+  return typeof NoMediaI18n !== "undefined" ? NoMediaI18n.t(key) : key;
+}
+
+/** 依目前 lang 更新靜態／動態 UI 文案 */
+function applyUiLang() {
+  if (typeof NoMediaI18n === "undefined") return;
+  NoMediaI18n.applyDynamicUi();
+  $("#recommend-btn").text(uiT("recommend.refresh"));
+  $("a.skip").text(uiT("question.skip"));
+  $(".change-group-btn__text").text(uiT("question.changeGroup"));
+}
+
 var SpecifyTags = [];
 var SpecifyKeywords = [];
 var themeBackgroundImages = [];
@@ -526,9 +540,9 @@ const getEmbedded = async () => {
       Item: formatItems,
     };
 
-    $("#recommend-title").text("猜你可能喜歡");
-    $("#recommend-desc").text("目前無符合結果，推薦熱門商品給你。");
-    $("#recommend-btn").text("刷新推薦");
+    $("#recommend-title").text(uiT("recommend.titleFallback"));
+    $("#recommend-desc").text(uiT("recommend.descFallback"));
+    $("#recommend-btn").text(uiT("recommend.refresh"));
     show_results(formatData);
   } catch (err) {
     $("#startover").click();
@@ -1304,7 +1318,7 @@ const fetchCoupon = async () => {
           let buttonHtml = '';
           if (startDate && currentDate < startDate) {
             // 尚未開始
-            buttonHtml = '<button class="intro-coupon-modal__btn--coupon intro-coupon-modal__btn--coupon--disabled">尚未開始</button>';
+            buttonHtml = '<button class="intro-coupon-modal__btn--coupon intro-coupon-modal__btn--coupon--disabled">' + uiT("coupon.notStarted") + "</button>";
           } else if (endDate && currentDate > endDate) {
             // 已結束
             buttonHtml = '<button class="intro-coupon-modal__btn--coupon intro-coupon-modal__btn--coupon--disabled">已結束</button>';
@@ -2095,7 +2109,7 @@ const fetchData = async () => {
     })();
     const formatTagGroupMap = (() => {
       const product = obj?.Product;
-      $("#intro-coupon-modal__footer-content-text").text(product?.Name || "開啟個人化購物之旅");
+      $("#intro-coupon-modal__footer-content-text").text(product?.Name || uiT("intro.footerDefault"));
 
       const order = Array.isArray(product?.TagGroups_order)
         ? product.TagGroups_order
@@ -2249,7 +2263,7 @@ const fetchData = async () => {
                 <path d="M2.8 8.3C2.8 5.2 5.3 2.8 8.4 2.8C10.6 2.8 12.5 4.2 13.4 6.2" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M15.2 9.7C15.2 12.8 12.7 15.2 9.6 15.2C7.4 15.2 5.5 13.8 4.6 11.8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              <span class="change-group-btn__text">換一組試試</span>
+              <span class="change-group-btn__text">${uiT("question.changeGroup")}</span>
             </div>
           `);
       }
@@ -2292,7 +2306,7 @@ const fetchData = async () => {
                          <div class="pagination-${r.replaceAll(/[\s\.]/g, "")} pag-margin dot-btns" style="text-align: center; ">
                         </div>
                      <div class="con-footer">
-                        <a class='c-${r.replaceAll(/[\s\.]/g, "")} skip'>略過</a>
+                        <a class='c-${r.replaceAll(/[\s\.]/g, "")} skip'>${uiT("question.skip")}</a>
                      </div>
                        
                     </div>`
@@ -2636,6 +2650,7 @@ const fetchData = async () => {
                 show_origin_price: showOriginPrice,
                 use_route_linked_tags: useRouteLinkedTags,
                 intro_mode: introMode,
+                lang: typeof NoMediaI18n !== "undefined" ? NoMediaI18n.getLang() : "zh-TW",
                 utm_source: utmParams.utm_source,
                 utm_medium: utmParams.utm_medium,
                 utm_campaign: utmParams.utm_campaign,
@@ -2752,9 +2767,9 @@ $(document).on(tap, "#start-button", function () {
   if (typeof IntroTour !== "undefined") {
     IntroTour.notifyIntroStartClicked();
   }
-  $("#recommend-title").text("專屬商品推薦");
-  $("#recommend-desc").text("根據您的偏好，精選以下單品。"); // 使用淡入動畫
-  $("#recommend-btn").text("刷新推薦");
+  $("#recommend-title").text(uiT("recommend.title"));
+  $("#recommend-desc").text(uiT("recommend.desc")); // 使用淡入動畫
+  $("#recommend-btn").text(uiT("recommend.refresh"));
   
   // 檢查是否所有問題都已完成
   var INFS_ROUTE_ORDER = !isForPreview
@@ -2970,6 +2985,10 @@ window.addEventListener("message", async (event) => {
       }
     }
     utmParams = NoMediaGa.applyUtmFromPayload(event.data, utmParams);
+    if (Object.prototype.hasOwnProperty.call(event.data, "lang")) {
+      NoMediaI18n.setLang(event.data.lang);
+    }
+    applyUiLang();
     await Initial();
     await fetchData();
     await fetchCoupon();
