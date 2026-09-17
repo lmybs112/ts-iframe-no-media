@@ -83,6 +83,60 @@ let parentSelectionRestore = null;
 let useParentSelectionRestore = false;
 /** 避免連續 from_preview 互相踩踏 */
 let fromPreviewSeq = 0;
+/** 結果頁實際展示的商品（下次開啟要同一批） */
+let persistedResultPayload = null;
+/** 本輪是否已套用續選 UI（避免多題 init→bind 重複） */
+let resumeUiApplied = false;
+
+function isTagAnswered(routeKey) {
+  return !!(
+    tags_chosen[routeKey] &&
+    tags_chosen[routeKey].length > 0 &&
+    tags_chosen[routeKey][0].Name !== "example"
+  );
+}
+
+function findFirstIncompleteRouteIndex() {
+  if (!all_Route || !all_Route.length) return -1;
+  return all_Route.findIndex(function (route) {
+    return !isTagAnswered(String(route).replaceAll(/[\s\.]/g, ""));
+  });
+}
+
+/**
+ * 續選停在第一題未答題：只顯示該題、已答題僅標記選取，不模擬 click
+ * （模擬 click 會把流程打亂、容易回到介紹頁）
+ */
+function applyResumeQuestionUi() {
+  if (!useParentSelectionRestore) return false;
+  if (!tags_chosen || Object.keys(tags_chosen).length === 0) return false;
+  if (!all_Route || !all_Route.length) return false;
+
+  var firstIncomplete = findFirstIncompleteRouteIndex();
+  if (firstIncomplete < 0) return false;
+
+  $("#intro-page").hide();
+  $("#loadingbar_recom").hide();
+
+  all_Route.forEach(function (route, idx) {
+    var key = String(route).replaceAll(/[\s\.]/g, "");
+    var $box = $("#container-" + key);
+    if (idx === firstIncomplete) {
+      $box.show();
+      if (typeof startTypewriterEffect === "function") {
+        startTypewriterEffect(route);
+      }
+    } else {
+      $box.hide();
+    }
+    if (idx < firstIncomplete && isTagAnswered(key)) {
+      var preset = tags_chosen[key][0];
+      var tagIdClass = "tagId-" + preset.Tag;
+      $box.find(".c-" + key + "." + tagIdClass).addClass("tag-selected");
+    }
+  });
+  return true;
+}
 
 // ===== GA4：共用 js/shared/ga.js（前綴 no-media_）=====
 NoMediaGa.initNoMediaGa({
@@ -679,6 +733,23 @@ const show_results = (response, isFirst = false) => {
   } else if (finalitemCount >= 4) {
     // selectionContainer.classList.add("four-elements");
   }
+
+  // 記住本次實際展示的商品，供跨頁還原同一批
+  try {
+    persistedResultPayload = {
+      Item: finalitem
+        .map(function (i) {
+          return response.Item[i];
+        })
+        .filter(Boolean),
+    };
+    if (persistedResultPayload.Item.length > 0) {
+      firstResult = persistedResultPayload;
+      syncSelectionToParent("completed");
+    }
+  } catch (e) {
+    console.warn("persist result 失敗:", e);
+  }
 };
 
 function openDetailDialog (){
@@ -748,6 +819,7 @@ function syncSelectionToParent(status) {
         tagGroupsOrder: tagGroupsOrder,
         record: status === "cleared" ? {} : tags_chosen || {},
         pinned: {},
+        result: status === "cleared" ? null : persistedResultPayload,
         status: status,
       },
       "*"
@@ -765,9 +837,26 @@ function getParentOrLocalMatch(currentPath) {
         parentSelectionRestore.TagGroups_order || currentPath.TagGroups_order,
       Record: parentSelectionRestore.Record,
       Pinned: parentSelectionRestore.Pinned || {},
+      Result: parentSelectionRestore.Result || null,
     };
   }
   return null;
+}
+
+/** 有保存的結果商品則直接還原，不再重打推薦 API */
+function tryShowPersistedResults() {
+  var saved =
+    (parentSelectionRestore && parentSelectionRestore.Result) ||
+    persistedResultPayload;
+  if (!saved || !Array.isArray(saved.Item) || saved.Item.length === 0) {
+    return false;
+  }
+  $("#intro-page").hide();
+  $("#loadingbar_recom").hide();
+  firstResult = saved;
+  persistedResultPayload = saved;
+  show_results(saved, true);
+  return true;
 }
 
 // 深度比較函數（排除指定屬性）
@@ -1705,24 +1794,54 @@ const fetchData = async () => {
         if (!tags_chosen || Object.keys(tags_chosen).length === 0) {
           tags_chosen = match.Record;
         }
-        
-        // 檢查是否所有路由都有有效的選擇
-        const allRoutesCompleted = all_Route.every(route => {
-          const routeKey = route.replaceAll(/[\s\.]/g, "");
-          return tags_chosen[routeKey] && 
-                 tags_chosen[routeKey].length > 0 && 
-                 tags_chosen[routeKey][0].Name !== "example";
-        });
-        
+      }
+
+      // 父層續選：全答完 → 結果；未答完 → 停在該題（不模擬 click）
+      if (!suppressPresetResume && useParentSelectionRestore && !resumeUiApplied) {
+        const allRoutesCompleted =
+          all_Route &&
+          all_Route.length > 0 &&
+          all_Route.every(function (route) {
+            return isTagAnswered(String(route).replaceAll(/[\s\.]/g, ""));
+          });
         if (allRoutesCompleted) {
-          // 所有問題都已完成，直接跳到結果頁面
+          resumeUiApplied = true;
           $("#intro-page").hide();
-          const hasRes = document.querySelector("#container-recom .update_delete") !== null;
-          // 勿每次 bind 新建 throttle（多題 init 會重複觸發）；isFetching 中也不重入
+          const hasRes =
+            document.querySelector("#container-recom .update_delete") !== null;
           if (!hasRes && !isFetching) {
-            get_recom_res();
+            if (!tryShowPersistedResults()) {
+              get_recom_res();
+            }
           }
-          return; // 提前返回，不執行後續的 for 循環
+        } else if (applyResumeQuestionUi()) {
+          resumeUiApplied = true;
+        }
+      } else if (
+        match &&
+        !skipShowResult &&
+        !suppressPresetResume &&
+        !useParentSelectionRestore
+      ) {
+        const allRoutesCompleted = all_Route.every((route) => {
+          const routeKey = route.replaceAll(/[\s\.]/g, "");
+          return (
+            tags_chosen[routeKey] &&
+            tags_chosen[routeKey].length > 0 &&
+            tags_chosen[routeKey][0].Name !== "example"
+          );
+        });
+
+        if (allRoutesCompleted) {
+          $("#intro-page").hide();
+          const hasRes =
+            document.querySelector("#container-recom .update_delete") !== null;
+          if (!hasRes && !isFetching) {
+            if (!tryShowPersistedResults()) {
+              get_recom_res();
+            }
+          }
+          return;
         }
       }
       
@@ -1758,9 +1877,12 @@ const fetchData = async () => {
                                       tags_chosen[currentRoute].length > 0 && 
                                       tags_chosen[currentRoute][0].Name !== "example";
           
+          // 僅非父層續選的舊路徑才自動 click 推進；父層續選已用 applyResumeQuestionUi
           if (
-            (Object.keys(tags_chosen).length > 0 && !isForPreview) ||
-            (Object.keys(tags_chosen).length > 0 && !isForReferral)
+            !suppressPresetResume &&
+            !useParentSelectionRestore &&
+            ((Object.keys(tags_chosen).length > 0 && !isForPreview) ||
+            (Object.keys(tags_chosen).length > 0 && !isForReferral))
           ) {
             if (currentRouteCompleted) {
               // 如果當前路由已完成，跳過顯示，直接觸發點擊
@@ -2107,12 +2229,14 @@ $(document).on(tap, "#start-button", function () {
     });
     
     if (allRoutesCompleted) {
-      // 所有問題都已完成，直接跳到結果頁面
+      // 所有問題都已完成：優先還原已保存的同一批商品
       $("#intro-page").hide();
       tags_chosen = savedTags;
       const hasRes = document.querySelector("#container-recom .update_delete") !== null;
       if (!hasRes && !isFetching) {
-        get_recom_res();
+        if (!tryShowPersistedResults()) {
+          get_recom_res();
+        }
       }
       return; // 提前返回，不顯示第一個問題
     }
@@ -2303,6 +2427,8 @@ $("#startover").on(tap, function () {
   syncSelectionToParent("cleared");
   parentSelectionRestore = null;
   useParentSelectionRestore = false;
+  persistedResultPayload = null;
+  resumeUiApplied = false;
   $("#loadingbar_recom").hide();
   Initial();
   reset();
@@ -2316,6 +2442,7 @@ const Initial = () => {
 
   tags_chosen = {};
   isFirst = true;
+  resumeUiApplied = false;
 };
 
 window.addEventListener("message", async (event) => {
@@ -2356,9 +2483,14 @@ window.addEventListener("message", async (event) => {
     ) {
       parentSelectionRestore = event.data.selection_restore;
       useParentSelectionRestore = true;
+      resumeUiApplied = false;
+      if (parentSelectionRestore.Result) {
+        persistedResultPayload = parentSelectionRestore.Result;
+      }
     } else {
       parentSelectionRestore = null;
       useParentSelectionRestore = false;
+      resumeUiApplied = false;
     }
     applyUiLang();
     await Initial();
@@ -2368,13 +2500,29 @@ window.addEventListener("message", async (event) => {
     await fetchCoupon();
     if (previewSeq !== fromPreviewSeq) return;
 
-    // 有父層續選且已有 Record 時，不要再淡入介紹頁（結果頁可能仍在非同步載入）
+    // 有父層續選且已有 Record 時，不要再淡入介紹頁；並再保險套一次題目定位
     if (
       useParentSelectionRestore &&
       tags_chosen &&
       Object.keys(tags_chosen).length > 0
     ) {
       $("#intro-page").hide();
+      if (!resumeUiApplied) {
+        const allDone =
+          all_Route &&
+          all_Route.length > 0 &&
+          all_Route.every(function (route) {
+            return isTagAnswered(String(route).replaceAll(/[\s\.]/g, ""));
+          });
+        if (allDone) {
+          resumeUiApplied = true;
+          if (!tryShowPersistedResults() && !isFetching) {
+            get_recom_res();
+          }
+        } else if (applyResumeQuestionUi()) {
+          resumeUiApplied = true;
+        }
+      }
     } else {
       $("#intro-page").fadeIn(800);
     }

@@ -268,6 +268,9 @@
                 TagGroups_order: data.tagGroupsOrder || [],
                 Record: data.record || {},
                 Pinned: data.pinned || {},
+                Result: Object.prototype.hasOwnProperty.call(data, "result")
+                  ? data.result
+                  : data.Result || null,
               };
               if (data.status === "cleared") {
                 var o = readArr(orderKey);
@@ -540,6 +543,7 @@
                     TagGroups_order: found.TagGroups_order || [],
                     Record: found.Record || {},
                     Pinned: found.Pinned || {},
+                    Result: found.Result || null,
                     status: order.some(function (it) {
                       return it && String(it.Route) === String(id);
                     })
