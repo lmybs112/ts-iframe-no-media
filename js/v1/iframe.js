@@ -2361,7 +2361,16 @@ window.addEventListener("message", async (event) => {
     await fetchData();
     await fetchCoupon();
 
-    $("#intro-page").fadeIn(800);
+    // 有父層續選且已有 Record 時，不要再淡入介紹頁（結果頁可能仍在非同步載入）
+    if (
+      useParentSelectionRestore &&
+      tags_chosen &&
+      Object.keys(tags_chosen).length > 0
+    ) {
+      $("#intro-page").hide();
+    } else {
+      $("#intro-page").fadeIn(800);
+    }
   }
 
   if (event.data && event.data.header == "parent_start_intro") {
