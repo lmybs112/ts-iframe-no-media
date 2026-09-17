@@ -388,8 +388,7 @@ const get_recom_res = () => {
       );
     }
   }
-  syncSelectionToParent("completed");
-  // tags_chosen = {};
+  // 尚未有 Result 前勿送 completed，避免多頁簽把結果洗成空
 
   fetch(
     "https://ldiusfc4ib.execute-api.ap-northeast-1.amazonaws.com/v0/extension/recom_product",
@@ -1075,6 +1074,10 @@ $(document).on("click", "#container-recom .reel-link", function () {
 });
 
 const show_results = async (response, isFirst = false) => {
+  const restoreMode =
+    isFirst && typeof isFirst === "object" ? !!isFirst.restore : false;
+  const isFirstFlag = typeof isFirst === "object" ? true : !!isFirst;
+
   let pools = normalizeCapsulePools(response);
   let cats = Object.keys(pools);
   let total = cats.reduce(function (sum, c) {
@@ -1087,11 +1090,11 @@ const show_results = async (response, isFirst = false) => {
     return;
   }
 
-  // 任一分類為空：用第二支推薦 API 補齊；仍空則不顯示該欄
+  // 還原模式：用保存的 pools，不再打補齊 API 以免換掉商品
   const hasEmpty = cats.some(function (c) {
     return !pools[c] || pools[c].length === 0;
   });
-  if (hasEmpty) {
+  if (hasEmpty && !restoreMode) {
     pools = await fillEmptyCapsulePools(pools);
     cats = Object.keys(pools);
     total = cats.reduce(function (sum, c) {
@@ -1117,15 +1120,15 @@ const show_results = async (response, isFirst = false) => {
   const restorePinned = pendingPinnedRestore || null;
   cats.forEach(function (cat) {
     nextIndex[cat] = 0;
-    if (isFirst && restorePinned) {
+    if ((isFirstFlag || restoreMode) && restorePinned) {
       nextPinned[cat] = !!restorePinned[cat];
     } else {
-      nextPinned[cat] = isFirst ? false : !!capsulePinned[cat];
+      nextPinned[cat] = isFirstFlag ? false : !!capsulePinned[cat];
     }
   });
   capsuleIndex = nextIndex;
   capsulePinned = nextPinned;
-  if (isFirst && restorePinned) {
+  if ((isFirstFlag || restoreMode) && restorePinned) {
     pendingPinnedRestore = null;
   }
 
@@ -1305,6 +1308,19 @@ function syncSelectionToParent(status) {
       Route ||
       "";
     if (!Brand || !routeId) return;
+    // completed 必須帶可還原結果，否則多頁簽會把 RES 洗成空
+    if (
+      status === "completed" &&
+      !(
+        persistedResultPayload &&
+        ((persistedResultPayload.pools &&
+          typeof persistedResultPayload.pools === "object") ||
+          (Array.isArray(persistedResultPayload.Item) &&
+            persistedResultPayload.Item.length > 0))
+      )
+    ) {
+      return;
+    }
     var tagGroupsOrder =
       (current_route_path && current_route_path.TagGroups_order) ||
       all_Route ||
@@ -1335,12 +1351,15 @@ function resolveSelectionProgressStatus() {
 }
 
 function getParentOrLocalMatch(currentPath) {
-  if (parentSelectionRestore && parentSelectionRestore.Record) {
+  if (
+    parentSelectionRestore &&
+    (parentSelectionRestore.Record || parentSelectionRestore.Result)
+  ) {
     return {
       Route: parentSelectionRestore.Route || currentPath.Route,
       TagGroups_order:
         parentSelectionRestore.TagGroups_order || currentPath.TagGroups_order,
-      Record: parentSelectionRestore.Record,
+      Record: parentSelectionRestore.Record || {},
       Pinned: parentSelectionRestore.Pinned || {},
       Result: parentSelectionRestore.Result || null,
     };
@@ -1367,7 +1386,7 @@ function tryShowPersistedResults() {
       pendingPinnedRestore = Object.assign({}, saved.pinned);
     }
     var fakeResponse = saved.response || { Item: saved.pools };
-    show_results(fakeResponse, true);
+    show_results(fakeResponse, { restore: true });
     return true;
   }
 
@@ -1377,7 +1396,7 @@ function tryShowPersistedResults() {
     $("#loadingbar_recom").hide();
     firstResult = saved;
     persistedResultPayload = saved;
-    show_results(saved, true);
+    show_results(saved, { restore: true });
     return true;
   }
   return false;

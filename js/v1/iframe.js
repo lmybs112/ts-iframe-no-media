@@ -304,8 +304,7 @@ const get_recom_res = () => {
       );
     }
   }
-  syncSelectionToParent("completed");
-  // tags_chosen = {};
+  // 尚未有 Result 前勿送 completed，避免多頁簽把結果洗成空
 
   fetch(
     "https://api.inffits.com/http_mkt_extensions_recom/recom_product",
@@ -585,6 +584,11 @@ const formatRecomPrice = (item) => {
 };
 
 const show_results = (response, isFirst = false) => {
+  // isFirst 可為 boolean，或 { restore: true }（還原已保存的同一批商品，不再重抽）
+  const restoreMode =
+    isFirst && typeof isFirst === "object" ? !!isFirst.restore : false;
+  const isFirstFlag = typeof isFirst === "object" ? true : !!isFirst;
+
   //只出現其中三個}
   const itemCount = response?.Item?.length || 0;
   // 如果項目數量小於 3，只顯示所有可用的項目
@@ -628,10 +632,14 @@ const show_results = (response, isFirst = false) => {
       IntroTour.onResultsReady();
     }
   }
-  // const finalitem = getRandomNumbers(itemCount - 1, 3);
-  const finalitem = isFirst
-    ? getTopCommonIndices()
-    : getRandomNumbers(itemCount, displayCount);
+  // 還原：依保存順序原樣展示；首次：COMMON 前三；換一批：隨機
+  const finalitem = restoreMode
+    ? Array.from({ length: displayCount }, function (_, i) {
+        return i;
+      })
+    : isFirstFlag
+      ? getTopCommonIndices()
+      : getRandomNumbers(itemCount, displayCount);
   // console.error("finalitem", finalitem);
   const finalitemCount = 3;
   resList = response.Item;
@@ -807,6 +815,17 @@ function syncSelectionToParent(status) {
       Route ||
       "";
     if (!Brand || !routeId) return;
+    // completed 必須帶可還原的商品，否則多頁簽會把 RES 洗成空結果
+    if (
+      status === "completed" &&
+      !(
+        persistedResultPayload &&
+        Array.isArray(persistedResultPayload.Item) &&
+        persistedResultPayload.Item.length > 0
+      )
+    ) {
+      return;
+    }
     var tagGroupsOrder =
       (current_route_path && current_route_path.TagGroups_order) ||
       all_Route ||
@@ -830,12 +849,15 @@ function syncSelectionToParent(status) {
 }
 
 function getParentOrLocalMatch(currentPath) {
-  if (parentSelectionRestore && parentSelectionRestore.Record) {
+  if (
+    parentSelectionRestore &&
+    (parentSelectionRestore.Record || parentSelectionRestore.Result)
+  ) {
     return {
       Route: parentSelectionRestore.Route || currentPath.Route,
       TagGroups_order:
         parentSelectionRestore.TagGroups_order || currentPath.TagGroups_order,
-      Record: parentSelectionRestore.Record,
+      Record: parentSelectionRestore.Record || {},
       Pinned: parentSelectionRestore.Pinned || {},
       Result: parentSelectionRestore.Result || null,
     };
@@ -843,7 +865,7 @@ function getParentOrLocalMatch(currentPath) {
   return null;
 }
 
-/** 有保存的結果商品則直接還原，不再重打推薦 API */
+/** 有保存的結果商品則直接還原，不再重打推薦 API、也不重抽三件 */
 function tryShowPersistedResults() {
   var saved =
     (parentSelectionRestore && parentSelectionRestore.Result) ||
@@ -855,7 +877,7 @@ function tryShowPersistedResults() {
   $("#loadingbar_recom").hide();
   firstResult = saved;
   persistedResultPayload = saved;
-  show_results(saved, true);
+  show_results(saved, { restore: true });
   return true;
 }
 
