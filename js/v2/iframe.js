@@ -155,6 +155,12 @@ let isForReferral = window.location.href
   .toLocaleLowerCase()
   .includes("referral");
 let firstResult = {};
+/** 父層 via from_preview.selection_restore 傳入的進度（同站續選） */
+let parentSelectionRestore = null;
+/** 結果頁釘選還原（show_results 時套用） */
+let pendingPinnedRestore = null;
+/** 本輪是否啟用父層還原（避免 isForPreview 清空 tags） */
+let useParentSelectionRestore = false;
 
 // ===== GA4：共用 js/shared/ga.js（前綴 no-media_v2_）=====
 NoMediaGa.initNoMediaGa({
@@ -325,6 +331,7 @@ const get_recom_res = () => {
       );
     }
   }
+  syncSelectionToParent("completed");
   // tags_chosen = {};
 
   fetch(
@@ -341,6 +348,7 @@ const get_recom_res = () => {
       window.parent.postMessage(messageData, "*");
       firstResult = response;
       await show_results(response, true);
+      syncSelectionToParent("completed");
       // }, 1500);
     })
     .catch(() => {})
@@ -961,6 +969,7 @@ function toggleCapsulePin(cat) {
     pinned: capsulePinned[cat],
   });
   recordReelUsage("Pin");
+  syncSelectionToParent(resolveSelectionProgressStatus());
 }
 
 // 釘選按鈕事件 (事件委託；button 在 <a> 之外，不會觸發跳轉)
@@ -1045,12 +1054,20 @@ const show_results = async (response, isFirst = false) => {
 
   const nextIndex = {};
   const nextPinned = {};
+  const restorePinned = pendingPinnedRestore || null;
   cats.forEach(function (cat) {
     nextIndex[cat] = 0;
-    nextPinned[cat] = isFirst ? false : !!capsulePinned[cat];
+    if (isFirst && restorePinned) {
+      nextPinned[cat] = !!restorePinned[cat];
+    } else {
+      nextPinned[cat] = isFirst ? false : !!capsulePinned[cat];
+    }
   });
   capsuleIndex = nextIndex;
   capsulePinned = nextPinned;
+  if (isFirst && restorePinned) {
+    pendingPinnedRestore = null;
+  }
 
   buildCapsuleReels();
 
@@ -1196,6 +1213,59 @@ function openDetailDialog (){
     };
     window.parent.postMessage(messageData, "*");
   }
+}
+
+/**
+ * 將選物進度／釘選同步給父層（父站 localStorage；各電商站互不干擾）
+ * @param {'in_progress'|'completed'|'cleared'} status
+ */
+function syncSelectionToParent(status) {
+  try {
+    var routeId =
+      (current_route_path && current_route_path.Route) ||
+      current_Route ||
+      Route ||
+      "";
+    if (!Brand || !routeId) return;
+    var tagGroupsOrder =
+      (current_route_path && current_route_path.TagGroups_order) ||
+      all_Route ||
+      [];
+    window.parent.postMessage(
+      {
+        type: "selection_progress",
+        brand: Brand,
+        route: routeId,
+        tagGroupsOrder: tagGroupsOrder,
+        record: status === "cleared" ? {} : tags_chosen || {},
+        pinned: status === "cleared" ? {} : Object.assign({}, capsulePinned || {}),
+        status: status,
+      },
+      "*"
+    );
+  } catch (e) {
+    console.warn("syncSelectionToParent 失敗:", e);
+  }
+}
+
+function resolveSelectionProgressStatus() {
+  try {
+    if ($("#container-recom").is(":visible")) return "completed";
+  } catch (_) {}
+  return "in_progress";
+}
+
+function getParentOrLocalMatch(currentPath) {
+  if (parentSelectionRestore && parentSelectionRestore.Record) {
+    return {
+      Route: parentSelectionRestore.Route || currentPath.Route,
+      TagGroups_order:
+        parentSelectionRestore.TagGroups_order || currentPath.TagGroups_order,
+      Record: parentSelectionRestore.Record,
+      Pinned: parentSelectionRestore.Pinned || {},
+    };
+  }
+  return null;
 }
 
 // 深度比較函數（排除指定屬性）
@@ -2143,29 +2213,33 @@ const fetchData = async () => {
       TagGroups_order: all_Route,
       Record: {},
     };
-    // 過濾相符的物件
+    // 過濾相符的物件（優先父層 selection_restore）
     let match;
-    if (isFirst && !isForPreview) {
+    if (isFirst) {
       isFirst = false;
-      match = INFS_ROUTE_RES.find((item) =>
-        deepEqualWithoutKey(item, current_route_path, ["Record"])
-      );
-      if (!match) {
-        match = INFS_ROUTE_ORDER.find((item) =>
+      match = getParentOrLocalMatch(current_route_path);
+      if (!match && !isForPreview) {
+        match = INFS_ROUTE_RES.find((item) =>
           deepEqualWithoutKey(item, current_route_path, ["Record"])
         );
+        if (!match) {
+          match = INFS_ROUTE_ORDER.find((item) =>
+            deepEqualWithoutKey(item, current_route_path, ["Record"])
+          );
+        }
       }
 
       if (match) {
-        tags_chosen = match.Record;
-      } else {
-        INFS_ROUTE_ORDER.push(current_route_path);
-        if (!isForPreview) {
-          localStorage.setItem(
-            `INFS_ROUTE_ORDER_${Brand}`,
-            JSON.stringify(INFS_ROUTE_ORDER)
-          );
+        tags_chosen = match.Record || {};
+        if (match.Pinned) {
+          pendingPinnedRestore = match.Pinned;
         }
+      } else if (!isForPreview) {
+        INFS_ROUTE_ORDER.push(current_route_path);
+        localStorage.setItem(
+          `INFS_ROUTE_ORDER_${Brand}`,
+          JSON.stringify(INFS_ROUTE_ORDER)
+        );
       }
     }
 
@@ -2372,13 +2446,20 @@ const fetchData = async () => {
       var INFS_ROUTE_ORDER = !isForPreview
         ? JSON.parse(localStorage.getItem(`INFS_ROUTE_ORDER_${Brand}`)) || []
         : [];
-      const match = INFS_ROUTE_ORDER.find((item) =>
-        deepEqualWithoutKey(item, current_route_path, ["Record"])
-      );
-      const skipShowResult = isForPreview || isForReferral;
+      const parentMatch = getParentOrLocalMatch(current_route_path);
+      const match =
+        parentMatch ||
+        INFS_ROUTE_ORDER.find((item) =>
+          deepEqualWithoutKey(item, current_route_path, ["Record"])
+        );
+      // 有父層還原時，即使 isForPreview 也要續選／直出結果
+      const skipShowResult =
+        isForReferral || (isForPreview && !useParentSelectionRestore);
       
       if (match && !skipShowResult && !suppressPresetResume) {
-        tags_chosen = match.Record;
+        if (!tags_chosen || Object.keys(tags_chosen).length === 0) {
+          tags_chosen = match.Record;
+        }
         
         // 檢查是否所有路由都有有效的選擇
         const allRoutesCompleted = all_Route.every(route => {
@@ -2409,11 +2490,20 @@ const fetchData = async () => {
             ? JSON.parse(localStorage.getItem(`INFS_ROUTE_ORDER_${Brand}`)) ||
               []
             : [];
-          const match = INFS_ROUTE_ORDER.find((item) =>
-            deepEqualWithoutKey(item, current_route_path, ["Record"])
-          );
-          const skipShowResult = isForPreview || isForReferral;
-          if (match && !skipShowResult && !suppressPresetResume) {
+          const parentMatchInner = getParentOrLocalMatch(current_route_path);
+          const match =
+            parentMatchInner ||
+            INFS_ROUTE_ORDER.find((item) =>
+              deepEqualWithoutKey(item, current_route_path, ["Record"])
+            );
+          const skipShowResult =
+            isForReferral || (isForPreview && !useParentSelectionRestore);
+          if (
+            match &&
+            !skipShowResult &&
+            !suppressPresetResume &&
+            (!tags_chosen || Object.keys(tags_chosen).length === 0)
+          ) {
             tags_chosen = match.Record;
           }
           if (skipShowResult) {
@@ -2515,6 +2605,7 @@ const fetchData = async () => {
                   JSON.stringify(INFS_ROUTE_ORDER)
                 );
               }
+              syncSelectionToParent("in_progress");
               // }
               if (fs == all_Route.length - 1) {
                 $("#container-" + currentRoute).hide();
@@ -2625,6 +2716,7 @@ const fetchData = async () => {
                   JSON.stringify(INFS_ROUTE_ORDER)
                 );
               }
+              syncSelectionToParent("in_progress");
             });
           $(`#container-${all_Route[fs].replaceAll(/[\s\.]/g, "")}-backarrow`)
             .off(mytap)
@@ -2777,14 +2869,17 @@ $(document).on(tap, "#start-button", function () {
   $("#recommend-btn").text(uiT("recommend.refresh"));
   
   // 檢查是否所有問題都已完成
+  var parentMatchStart = getParentOrLocalMatch(current_route_path);
   var INFS_ROUTE_ORDER = !isForPreview
     ? JSON.parse(localStorage.getItem(`INFS_ROUTE_ORDER_${Brand}`)) || []
     : [];
-  const match = INFS_ROUTE_ORDER.find((item) =>
-    deepEqualWithoutKey(item, current_route_path, ["Record"])
-  );
+  const match =
+    parentMatchStart ||
+    INFS_ROUTE_ORDER.find((item) =>
+      deepEqualWithoutKey(item, current_route_path, ["Record"])
+    );
   
-  if (match && !isForPreview && !isForReferral) {
+  if (match && (!isForPreview || useParentSelectionRestore) && !isForReferral) {
     const savedTags = match.Record;
     const allRoutesCompleted = all_Route.every(route => {
       const routeKey = route.replaceAll(/[\s\.]/g, "");
@@ -2948,6 +3043,11 @@ $("#startover").on(tap, function () {
   });
   recordReelUsage("Restart");
   usageRecomSentThisRound = false;
+  syncSelectionToParent("cleared");
+  parentSelectionRestore = null;
+  pendingPinnedRestore = null;
+  useParentSelectionRestore = false;
+  capsulePinned = {};
   $("#loadingbar_recom").hide();
   Initial();
   reset();
@@ -2960,6 +3060,7 @@ const Initial = () => {
 
   tags_chosen = {};
   usageRecomSentThisRound = false;
+  isFirst = true;
 };
 
 window.addEventListener("message", async (event) => {
@@ -2992,6 +3093,19 @@ window.addEventListener("message", async (event) => {
     utmParams = NoMediaGa.applyUtmFromPayload(event.data, utmParams);
     if (Object.prototype.hasOwnProperty.call(event.data, "lang")) {
       NoMediaI18n.setLang(event.data.lang);
+    }
+    // 父層續選進度（含釘選）
+    if (
+      event.data.selection_restore &&
+      typeof event.data.selection_restore === "object"
+    ) {
+      parentSelectionRestore = event.data.selection_restore;
+      pendingPinnedRestore = parentSelectionRestore.Pinned || null;
+      useParentSelectionRestore = true;
+    } else {
+      parentSelectionRestore = null;
+      pendingPinnedRestore = null;
+      useParentSelectionRestore = false;
     }
     applyUiLang();
     await Initial();

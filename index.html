@@ -241,6 +241,68 @@
               );
             }
           }
+          if (data.type === "selection_progress") {
+            try {
+              var brand = data.brand;
+              var routeId = data.route;
+              if (!brand || !routeId) return;
+              var orderKey = "INFS_ROUTE_ORDER_" + brand;
+              var resKey = "INFS_ROUTE_RES_" + brand;
+              function readArr(k) {
+                try {
+                  return JSON.parse(localStorage.getItem(k)) || [];
+                } catch (_) {
+                  return [];
+                }
+              }
+              function writeArr(k, arr) {
+                localStorage.setItem(k, JSON.stringify(arr || []));
+              }
+              function findIdx(arr, id) {
+                return arr.findIndex(function (it) {
+                  return it && String(it.Route) === String(id);
+                });
+              }
+              var item = {
+                Route: routeId,
+                TagGroups_order: data.tagGroupsOrder || [],
+                Record: data.record || {},
+                Pinned: data.pinned || {},
+              };
+              if (data.status === "cleared") {
+                var o = readArr(orderKey);
+                var r = readArr(resKey);
+                var oi = findIdx(o, routeId);
+                var ri = findIdx(r, routeId);
+                if (oi >= 0) o.splice(oi, 1);
+                if (ri >= 0) r.splice(ri, 1);
+                writeArr(orderKey, o);
+                writeArr(resKey, r);
+              } else if (data.status === "completed") {
+                var o2 = readArr(orderKey);
+                var r2 = readArr(resKey);
+                var oi2 = findIdx(o2, routeId);
+                if (oi2 >= 0) o2.splice(oi2, 1);
+                var ri2 = findIdx(r2, routeId);
+                if (ri2 >= 0) r2[ri2] = item;
+                else r2.push(item);
+                writeArr(orderKey, o2);
+                writeArr(resKey, r2);
+              } else {
+                var o3 = readArr(orderKey);
+                var r3 = readArr(resKey);
+                var ri3 = findIdx(r3, routeId);
+                if (ri3 >= 0) r3.splice(ri3, 1);
+                var oi3 = findIdx(o3, routeId);
+                if (oi3 >= 0) o3[oi3] = item;
+                else o3.push(item);
+                writeArr(orderKey, o3);
+                writeArr(resKey, r3);
+              }
+            } catch (e) {
+              console.warn("selection_progress 寫入失敗", e);
+            }
+          }
           if (data.type === "closeModal") {
             if (data.value) {
               $("#inffits_cblock--overlay").fadeOut();
@@ -458,6 +520,34 @@
               if (uiLang) {
                 iframe_preview_obj.lang = uiLang;
               }
+              try {
+                var orderKey = "INFS_ROUTE_ORDER_" + brand;
+                var resKey = "INFS_ROUTE_RES_" + brand;
+                var order =
+                  JSON.parse(localStorage.getItem(orderKey) || "[]") || [];
+                var res =
+                  JSON.parse(localStorage.getItem(resKey) || "[]") || [];
+                var found =
+                  order.find(function (it) {
+                    return it && String(it.Route) === String(id);
+                  }) ||
+                  res.find(function (it) {
+                    return it && String(it.Route) === String(id);
+                  });
+                if (found) {
+                  iframe_preview_obj.selection_restore = {
+                    Route: found.Route,
+                    TagGroups_order: found.TagGroups_order || [],
+                    Record: found.Record || {},
+                    Pinned: found.Pinned || {},
+                    status: order.some(function (it) {
+                      return it && String(it.Route) === String(id);
+                    })
+                      ? "in_progress"
+                      : "completed",
+                  };
+                }
+              } catch (_) {}
               iframe_container.postMessage(iframe_preview_obj, "*");
             };
 

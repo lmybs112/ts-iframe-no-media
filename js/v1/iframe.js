@@ -77,6 +77,10 @@ let isForReferral = window.location.href
   .toLocaleLowerCase()
   .includes("referral");
 let firstResult = {};
+/** 父層 via from_preview.selection_restore 傳入的進度（同站續選） */
+let parentSelectionRestore = null;
+/** 本輪是否啟用父層還原（避免 isForPreview 清空 tags） */
+let useParentSelectionRestore = false;
 
 // ===== GA4：共用 js/shared/ga.js（前綴 no-media_）=====
 NoMediaGa.initNoMediaGa({
@@ -244,6 +248,7 @@ const get_recom_res = () => {
       );
     }
   }
+  syncSelectionToParent("completed");
   // tags_chosen = {};
 
   fetch(
@@ -262,6 +267,7 @@ const get_recom_res = () => {
       // console.error("Message", response);
       firstResult = response;
       await show_results(response, true);
+      syncSelectionToParent("completed");
       // }, 1500);
     })
     .catch((err) => {
@@ -712,6 +718,52 @@ function buildContainerBackgroundImage(imageUrl) {
   const cssUrl = formatCssBackgroundUrl(imageUrl);
   if (!cssUrl) return "none";
   return `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), ${cssUrl}`;
+}
+
+/**
+ * 將選物進度同步給父層（父站 localStorage；各電商站互不干擾）
+ * @param {'in_progress'|'completed'|'cleared'} status
+ */
+function syncSelectionToParent(status) {
+  try {
+    var routeId =
+      (current_route_path && current_route_path.Route) ||
+      current_Route ||
+      Route ||
+      "";
+    if (!Brand || !routeId) return;
+    var tagGroupsOrder =
+      (current_route_path && current_route_path.TagGroups_order) ||
+      all_Route ||
+      [];
+    window.parent.postMessage(
+      {
+        type: "selection_progress",
+        brand: Brand,
+        route: routeId,
+        tagGroupsOrder: tagGroupsOrder,
+        record: status === "cleared" ? {} : tags_chosen || {},
+        pinned: {},
+        status: status,
+      },
+      "*"
+    );
+  } catch (e) {
+    console.warn("syncSelectionToParent 失敗:", e);
+  }
+}
+
+function getParentOrLocalMatch(currentPath) {
+  if (parentSelectionRestore && parentSelectionRestore.Record) {
+    return {
+      Route: parentSelectionRestore.Route || currentPath.Route,
+      TagGroups_order:
+        parentSelectionRestore.TagGroups_order || currentPath.TagGroups_order,
+      Record: parentSelectionRestore.Record,
+      Pinned: parentSelectionRestore.Pinned || {},
+    };
+  }
+  return null;
 }
 
 // 深度比較函數（排除指定屬性）
@@ -1404,29 +1456,30 @@ const fetchData = async () => {
       TagGroups_order: all_Route,
       Record: {},
     };
-    // 過濾相符的物件
+    // 過濾相符的物件（優先父層 selection_restore）
     let match;
-    if (isFirst && !isForPreview) {
+    if (isFirst) {
       isFirst = false;
-      match = INFS_ROUTE_RES.find((item) =>
-        deepEqualWithoutKey(item, current_route_path, ["Record"])
-      );
-      if (!match) {
-        match = INFS_ROUTE_ORDER.find((item) =>
+      match = getParentOrLocalMatch(current_route_path);
+      if (!match && !isForPreview) {
+        match = INFS_ROUTE_RES.find((item) =>
           deepEqualWithoutKey(item, current_route_path, ["Record"])
         );
+        if (!match) {
+          match = INFS_ROUTE_ORDER.find((item) =>
+            deepEqualWithoutKey(item, current_route_path, ["Record"])
+          );
+        }
       }
 
       if (match) {
-        tags_chosen = match.Record;
-      } else {
+        tags_chosen = match.Record || {};
+      } else if (!isForPreview) {
         INFS_ROUTE_ORDER.push(current_route_path);
-        if (!isForPreview) {
-          localStorage.setItem(
-            `INFS_ROUTE_ORDER_${Brand}`,
-            JSON.stringify(INFS_ROUTE_ORDER)
-          );
-        }
+        localStorage.setItem(
+          `INFS_ROUTE_ORDER_${Brand}`,
+          JSON.stringify(INFS_ROUTE_ORDER)
+        );
       }
     }
 
@@ -1635,13 +1688,19 @@ const fetchData = async () => {
       var INFS_ROUTE_ORDER = !isForPreview
         ? JSON.parse(localStorage.getItem(`INFS_ROUTE_ORDER_${Brand}`)) || []
         : [];
-      const match = INFS_ROUTE_ORDER.find((item) =>
-        deepEqualWithoutKey(item, current_route_path, ["Record"])
-      );
-      const skipShowResult = isForPreview || isForReferral;
+      const parentMatch = getParentOrLocalMatch(current_route_path);
+      const match =
+        parentMatch ||
+        INFS_ROUTE_ORDER.find((item) =>
+          deepEqualWithoutKey(item, current_route_path, ["Record"])
+        );
+      const skipShowResult =
+        isForReferral || (isForPreview && !useParentSelectionRestore);
       
       if (match && !skipShowResult && !suppressPresetResume) {
-        tags_chosen = match.Record;
+        if (!tags_chosen || Object.keys(tags_chosen).length === 0) {
+          tags_chosen = match.Record;
+        }
         
         // 檢查是否所有路由都有有效的選擇
         const allRoutesCompleted = all_Route.every(route => {
@@ -1672,11 +1731,19 @@ const fetchData = async () => {
             ? JSON.parse(localStorage.getItem(`INFS_ROUTE_ORDER_${Brand}`)) ||
               []
             : [];
-          const match = INFS_ROUTE_ORDER.find((item) =>
-            deepEqualWithoutKey(item, current_route_path, ["Record"])
-          );
-          const skipShowResult = isForPreview || isForReferral;
-          if (match && !skipShowResult) {
+          const parentMatchInner = getParentOrLocalMatch(current_route_path);
+          const match =
+            parentMatchInner ||
+            INFS_ROUTE_ORDER.find((item) =>
+              deepEqualWithoutKey(item, current_route_path, ["Record"])
+            );
+          const skipShowResult =
+            isForReferral || (isForPreview && !useParentSelectionRestore);
+          if (
+            match &&
+            !skipShowResult &&
+            (!tags_chosen || Object.keys(tags_chosen).length === 0)
+          ) {
             tags_chosen = match.Record;
           }
           if (skipShowResult) {
@@ -1779,6 +1846,7 @@ const fetchData = async () => {
                   JSON.stringify(INFS_ROUTE_ORDER)
                 );
               }
+              syncSelectionToParent("in_progress");
               // console.error("error skip add", tags_chosen);
               // }
               // console.log("skip", all_Route[fs]);
@@ -1893,6 +1961,7 @@ const fetchData = async () => {
                   JSON.stringify(INFS_ROUTE_ORDER)
                 );
               }
+              syncSelectionToParent("in_progress");
             });
           $(`#container-${all_Route[fs].replaceAll(/[\s\.]/g, "")}-backarrow`).on(
             mytap,
@@ -2015,14 +2084,17 @@ $(document).on(tap, "#start-button", function () {
   $("#recommend-btn").text(uiT("recommend.refresh"));
   
   // 檢查是否所有問題都已完成
+  var parentMatchStart = getParentOrLocalMatch(current_route_path);
   var INFS_ROUTE_ORDER = !isForPreview
     ? JSON.parse(localStorage.getItem(`INFS_ROUTE_ORDER_${Brand}`)) || []
     : [];
-  const match = INFS_ROUTE_ORDER.find((item) =>
-    deepEqualWithoutKey(item, current_route_path, ["Record"])
-  );
+  const match =
+    parentMatchStart ||
+    INFS_ROUTE_ORDER.find((item) =>
+      deepEqualWithoutKey(item, current_route_path, ["Record"])
+    );
   
-  if (match && !isForPreview && !isForReferral) {
+  if (match && (!isForPreview || useParentSelectionRestore) && !isForReferral) {
     const savedTags = match.Record;
     const allRoutesCompleted = all_Route.every(route => {
       const routeKey = route.replaceAll(/[\s\.]/g, "");
@@ -2227,6 +2299,9 @@ $("#startover").on(tap, function () {
     action: "startover_btn",
     event_label: "重新開始",
   });
+  syncSelectionToParent("cleared");
+  parentSelectionRestore = null;
+  useParentSelectionRestore = false;
   $("#loadingbar_recom").hide();
   Initial();
   reset();
@@ -2237,6 +2312,7 @@ const Initial = () => {
   $("#container-recom").hide();
 
   tags_chosen = {};
+  isFirst = true;
 };
 
 window.addEventListener("message", async (event) => {
@@ -2269,6 +2345,16 @@ window.addEventListener("message", async (event) => {
     utmParams = NoMediaGa.applyUtmFromPayload(event.data, utmParams);
     if (Object.prototype.hasOwnProperty.call(event.data, "lang")) {
       NoMediaI18n.setLang(event.data.lang);
+    }
+    if (
+      event.data.selection_restore &&
+      typeof event.data.selection_restore === "object"
+    ) {
+      parentSelectionRestore = event.data.selection_restore;
+      useParentSelectionRestore = true;
+    } else {
+      parentSelectionRestore = null;
+      useParentSelectionRestore = false;
     }
     applyUiLang();
     await Initial();
