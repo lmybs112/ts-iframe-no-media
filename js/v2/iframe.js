@@ -161,6 +161,8 @@ let parentSelectionRestore = null;
 let pendingPinnedRestore = null;
 /** 本輪是否啟用父層還原（避免 isForPreview 清空 tags） */
 let useParentSelectionRestore = false;
+/** 避免連續 from_preview 互相踩踏 */
+let fromPreviewSeq = 0;
 
 // ===== GA4：共用 js/shared/ga.js（前綴 no-media_v2_）=====
 NoMediaGa.initNoMediaGa({
@@ -351,7 +353,9 @@ const get_recom_res = () => {
       syncSelectionToParent("completed");
       // }, 1500);
     })
-    .catch(() => {})
+    .catch(() => {
+      $("#loadingbar_recom").hide();
+    })
     .finally(() => {
       if (isForReferral) {
         const messageData = {
@@ -361,10 +365,7 @@ const get_recom_res = () => {
         window.parent.postMessage(messageData, "*");
       }
       setTimeout(() => {
-        // 若結果頁尚未把 loading 收掉（例如仍在備援），此處保險關閉
-        if ($("#container-recom").is(":visible")) {
-          $("#loadingbar_recom").hide();
-        }
+        $("#loadingbar_recom").hide();
         isFetching = false;
       }, 2200);
     });
@@ -2473,10 +2474,8 @@ const fetchData = async () => {
           // 所有問題都已完成，直接跳到結果頁面
           $("#intro-page").hide();
           const hasRes = document.querySelector("#container-recom .update_delete") !== null;
-          const get_recom_res_throttled = throttle(get_recom_res, 3000);
-          
-          if (!hasRes) {
-            get_recom_res_throttled();
+          if (!hasRes && !isFetching) {
+            get_recom_res();
           }
           return; // 提前返回，不執行後續的 for 循環
         }
@@ -2893,10 +2892,8 @@ $(document).on(tap, "#start-button", function () {
       $("#intro-page").hide();
       tags_chosen = savedTags;
       const hasRes = document.querySelector("#container-recom .update_delete") !== null;
-      const get_recom_res_throttled = throttle(get_recom_res, 3000);
-      
-      if (!hasRes) {
-        get_recom_res_throttled();
+      if (!hasRes && !isFetching) {
+        get_recom_res();
       }
       return; // 提前返回，不顯示第一個問題
     }
@@ -3057,6 +3054,8 @@ const Initial = () => {
   clearAllChangeGroupBtnState();
   $(".update_delete").remove();
   $("#container-recom").hide();
+  $("#loadingbar_recom").hide();
+  isFetching = false;
 
   tags_chosen = {};
   usageRecomSentThisRound = false;
@@ -3065,6 +3064,7 @@ const Initial = () => {
 
 window.addEventListener("message", async (event) => {
   if (event.data.header == "from_preview") {
+    const previewSeq = ++fromPreviewSeq;
 
     Route = event.data.id;
     Brand = event.data.brand;
@@ -3109,8 +3109,11 @@ window.addEventListener("message", async (event) => {
     }
     applyUiLang();
     await Initial();
+    if (previewSeq !== fromPreviewSeq) return;
     await fetchData();
+    if (previewSeq !== fromPreviewSeq) return;
     await fetchCoupon();
+    if (previewSeq !== fromPreviewSeq) return;
 
     // 有父層續選且已有 Record 時，不要再淡入介紹頁（結果頁可能仍在非同步載入）
     if (
@@ -3125,6 +3128,14 @@ window.addEventListener("message", async (event) => {
   }
 
   if (event.data && event.data.header == "parent_start_intro") {
+    // 續選還原中勿重跑 intro，避免蓋掉結果／問答
+    if (
+      useParentSelectionRestore &&
+      tags_chosen &&
+      Object.keys(tags_chosen).length > 0
+    ) {
+      return;
+    }
     if (Object.prototype.hasOwnProperty.call(event.data, "intro_mode")) {
       var restartIntro = String(event.data.intro_mode || "").toLowerCase();
       introMode = restartIntro === "v1" || restartIntro === "v2" ? restartIntro : null;
