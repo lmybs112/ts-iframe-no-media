@@ -37,6 +37,8 @@
   // 共用 GA（必須在 iframe / embedded 之前）
   writeScript("js/shared/ga.js");
   writeScript("js/shared/i18n.js");
+  writeScript("js/shared/selection-progress-store.js");
+  writeScript("js/shared/selection-progress.js");
   writeStylesheet("css/intro_tour.css");
   writeScript("js/shared/intro-tour.js");
 
