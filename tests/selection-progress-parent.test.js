@@ -1,131 +1,103 @@
 /**
- * 父層選物進度 InfSelectionProgress 契約煙霧測試（對齊現行父層行為）
- * - completed + Result 優先還原
- * - in_progress 不刪 RES（避免多頁簽洗掉結果）
- * - 新訊息無 Result 時保留既有 Result
+ * 父層選物進度：單一快照鎖定契約
+ * - INFS_SELECTION_{brand}_{route} 為唯一真相
+ * - completed 後忽略 in_progress（多商品頁／多頁簽不可洗掉）
+ * - 只有 cleared 才解除鎖定
  */
 const assert = require("assert");
 
 function createProgressStore() {
   const store = {};
-  function readList(key) {
-    try {
-      return JSON.parse(store[key] || "[]");
-    } catch (_) {
-      return [];
-    }
-  }
-  function writeList(key, list) {
-    store[key] = JSON.stringify(list);
-  }
-  function findIndexByRoute(list, routeId) {
-    return list.findIndex((item) => item && String(item.Route) === String(routeId));
+  function snapKey(brand, routeId) {
+    return "INFS_SELECTION_" + brand + "_" + routeId;
   }
   function hasUsableResult(result) {
     if (!result || typeof result !== "object") return false;
     if (Array.isArray(result.Item) && result.Item.length > 0) return true;
-    if (result.pools && typeof result.pools === "object") return true;
     return false;
   }
-  function normalizeItem(data, previous) {
-    let result;
-    if (Object.prototype.hasOwnProperty.call(data || {}, "result")) {
-      result = data.result;
-    } else if (Object.prototype.hasOwnProperty.call(data || {}, "Result")) {
-      result = data.Result;
-    } else {
-      result = previous && previous.Result != null ? previous.Result : null;
+  function isAnsweredTagList(list) {
+    return (
+      Array.isArray(list) &&
+      list.length > 0 &&
+      list[0] &&
+      list[0].Name &&
+      list[0].Name !== "example"
+    );
+  }
+  function mergeRecord(previous, incoming) {
+    const out = { ...(previous || {}) };
+    const next = incoming || {};
+    Object.keys(next).forEach((k) => {
+      if (isAnsweredTagList(next[k])) out[k] = next[k];
+      else if (!Object.prototype.hasOwnProperty.call(out, k)) out[k] = next[k];
+    });
+    return out;
+  }
+  function readSnap(brand, routeId) {
+    try {
+      return JSON.parse(store[snapKey(brand, routeId)] || "null");
+    } catch (_) {
+      return null;
     }
-    if (!hasUsableResult(result) && previous && hasUsableResult(previous.Result)) {
-      result = previous.Result;
-    }
-    return {
-      Route: data.route || data.Route || "",
-      TagGroups_order: data.tagGroupsOrder || data.TagGroups_order || [],
-      Record: data.record || data.Record || {},
-      Pinned: data.pinned || data.Pinned || {},
-      Result: result,
-    };
+  }
+  function writeSnap(brand, routeId, snap) {
+    store[snapKey(brand, routeId)] = JSON.stringify({
+      ...snap,
+      Route: routeId,
+      updatedAt: Date.now(),
+    });
   }
   function handleMessage(data) {
     const brand = data.brand;
     const routeId = data.route;
-    const orderKey = "INFS_ROUTE_ORDER_" + brand;
-    const resKey = "INFS_ROUTE_RES_" + brand;
     if (data.status === "cleared") {
-      let o = readList(orderKey);
-      let r = readList(resKey);
-      const oi = findIndexByRoute(o, routeId);
-      const ri = findIndexByRoute(r, routeId);
-      if (oi >= 0) o.splice(oi, 1);
-      if (ri >= 0) r.splice(ri, 1);
-      writeList(orderKey, o);
-      writeList(resKey, r);
+      delete store[snapKey(brand, routeId)];
       return;
     }
-    const prevOrder = readList(orderKey);
-    const prevRes = readList(resKey);
-    const prev =
-      (findIndexByRoute(prevOrder, routeId) >= 0
-        ? prevOrder[findIndexByRoute(prevOrder, routeId)]
-        : null) ||
-      (findIndexByRoute(prevRes, routeId) >= 0
-        ? prevRes[findIndexByRoute(prevRes, routeId)]
-        : null);
-    const item = normalizeItem(data, prev);
-    if (data.status === "completed") {
-      let o = readList(orderKey);
-      let r = readList(resKey);
-      const oi = findIndexByRoute(o, routeId);
-      if (oi >= 0) o.splice(oi, 1);
-      const ri = findIndexByRoute(r, routeId);
-      if (ri >= 0) r[ri] = normalizeItem(item, r[ri]);
-      else r.push(item);
-      writeList(orderKey, o);
-      writeList(resKey, r);
-      return;
+    const prev = readSnap(brand, routeId);
+    if (prev && prev.status === "completed" && data.status === "in_progress") {
+      return; // locked
     }
-    // in_progress：只更新 ORDER，不刪 RES
-    let o = readList(orderKey);
-    const oi = findIndexByRoute(o, routeId);
-    if (oi >= 0) o[oi] = normalizeItem(item, o[oi]);
-    else o.push(item);
-    writeList(orderKey, o);
+    const mergedRecord = mergeRecord(prev && prev.Record, data.record);
+    const mergedResult = hasUsableResult(data.result)
+      ? data.result
+      : prev && hasUsableResult(prev.Result)
+        ? prev.Result
+        : null;
+    const nextStatus =
+      data.status === "completed" || hasUsableResult(mergedResult)
+        ? "completed"
+        : data.status || "in_progress";
+    writeSnap(brand, routeId, {
+      Route: routeId,
+      TagGroups_order: data.tagGroupsOrder || (prev && prev.TagGroups_order) || [],
+      Record: mergedRecord,
+      Pinned: data.pinned || (prev && prev.Pinned) || {},
+      Result: mergedResult,
+      status: nextStatus,
+    });
   }
   function getRestore(brand, routeId) {
-    const order = readList("INFS_ROUTE_ORDER_" + brand);
-    const res = readList("INFS_ROUTE_RES_" + brand);
-    const oi = findIndexByRoute(order, routeId);
-    const ri = findIndexByRoute(res, routeId);
-    const inProgress = oi >= 0 ? order[oi] : null;
-    const done = ri >= 0 ? res[ri] : null;
-    if (done && hasUsableResult(done.Result)) {
-      return { ...done, status: "completed" };
-    }
-    if (inProgress) {
-      return { ...inProgress, status: "in_progress" };
-    }
-    if (done) {
-      return { ...done, status: "completed" };
-    }
-    return null;
+    const snap = readSnap(brand, routeId);
+    if (!snap) return null;
+    return {
+      Route: snap.Route || routeId,
+      TagGroups_order: snap.TagGroups_order || [],
+      Record: snap.Record || {},
+      Pinned: snap.Pinned || {},
+      Result: snap.Result || null,
+      status: snap.status || "in_progress",
+    };
   }
   return { handleMessage, getRestore, store };
 }
 
 const api = createProgressStore();
-api.handleMessage({
-  type: "selection_progress",
-  brand: "GTN",
-  route: "route-a",
-  tagGroupsOrder: ["features"],
-  record: { features: [{ Name: "A", Tag: "1" }] },
-  pinned: {},
-  status: "in_progress",
-});
-assert.strictEqual(api.getRestore("GTN", "route-a").status, "in_progress");
-assert.strictEqual(api.getRestore("OTHER", "route-a"), null, "他站／他品牌不應讀到");
-
+const record = {
+  features: [{ Name: "修身", Tag: "1" }],
+  style: [{ Name: "休閒", Tag: "2" }],
+};
 const threeItems = {
   Item: [
     { ItemName: "A", Link: "1" },
@@ -133,55 +105,36 @@ const threeItems = {
     { ItemName: "C", Link: "3" },
   ],
 };
+
 api.handleMessage({
-  type: "selection_progress",
   brand: "GTN",
   route: "route-a",
-  record: { features: [{ Name: "A", Tag: "1" }] },
-  pinned: { Tops: true },
+  record,
   result: threeItems,
   status: "completed",
 });
-const done = api.getRestore("GTN", "route-a");
-assert.strictEqual(done.status, "completed");
-assert.strictEqual(done.Pinned.Tops, true);
-assert.strictEqual(done.Result.Item.length, 3);
-assert.strictEqual(done.Result.Item[0].ItemName, "A");
+assert.strictEqual(api.getRestore("GTN", "route-a").status, "completed");
+assert.strictEqual(api.getRestore("GTN", "route-a").Result.Item[0].ItemName, "A");
 
-// 多頁簽又送 in_progress：不可洗掉 RES／Result
+// 多開商品頁送空 in_progress：必須被鎖定忽略
 api.handleMessage({
-  type: "selection_progress",
   brand: "GTN",
   route: "route-a",
-  record: { features: [{ Name: "A", Tag: "1" }] },
-  pinned: {},
+  record: {},
   result: null,
   status: "in_progress",
 });
-const stillDone = api.getRestore("GTN", "route-a");
-assert.strictEqual(stillDone.status, "completed");
-assert.strictEqual(stillDone.Result.Item[1].ItemName, "B");
+const locked = api.getRestore("GTN", "route-a");
+assert.strictEqual(locked.status, "completed");
+assert.strictEqual(locked.Record.features[0].Name, "修身");
+assert.strictEqual(locked.Result.Item[2].ItemName, "C");
 
-// completed 但沒帶 Result：應保留既有三件
+// 只有 cleared 才能解除
 api.handleMessage({
-  type: "selection_progress",
-  brand: "GTN",
-  route: "route-a",
-  record: { features: [{ Name: "A", Tag: "1" }] },
-  pinned: {},
-  result: null,
-  status: "completed",
-});
-const kept = api.getRestore("GTN", "route-a");
-assert.strictEqual(kept.Result.Item[2].ItemName, "C");
-
-api.handleMessage({
-  type: "selection_progress",
   brand: "GTN",
   route: "route-a",
   status: "cleared",
   record: {},
-  pinned: {},
 });
 assert.strictEqual(api.getRestore("GTN", "route-a"), null);
 

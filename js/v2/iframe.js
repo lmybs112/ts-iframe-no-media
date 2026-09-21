@@ -1339,15 +1339,37 @@ function syncSelectionToParent(status) {
       Route ||
       "";
     if (!Brand || !routeId) return;
+    // 已還原完成態時，忽略 in_progress（避免多開商品頁把鎖定結果洗掉）
+    if (
+      status === "in_progress" &&
+      parentSelectionRestore &&
+      parentSelectionRestore.status === "completed"
+    ) {
+      return;
+    }
+    if (
+      status === "in_progress" &&
+      persistedResultPayload &&
+      persistedResultPayload.pools &&
+      $("#container-recom").is(":visible")
+    ) {
+      return;
+    }
+    var safeResult = null;
+    if (status !== "cleared" && persistedResultPayload) {
+      try {
+        safeResult = JSON.parse(JSON.stringify(persistedResultPayload));
+      } catch (cloneErr) {
+        safeResult = persistedResultPayload;
+      }
+    }
     // completed 必須帶可還原結果，否則多頁簽會把 RES 洗成空
     if (
       status === "completed" &&
       !(
-        persistedResultPayload &&
-        ((persistedResultPayload.pools &&
-          typeof persistedResultPayload.pools === "object") ||
-          (Array.isArray(persistedResultPayload.Item) &&
-            persistedResultPayload.Item.length > 0))
+        safeResult &&
+        ((safeResult.pools && typeof safeResult.pools === "object") ||
+          (Array.isArray(safeResult.Item) && safeResult.Item.length > 0))
       )
     ) {
       return;
@@ -1364,7 +1386,7 @@ function syncSelectionToParent(status) {
         tagGroupsOrder: tagGroupsOrder,
         record: status === "cleared" ? {} : tags_chosen || {},
         pinned: status === "cleared" ? {} : Object.assign({}, capsulePinned || {}),
-        result: status === "cleared" ? null : persistedResultPayload,
+        result: safeResult,
         status: status,
       },
       "*"

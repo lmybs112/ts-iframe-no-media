@@ -737,10 +737,14 @@ const show_results = (response, isFirst = false) => {
 
   // 只保存「畫面實際那三件」；完整推薦池留在 firstResult 供換一批
   try {
-    persistedResultPayload = {
+    persistedResultPayload = sanitizeV1ResultPayload({
       Item: itemsToShow.slice(),
-    };
-    if (persistedResultPayload.Item.length > 0) {
+    });
+    if (
+      persistedResultPayload &&
+      persistedResultPayload.Item &&
+      persistedResultPayload.Item.length > 0
+    ) {
       syncSelectionToParent("completed");
     }
   } catch (e) {
@@ -795,6 +799,31 @@ function buildContainerBackgroundImage(imageUrl) {
  * 將選物進度同步給父層（父站 localStorage；各電商站互不干擾）
  * @param {'in_progress'|'completed'|'cleared'} status
  */
+function sanitizeV1ResultPayload(payload) {
+  if (!payload || !Array.isArray(payload.Item) || payload.Item.length === 0) {
+    return null;
+  }
+  try {
+    return JSON.parse(
+      JSON.stringify({
+        Item: payload.Item.map(function (item) {
+          if (!item || typeof item !== "object") return null;
+          return {
+            ItemName: item.ItemName || item.title || "",
+            Link: item.Link || item.link || "",
+            Imgsrc: item.Imgsrc || item.image_link || "",
+            sale_price: item.sale_price,
+            price: item.price,
+            COMMON: item.COMMON,
+          };
+        }).filter(Boolean),
+      })
+    );
+  } catch (e) {
+    return null;
+  }
+}
+
 function syncSelectionToParent(status) {
   try {
     var routeId =
@@ -803,16 +832,34 @@ function syncSelectionToParent(status) {
       Route ||
       "";
     if (!Brand || !routeId) return;
+    // 已還原完成態時，忽略 in_progress（避免多開商品頁把鎖定結果洗掉）
+    if (
+      status === "in_progress" &&
+      parentSelectionRestore &&
+      parentSelectionRestore.status === "completed"
+    ) {
+      return;
+    }
+    if (
+      status === "in_progress" &&
+      persistedResultPayload &&
+      Array.isArray(persistedResultPayload.Item) &&
+      persistedResultPayload.Item.length > 0 &&
+      $("#container-recom").is(":visible")
+    ) {
+      return;
+    }
+    var safeResult =
+      status === "cleared" ? null : sanitizeV1ResultPayload(persistedResultPayload);
     // completed 必須帶可還原的商品，否則多頁簽會把 RES 洗成空結果
     if (
       status === "completed" &&
-      !(
-        persistedResultPayload &&
-        Array.isArray(persistedResultPayload.Item) &&
-        persistedResultPayload.Item.length > 0
-      )
+      !(safeResult && Array.isArray(safeResult.Item) && safeResult.Item.length > 0)
     ) {
       return;
+    }
+    if (safeResult) {
+      persistedResultPayload = safeResult;
     }
     var tagGroupsOrder =
       (current_route_path && current_route_path.TagGroups_order) ||
@@ -826,7 +873,7 @@ function syncSelectionToParent(status) {
         tagGroupsOrder: tagGroupsOrder,
         record: status === "cleared" ? {} : tags_chosen || {},
         pinned: {},
-        result: status === "cleared" ? null : persistedResultPayload,
+        result: safeResult,
         status: status,
       },
       "*"
