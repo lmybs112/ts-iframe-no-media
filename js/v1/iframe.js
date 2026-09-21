@@ -587,25 +587,11 @@ const show_results = (response, isFirst = false) => {
   // isFirst 可為 boolean，或 { restore: true }（還原已保存的同一批商品，不再重抽）
   const restoreMode =
     isFirst && typeof isFirst === "object" ? !!isFirst.restore : false;
-  const isFirstFlag = typeof isFirst === "object" ? true : !!isFirst;
 
   //只出現其中三個}
   const itemCount = response?.Item?.length || 0;
   // 如果項目數量小於 3，只顯示所有可用的項目
   const displayCount = Math.min(itemCount, 3);
-
-  function getTopCommonIndices() {
-    // 取得排序後的索引值陣列
-    const indices = firstResult.Item.map((item, index) => ({
-      index,
-      common: item.COMMON,
-    }))
-      .sort((a, b) => b.common - a.common)
-      .map((obj) => obj.index);
-
-    // 取前最多 3 筆
-    return indices.slice(0, 3);
-  }
 
   function getRandomNumbers(max, count) {
     let randomNumbers = [];
@@ -632,41 +618,48 @@ const show_results = (response, isFirst = false) => {
       IntroTour.onResultsReady();
     }
   }
-  // 還原：依保存順序原樣展示；首次：COMMON 前三；換一批：隨機
-  const finalitem = restoreMode
-    ? Array.from({ length: displayCount }, function (_, i) {
-        return i;
-      })
-    : isFirstFlag
-      ? getTopCommonIndices()
-      : getRandomNumbers(itemCount, displayCount);
-  // console.error("finalitem", finalitem);
+
+  // 還原：嚴格用已保存的 Item 順序（畫面那三件），绝不重抽／重排
+  // 首次與換一批：都用 random 從池中抽（與原本行為一致）
+  let itemsToShow;
+  if (restoreMode) {
+    itemsToShow = response.Item.slice(0, displayCount);
+  } else {
+    const picked = getRandomNumbers(itemCount, displayCount);
+    itemsToShow = picked.map(function (i) {
+      return response.Item[i];
+    }).filter(Boolean);
+  }
   const finalitemCount = 3;
-  resList = response.Item;
+  // 換一批需要完整池；勿把 firstResult 縮成三件
+  if (!restoreMode && response.Item && response.Item.length > 3) {
+    firstResult = response;
+  }
+  resList = itemsToShow;
   $(`#container-recom`).find(".axd_selections").html("");
 
-  for (let ii in finalitem) {
-    let i = finalitem[ii];
-    var ItemName = response.Item[i].ItemName;
+  for (let ii = 0; ii < itemsToShow.length; ii++) {
+    const item = itemsToShow[ii];
+    var ItemName = item.ItemName;
     // if (ItemName.length >= 16) {
     //   ItemName = ItemName.substring(0, 15) + "...";
     // }
     $(`#container-recom`).find(".axd_selections").append(`
       <div class="axd_selection cursor-pointer update_delete">
  <a href="${
-   productHref(response.Item[i].Link, "recom_item")
+   productHref(item.Link, "recom_item")
  }" target="_blank" class="update_delete" style="text-decoration: none;" onclick="openDetailDialog()">
     <div style="overflow: hidden;">
-         <img loading="lazy" class="c-recom" id="container-recom-${i}" data-item="0"  src="./../../img/img-default-large.png" data-src=" ${
-      response.Item[i].Imgsrc
+         <img loading="lazy" class="c-recom" id="container-recom-${ii}" data-item="0"  src="./../../img/img-default-large.png" data-src=" ${
+      item.Imgsrc
     }" onerror="this.onerror=null;this.src='./../../img/img-default-large.png'"
          >
          </div>
          <div class="recom-info">
-         <p class="recom-text item-title line-ellipsis-2" id="recom-${i}-text">${ItemName}</p>
+         <p class="recom-text item-title line-ellipsis-2" id="recom-${ii}-text">${ItemName}</p>
            <div class="discount-content">
              <p class="item-price recom-price">${
-               formatRecomPrice(response.Item[i])
+               formatRecomPrice(item)
              }</p>
              </div>
          </div>
@@ -742,17 +735,12 @@ const show_results = (response, isFirst = false) => {
     // selectionContainer.classList.add("four-elements");
   }
 
-  // 記住本次實際展示的商品，供跨頁還原同一批
+  // 只保存「畫面實際那三件」；完整推薦池留在 firstResult 供換一批
   try {
     persistedResultPayload = {
-      Item: finalitem
-        .map(function (i) {
-          return response.Item[i];
-        })
-        .filter(Boolean),
+      Item: itemsToShow.slice(),
     };
     if (persistedResultPayload.Item.length > 0) {
-      firstResult = persistedResultPayload;
       syncSelectionToParent("completed");
     }
   } catch (e) {
@@ -865,7 +853,7 @@ function getParentOrLocalMatch(currentPath) {
   return null;
 }
 
-/** 有保存的結果商品則直接還原，不再重打推薦 API、也不重抽三件 */
+/** 有保存的結果商品則直接還原畫面那三件，不再重打 API、也不再 random */
 function tryShowPersistedResults() {
   var saved =
     (parentSelectionRestore && parentSelectionRestore.Result) ||
@@ -875,7 +863,6 @@ function tryShowPersistedResults() {
   }
   $("#intro-page").hide();
   $("#loadingbar_recom").hide();
-  firstResult = saved;
   persistedResultPayload = saved;
   show_results(saved, { restore: true });
   return true;

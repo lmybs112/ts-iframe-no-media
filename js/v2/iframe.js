@@ -1078,7 +1078,20 @@ const show_results = async (response, isFirst = false) => {
     isFirst && typeof isFirst === "object" ? !!isFirst.restore : false;
   const isFirstFlag = typeof isFirst === "object" ? true : !!isFirst;
 
-  let pools = normalizeCapsulePools(response);
+  // 還原：強制用已保存的 pools，避免 normalize / 補齊 API 換掉畫面商品
+  let pools;
+  if (restoreMode && response && response.pools && typeof response.pools === "object") {
+    pools = response.pools;
+  } else if (
+    restoreMode &&
+    persistedResultPayload &&
+    persistedResultPayload.pools &&
+    typeof persistedResultPayload.pools === "object"
+  ) {
+    pools = persistedResultPayload.pools;
+  } else {
+    pools = normalizeCapsulePools(response);
+  }
   let cats = Object.keys(pools);
   let total = cats.reduce(function (sum, c) {
     return sum + (pools[c] || []).length;
@@ -1164,13 +1177,22 @@ const show_results = async (response, isFirst = false) => {
   // 預先決定每欄拉霸的 finalIdx，靜態預覽也用同一張
   // 這樣 preload、靜態預覽、拉霸落定 三者都是同一張圖，只需 decode 一次
   const finalIdxMap = {};
-  const restoreIdx = pendingCapsuleIndexRestore || null;
+  const restoreIdx =
+    pendingCapsuleIndexRestore ||
+    (restoreMode && response && response.capsuleIndex) ||
+    (restoreMode &&
+      persistedResultPayload &&
+      persistedResultPayload.capsuleIndex) ||
+    null;
   reelCats.forEach(function (cat) {
     const pool = capsulePools[cat] || [];
     if (restoreIdx && restoreIdx[cat] != null && pool.length > 0) {
       var ri = Number(restoreIdx[cat]);
       finalIdxMap[cat] =
         Number.isFinite(ri) && ri >= 0 && ri < pool.length ? ri : 0;
+    } else if (restoreMode) {
+      // 還原時绝不重抽
+      finalIdxMap[cat] = 0;
     } else if (!capsulePinned[cat] && pool.length > 0) {
       finalIdxMap[cat] = Math.floor(Math.random() * pool.length);
     }
@@ -1224,7 +1246,8 @@ const show_results = async (response, isFirst = false) => {
     setTimeout(resolve, MAX_WAIT_MS);
   });
 
-  Promise.race([
+  // 必須 return：呼叫端 await show_results 時才等得到 persist／sync
+  return Promise.race([
     Promise.all(uniqueFinalSrcs.map(waitForImg)),
     timeoutPromise,
   ]).then(function () {
@@ -1265,7 +1288,11 @@ const show_results = async (response, isFirst = false) => {
         pools: capsulePools,
         capsuleIndex: Object.assign({}, capsuleIndex),
         pinned: Object.assign({}, capsulePinned),
-        response: response,
+        response: restoreMode
+          ? (response && response.response) ||
+            (persistedResultPayload && persistedResultPayload.response) ||
+            null
+          : response,
       };
       syncSelectionToParent("completed");
     } catch (e) {
@@ -1276,6 +1303,10 @@ const show_results = async (response, isFirst = false) => {
       usageRecomSentThisRound = true;
     }
 
+    // 還原：靜態顯示已保存商品，不再跑拉霸（避免看起來像重抽）
+    if (restoreMode) {
+      return;
+    }
     // 等兩個 rAF 讓圖片 paint 一幀，用戶先看到靜態圖，再啟動拉霸
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
@@ -1367,14 +1398,14 @@ function getParentOrLocalMatch(currentPath) {
   return null;
 }
 
-/** 有保存的結果則直接還原，不再重打推薦 API */
+/** 有保存的結果則直接還原畫面商品，不再重打 API／重抽 */
 function tryShowPersistedResults() {
   var saved =
     (parentSelectionRestore && parentSelectionRestore.Result) ||
     persistedResultPayload;
   if (!saved) return false;
 
-  // v2：pools + capsuleIndex
+  // v2：直接丟已保存的 pools + capsuleIndex，避免再 normalize 換商品
   if (saved.pools && typeof saved.pools === "object") {
     $("#intro-page").hide();
     $("#loadingbar_recom").hide();
@@ -1385,8 +1416,7 @@ function tryShowPersistedResults() {
     if (saved.pinned) {
       pendingPinnedRestore = Object.assign({}, saved.pinned);
     }
-    var fakeResponse = saved.response || { Item: saved.pools };
-    show_results(fakeResponse, { restore: true });
+    show_results(saved, { restore: true });
     return true;
   }
 
@@ -1394,7 +1424,6 @@ function tryShowPersistedResults() {
   if (Array.isArray(saved.Item) && saved.Item.length > 0) {
     $("#intro-page").hide();
     $("#loadingbar_recom").hide();
-    firstResult = saved;
     persistedResultPayload = saved;
     show_results(saved, { restore: true });
     return true;
