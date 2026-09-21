@@ -127,6 +127,15 @@
     unlock: function () {
       locked = false;
     },
+    /** iframe 載入後通知父層再推 restore */
+    notifyReady: function () {
+      try {
+        window.parent.postMessage({ type: "selection_bridge_ready", v: 3 }, "*");
+        return true;
+      } catch (e) {
+        return false;
+      }
+    },
     /** 答題中：完成鎖定後不再上報 */
     answer: function (record, pinned) {
       if (locked) return false;
@@ -155,4 +164,17 @@
     },
     sanitizeResult: sanitizeResult,
   };
+
+  // 腳本載入後立刻握手（onload 也可能再送 from_preview）
+  try {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", function () {
+        root.SelectionProgress.notifyReady();
+      });
+    } else {
+      root.SelectionProgress.notifyReady();
+    }
+  } catch (e) {
+    /* ignore */
+  }
 })(typeof window !== "undefined" ? window : globalThis);

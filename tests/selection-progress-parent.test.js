@@ -1,5 +1,5 @@
 /**
- * 相容煙霧：舊 status 欄位仍可驅動新 store
+ * 相容舊 status 欄位 + 站級 brand
  */
 const assert = require("assert");
 const Store = require("../js/shared/selection-progress-store.js");
@@ -11,11 +11,10 @@ api.apply({
   type: "selection_progress",
   brand: "GTN",
   route: "route-a",
-  tagGroupsOrder: ["features"],
   record: { features: [{ Name: "A", Tag: "1" }] },
   status: "in_progress",
 });
-assert.strictEqual(api.get("GTN", "route-a").status, "in_progress");
+assert.strictEqual(api.get("GTN").status, "in_progress");
 
 api.apply({
   type: "selection_progress",
@@ -25,23 +24,25 @@ api.apply({
   result: { Item: [{ ItemName: "X", Link: "1" }] },
   status: "completed",
 });
-assert.strictEqual(api.get("GTN", "route-a").status, "completed");
+assert.strictEqual(api.get("GTN").status, "completed");
+
+// 換 route 仍讀得到
+assert.strictEqual(api.get("GTN").Result.Item[0].ItemName, "X");
 
 api.apply({
   type: "selection_progress",
   brand: "GTN",
-  route: "route-a",
+  route: "other-route",
   record: {},
   status: "in_progress",
 });
-assert.strictEqual(api.get("GTN", "route-a").Result.Item[0].ItemName, "X");
+assert.strictEqual(api.get("GTN").Result.Item[0].ItemName, "X");
 
 api.apply({
   type: "selection_progress",
   brand: "GTN",
-  route: "route-a",
   status: "cleared",
 });
-assert.strictEqual(api.get("GTN", "route-a"), null);
+assert.strictEqual(api.get("GTN"), null);
 
 console.log("selection-progress-parent.test.js OK");
