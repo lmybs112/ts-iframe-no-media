@@ -1379,6 +1379,38 @@ function getParentOrLocalMatch(currentPath) {
   return null;
 }
 
+/** 父層還原是否帶可展示結果 */
+function hasPersistedResultPayload(saved) {
+  if (!saved || typeof saved !== "object") return false;
+  if (saved.pools && typeof saved.pools === "object") {
+    return Object.keys(saved.pools).some(function (k) {
+      return Array.isArray(saved.pools[k]) && saved.pools[k].length > 0;
+    });
+  }
+  return Array.isArray(saved.Item) && saved.Item.length > 0;
+}
+
+function shouldResumeFromParent() {
+  if (!useParentSelectionRestore || !parentSelectionRestore) return false;
+  if (parentSelectionRestore.status === "completed") return true;
+  if (hasPersistedResultPayload(parentSelectionRestore.Result)) return true;
+  if (tags_chosen && Object.keys(tags_chosen).length > 0) return true;
+  if (
+    parentSelectionRestore.Record &&
+    Object.keys(parentSelectionRestore.Record).length > 0
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function applyParentRestoreRecord() {
+  if (!parentSelectionRestore || !parentSelectionRestore.Record) return;
+  if (!tags_chosen || Object.keys(tags_chosen).length === 0) {
+    tags_chosen = parentSelectionRestore.Record;
+  }
+}
+
 /** 有保存的結果則直接還原畫面商品，不再重打 API／重抽 */
 function tryShowPersistedResults() {
   var saved =
@@ -3330,20 +3362,22 @@ window.addEventListener("message", async (event) => {
     await fetchCoupon();
     if (previewSeq !== fromPreviewSeq) return;
 
-    // 有父層續選且已有 Record 時，不要再淡入介紹頁；並再保險套一次題目定位
-    if (
-      useParentSelectionRestore &&
-      tags_chosen &&
-      Object.keys(tags_chosen).length > 0
-    ) {
+    // 父層續選：有 Record／Result／completed 都勿回專屬資訊開頭
+    applyParentRestoreRecord();
+    if (shouldResumeFromParent()) {
       $("#intro-page").hide();
       if (!resumeUiApplied) {
+        const hasResult = hasPersistedResultPayload(
+          (parentSelectionRestore && parentSelectionRestore.Result) ||
+            persistedResultPayload
+        );
         const allDone =
-          all_Route &&
-          all_Route.length > 0 &&
-          all_Route.every(function (route) {
-            return isTagAnswered(String(route).replaceAll(/[\s\.]/g, ""));
-          });
+          hasResult ||
+          (all_Route &&
+            all_Route.length > 0 &&
+            all_Route.every(function (route) {
+              return isTagAnswered(String(route).replaceAll(/[\s\.]/g, ""));
+            }));
         if (allDone) {
           resumeUiApplied = true;
           if (!tryShowPersistedResults() && !isFetching) {
@@ -3359,12 +3393,8 @@ window.addEventListener("message", async (event) => {
   }
 
   if (event.data && event.data.header == "parent_start_intro") {
-    // 續選還原中勿重跑 intro，避免蓋掉結果／問答
-    if (
-      useParentSelectionRestore &&
-      tags_chosen &&
-      Object.keys(tags_chosen).length > 0
-    ) {
+    // 續選／結果還原中勿重跑 intro，避免蓋掉結果頁回到專屬資訊
+    if (shouldResumeFromParent()) {
       return;
     }
     if (Object.prototype.hasOwnProperty.call(event.data, "intro_mode")) {

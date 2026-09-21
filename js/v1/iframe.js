@@ -836,12 +836,43 @@ function getParentOrLocalMatch(currentPath) {
   return null;
 }
 
+/** 父層還原是否帶可展示的結果商品 */
+function hasPersistedResultItems(saved) {
+  return !!(
+    saved &&
+    Array.isArray(saved.Item) &&
+    saved.Item.length > 0
+  );
+}
+
+/** 是否應跳過介紹頁、走續選／結果還原 */
+function shouldResumeFromParent() {
+  if (!useParentSelectionRestore || !parentSelectionRestore) return false;
+  if (parentSelectionRestore.status === "completed") return true;
+  if (hasPersistedResultItems(parentSelectionRestore.Result)) return true;
+  if (tags_chosen && Object.keys(tags_chosen).length > 0) return true;
+  if (
+    parentSelectionRestore.Record &&
+    Object.keys(parentSelectionRestore.Record).length > 0
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function applyParentRestoreRecord() {
+  if (!parentSelectionRestore || !parentSelectionRestore.Record) return;
+  if (!tags_chosen || Object.keys(tags_chosen).length === 0) {
+    tags_chosen = parentSelectionRestore.Record;
+  }
+}
+
 /** 有保存的結果商品則直接還原畫面那三件，不再重打 API、也不再 random */
 function tryShowPersistedResults() {
   var saved =
     (parentSelectionRestore && parentSelectionRestore.Result) ||
     persistedResultPayload;
-  if (!saved || !Array.isArray(saved.Item) || saved.Item.length === 0) {
+  if (!hasPersistedResultItems(saved)) {
     return false;
   }
   $("#intro-page").hide();
@@ -2510,20 +2541,22 @@ window.addEventListener("message", async (event) => {
     await fetchCoupon();
     if (previewSeq !== fromPreviewSeq) return;
 
-    // 有父層續選且已有 Record 時，不要再淡入介紹頁；並再保險套一次題目定位
-    if (
-      useParentSelectionRestore &&
-      tags_chosen &&
-      Object.keys(tags_chosen).length > 0
-    ) {
+    // 父層續選：有 Record／Result／completed 都勿回專屬資訊開頭
+    applyParentRestoreRecord();
+    if (shouldResumeFromParent()) {
       $("#intro-page").hide();
       if (!resumeUiApplied) {
+        const hasResult = hasPersistedResultItems(
+          (parentSelectionRestore && parentSelectionRestore.Result) ||
+            persistedResultPayload
+        );
         const allDone =
-          all_Route &&
-          all_Route.length > 0 &&
-          all_Route.every(function (route) {
-            return isTagAnswered(String(route).replaceAll(/[\s\.]/g, ""));
-          });
+          hasResult ||
+          (all_Route &&
+            all_Route.length > 0 &&
+            all_Route.every(function (route) {
+              return isTagAnswered(String(route).replaceAll(/[\s\.]/g, ""));
+            }));
         if (allDone) {
           resumeUiApplied = true;
           if (!tryShowPersistedResults() && !isFetching) {
@@ -2539,12 +2572,8 @@ window.addEventListener("message", async (event) => {
   }
 
   if (event.data && event.data.header == "parent_start_intro") {
-    // 續選還原中勿重跑 intro，避免蓋掉結果／問答
-    if (
-      useParentSelectionRestore &&
-      tags_chosen &&
-      Object.keys(tags_chosen).length > 0
-    ) {
+    // 續選／結果還原中勿重跑 intro，避免蓋掉結果頁回到專屬資訊
+    if (shouldResumeFromParent()) {
       return;
     }
     if (Object.prototype.hasOwnProperty.call(event.data, "intro_mode")) {
