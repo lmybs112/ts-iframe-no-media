@@ -112,6 +112,35 @@
     }
   }
 
+  /** UTF-8 JSON → URL-safe base64（給 iframe hash 用，不靠 postMessage） */
+  function encodeRestorePayload(obj) {
+    try {
+      var json = JSON.stringify(obj);
+      if (typeof btoa === "function") {
+        return btoa(unescape(encodeURIComponent(json)));
+      }
+      return Buffer.from(json, "utf8").toString("base64");
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function decodeRestorePayload(raw) {
+    try {
+      if (!raw) return null;
+      var json;
+      if (typeof atob === "function") {
+        json = decodeURIComponent(escape(atob(raw)));
+      } else {
+        json = Buffer.from(raw, "base64").toString("utf8");
+      }
+      var parsed = JSON.parse(json);
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   function normalizeAction(data) {
     if (!data || typeof data !== "object") return "answer";
     if (data.action === "clear" || data.status === "cleared") return "clear";
@@ -337,7 +366,22 @@
         v: PROTOCOL_V,
       };
       if (!writeSnap(brand, snap)) return { ok: false, reason: "write_failed" };
-      return { ok: true, action: action, restore: toRestore(snap) };
+      // 寫後讀回驗證：失敗則重試一次
+      var verified = readSnap(brand);
+      if (
+        nextStatus === "completed" &&
+        !(verified && verified.status === "completed" && hasUsableResult(verified.Result))
+      ) {
+        writeSnap(brand, snap);
+        verified = readSnap(brand);
+      }
+      if (
+        nextStatus === "completed" &&
+        !(verified && verified.status === "completed" && hasUsableResult(verified.Result))
+      ) {
+        return { ok: false, reason: "verify_failed" };
+      }
+      return { ok: true, action: action, restore: toRestore(verified || snap) };
     }
 
     return {
@@ -346,6 +390,8 @@
       hasUsableResult: hasUsableResult,
       get: get,
       apply: apply,
+      encodeRestorePayload: encodeRestorePayload,
+      decodeRestorePayload: decodeRestorePayload,
       clear: function (brand) {
         return apply({
           type: "selection_progress",
@@ -363,5 +409,7 @@
     hasUsableResult: hasUsableResult,
     mergeRecord: mergeRecord,
     normalizeAction: normalizeAction,
+    encodeRestorePayload: encodeRestorePayload,
+    decodeRestorePayload: decodeRestorePayload,
   };
 });

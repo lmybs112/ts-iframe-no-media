@@ -2294,6 +2294,8 @@ const fetchData = async () => {
   setTimeout(lazyLoadBackgroundImage, 500);
   
   const options = { method: "GET", headers: { accept: "application/json" } };
+  // 連續收到 from_preview 時，只允許最新一輪渲染題目，否則題目容器會重複插入（標題消失／空白）
+  const fetchSeq = fromPreviewSeq;
   try {
     var obj;
     // 塞空值
@@ -2317,6 +2319,7 @@ const fetchData = async () => {
     }
     
     const data = await response.json();
+    if (fetchSeq !== fromPreviewSeq) return;
     // $("#loadingbar").hide();
     $("#pback").show();
     $("#containerback").show();

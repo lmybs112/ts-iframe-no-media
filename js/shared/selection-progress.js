@@ -86,6 +86,37 @@
     return null;
   }
 
+  /** 從 URL hash 同步讀取父層塞入的完成快照（不靠 postMessage） */
+  function readBootRestore() {
+    try {
+      var hash = String(window.location.hash || "");
+      var key = "infs_restore=";
+      var idx = hash.indexOf(key);
+      if (idx < 0) return null;
+      var raw = hash.slice(idx + key.length).split("&")[0];
+      if (!raw) return null;
+      raw = decodeURIComponent(raw);
+      var decode =
+        root.SelectionProgressStore &&
+        root.SelectionProgressStore.decodeRestorePayload
+          ? root.SelectionProgressStore.decodeRestorePayload
+          : null;
+      if (!decode) {
+        return JSON.parse(decodeURIComponent(escape(atob(raw))));
+      }
+      return decode(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  var bootRestoreCache = null;
+  try {
+    bootRestoreCache = readBootRestore();
+  } catch (e) {
+    bootRestoreCache = null;
+  }
+
   function post(action, fields) {
     var brand = getBrandId();
     var route = getRouteId();
@@ -127,6 +158,21 @@
     unlock: function () {
       locked = false;
     },
+    /** URL hash 開機快照（完成態保證路徑） */
+    getBootRestore: function () {
+      return bootRestoreCache;
+    },
+    hasBootCompleted: function () {
+      var b = bootRestoreCache;
+      if (!b || b.status !== "completed") return false;
+      if (b.Result && Array.isArray(b.Result.Item) && b.Result.Item.length > 0) {
+        return true;
+      }
+      if (b.Result && b.Result.pools && typeof b.Result.pools === "object") {
+        return true;
+      }
+      return false;
+    },
     /** iframe 載入後通知父層再推 restore */
     notifyReady: function () {
       try {
@@ -160,6 +206,18 @@
     /** 重新開始 */
     clear: function () {
       locked = false;
+      bootRestoreCache = null;
+      try {
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(
+            null,
+            "",
+            window.location.pathname + window.location.search
+          );
+        }
+      } catch (e) {
+        /* ignore */
+      }
       return post("clear", { record: {}, pinned: {}, result: null });
     },
     sanitizeResult: sanitizeResult,
