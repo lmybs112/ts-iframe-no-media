@@ -113,6 +113,14 @@
   var bootRestoreCache = null;
   try {
     bootRestoreCache = readBootRestore();
+    if (
+      bootRestoreCache &&
+      root.SelectionProgressStore &&
+      typeof root.SelectionProgressStore.isUsableRestore === "function" &&
+      !root.SelectionProgressStore.isUsableRestore(bootRestoreCache)
+    ) {
+      bootRestoreCache = null;
+    }
   } catch (e) {
     bootRestoreCache = null;
   }
@@ -202,6 +210,22 @@
       });
       if (ok) locked = true;
       return ok;
+    },
+    /**
+     * 父層傳來的還原：不合格就通知父層刪掉，不要叫使用者清 localStorage
+     */
+    adoptRestore: function (restore) {
+      var usable =
+        root.SelectionProgressStore &&
+        typeof root.SelectionProgressStore.isUsableRestore === "function"
+          ? root.SelectionProgressStore.isUsableRestore(restore)
+          : !!(restore && restore.Result);
+      if (restore && !usable) {
+        locked = false;
+        this.clear();
+        return null;
+      }
+      return usable ? restore : null;
     },
     /** 重新開始 */
     clear: function () {

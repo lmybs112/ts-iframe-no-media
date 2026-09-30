@@ -87,6 +87,13 @@
     return n;
   }
 
+  function isUsableRestore(restore) {
+    if (!restore || typeof restore !== "object") return false;
+    if (hasUsableResult(restore.Result)) return true;
+    if (countAnswered(restore.Record) > 0) return true;
+    return false;
+  }
+
   function mergeRecord(previous, incoming) {
     var out = {};
     var prev = previous && typeof previous === "object" ? previous : {};
@@ -288,11 +295,47 @@
       };
     }
 
+    /** 丟掉 completed 卻沒 Result、或全空的舊快照，避免 iframe 藏 intro 後空白 */
+    function sanitizeSnap(snap) {
+      if (!snap || typeof snap !== "object") return null;
+      var usable = hasUsableResult(snap.Result);
+      var answered = countAnswered(snap.Record);
+      if (usable) {
+        if (snap.status !== "completed") {
+          return Object.assign({}, snap, { status: "completed" });
+        }
+        return snap;
+      }
+      if (answered > 0) {
+        if (snap.status === "completed") {
+          return Object.assign({}, snap, {
+            status: "in_progress",
+            Result: null,
+          });
+        }
+        return snap;
+      }
+      return null;
+    }
+
     /** 只依 brand 讀取（站級） */
     function get(brand) {
       if (!brand) return null;
       var snap = readSnap(brand) || migrateLegacy(brand);
-      return toRestore(snap);
+      var cleaned = sanitizeSnap(snap);
+      if (snap && !cleaned) {
+        removeRaw(snapKey(brand));
+        return null;
+      }
+      if (
+        cleaned &&
+        snap &&
+        (cleaned.status !== snap.status ||
+          (!hasUsableResult(cleaned.Result) && hasUsableResult(snap.Result)))
+      ) {
+        writeSnap(brand, cleaned);
+      }
+      return toRestore(cleaned);
     }
 
     function apply(data) {
@@ -309,7 +352,7 @@
         return { ok: true, action: "clear" };
       }
 
-      var prev = readSnap(brand) || migrateLegacy(brand);
+      var prev = sanitizeSnap(readSnap(brand) || migrateLegacy(brand));
 
       if (prev && prev.status === "completed" && action === "answer") {
         return { ok: true, action: "ignored_locked", restore: toRestore(prev) };
@@ -392,6 +435,23 @@
       apply: apply,
       encodeRestorePayload: encodeRestorePayload,
       decodeRestorePayload: decodeRestorePayload,
+      isUsableRestore: isUsableRestore,
+      sweep: function () {
+        var brands = [];
+        try {
+          for (var i = 0; i < storage.length; i++) {
+            var k = storage.key(i);
+            if (k && k.indexOf(SNAP_PREFIX) === 0) {
+              brands.push(k.slice(SNAP_PREFIX.length));
+            }
+          }
+        } catch (e) {
+          /* ignore */
+        }
+        brands.forEach(function (b) {
+          get(b);
+        });
+      },
       clear: function (brand) {
         return apply({
           type: "selection_progress",
@@ -411,5 +471,6 @@
     normalizeAction: normalizeAction,
     encodeRestorePayload: encodeRestorePayload,
     decodeRestorePayload: decodeRestorePayload,
+    isUsableRestore: isUsableRestore,
   };
 });

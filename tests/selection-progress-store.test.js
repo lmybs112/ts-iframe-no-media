@@ -55,6 +55,57 @@ assert.strictEqual(tabA.get(brand).Result.Item[2].ItemName, "褲C");
 // 鍵名為站級
 assert.ok(sharedStorage.getItem("INFS_SEL_V3_GTN"));
 
+// completed 卻沒 Result：讀取時降成 in_progress（有作答）或丟掉（空快照）
+const junkStorage = Store.createMemoryStorage();
+junkStorage.setItem(
+  "INFS_SEL_V3_AURASTRO",
+  JSON.stringify({
+    brand: "AURASTRO",
+    status: "completed",
+    Record: {},
+    Result: null,
+    v: 3,
+  })
+);
+const junkApi = Store.create({ storage: junkStorage });
+assert.strictEqual(junkApi.get("AURASTRO"), null);
+
+junkStorage.setItem(
+  "INFS_SEL_V3_AURASTRO",
+  JSON.stringify({
+    brand: "AURASTRO",
+    status: "completed",
+    Record: { 材質: [{ Name: "棉", Tag: "1" }] },
+    Result: null,
+    v: 3,
+  })
+);
+const downgraded = junkApi.get("AURASTRO");
+assert.strictEqual(downgraded.status, "in_progress");
+assert.strictEqual(downgraded.Result, null);
+
+assert.strictEqual(
+  Store.isUsableRestore({ status: "completed", Record: {}, Result: null }),
+  false
+);
+assert.strictEqual(
+  Store.isUsableRestore({
+    status: "completed",
+    Record: {},
+    Result: three,
+  }),
+  true
+);
+
+const sweepStorage = Store.createMemoryStorage();
+sweepStorage.setItem(
+  "INFS_SEL_V3_EMPTY",
+  JSON.stringify({ brand: "EMPTY", status: "completed", Record: {}, Result: null, v: 3 })
+);
+const sweepApi = Store.create({ storage: sweepStorage });
+sweepApi.sweep();
+assert.strictEqual(sweepStorage.getItem("INFS_SEL_V3_EMPTY"), null);
+
 // clear 後可重來
 tabA.apply({ type: "selection_progress", action: "clear", brand });
 assert.strictEqual(tabB.get(brand), null);

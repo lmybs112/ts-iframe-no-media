@@ -87,6 +87,8 @@ let fromPreviewSeq = 0;
 let persistedResultPayload = null;
 /** 本輪是否已套用續選 UI（避免多題 init→bind 重複） */
 let resumeUiApplied = false;
+/** 還原失敗時把 intro 叫回來，避免 loading 結束後白畫面 */
+let resumeFallbackTimer = null;
 
 function isTagAnswered(routeKey) {
   return !!(
@@ -846,18 +848,58 @@ function hasPersistedResultItems(saved) {
 }
 
 /** 是否應跳過介紹頁、走續選／結果還原 */
+function recordHasRealAnswers(record) {
+  if (!record || typeof record !== "object") return false;
+  return Object.keys(record).some(function (k) {
+    var list = record[k];
+    return (
+      Array.isArray(list) &&
+      list.length > 0 &&
+      list[0] &&
+      list[0].Name &&
+      list[0].Name !== "example"
+    );
+  });
+}
+
 function shouldResumeFromParent() {
   if (!useParentSelectionRestore || !parentSelectionRestore) return false;
-  if (parentSelectionRestore.status === "completed") return true;
   if (hasPersistedResultItems(parentSelectionRestore.Result)) return true;
-  if (tags_chosen && Object.keys(tags_chosen).length > 0) return true;
+  if (hasPersistedResultItems(persistedResultPayload)) return true;
+  if (recordHasRealAnswers(tags_chosen)) return true;
+  if (recordHasRealAnswers(parentSelectionRestore.Record)) return true;
+  return false;
+}
+
+function selectionUiIsVisible() {
+  if ($("#container-recom").is(":visible")) return true;
+  if ($("#loadingbar_recom").is(":visible")) return true;
+  if ($("#loadingbar").is(":visible")) return true;
   if (
-    parentSelectionRestore.Record &&
-    Object.keys(parentSelectionRestore.Record).length > 0
+    $(".update_delete[id^='container-']:visible").not("#container-recom").length >
+    0
   ) {
     return true;
   }
+  if ($("#intro-page").is(":visible")) return true;
   return false;
+}
+
+function showIntroFallback() {
+  $("#loadingbar").hide();
+  $("#intro-page").stop(true, true).fadeIn(300);
+}
+
+function scheduleResumeFallback() {
+  if (resumeFallbackTimer) {
+    clearTimeout(resumeFallbackTimer);
+  }
+  resumeFallbackTimer = setTimeout(function () {
+    resumeFallbackTimer = null;
+    if (!selectionUiIsVisible()) {
+      showIntroFallback();
+    }
+  }, 3500);
 }
 
 function applyParentRestoreRecord() {
@@ -865,6 +907,41 @@ function applyParentRestoreRecord() {
   if (!tags_chosen || Object.keys(tags_chosen).length === 0) {
     tags_chosen = parentSelectionRestore.Record;
   }
+}
+
+function tryResumeSelectionUi() {
+  if (!shouldResumeFromParent()) return false;
+  applyParentRestoreRecord();
+  var hasResult = hasPersistedResultItems(
+    (parentSelectionRestore && parentSelectionRestore.Result) ||
+      persistedResultPayload
+  );
+  var allDone =
+    hasResult ||
+    (all_Route &&
+      all_Route.length > 0 &&
+      all_Route.every(function (route) {
+        return isTagAnswered(String(route).replaceAll(/[\s\.]/g, ""));
+      }));
+  if (allDone) {
+    var hasRes =
+      document.querySelector("#container-recom .update_delete") !== null;
+    if (hasRes) {
+      $("#intro-page").hide();
+      $("#container-recom").show();
+      return true;
+    }
+    if (tryShowPersistedResults()) return true;
+    if (!isFetching) {
+      get_recom_res();
+      return true;
+    }
+    return (
+      $("#loadingbar_recom").is(":visible") ||
+      $("#container-recom").is(":visible")
+    );
+  }
+  return applyResumeQuestionUi();
 }
 
 /** 有保存的結果商品則直接還原畫面那三件，不再重打 API、也不再 random */
@@ -875,8 +952,9 @@ function tryShowPersistedResults() {
   if (!hasPersistedResultItems(saved)) {
     return false;
   }
+  $("#loadingbar").hide();
+  $("#loadingbar_recom").show();
   $("#intro-page").hide();
-  $("#loadingbar_recom").hide();
   persistedResultPayload = saved;
   show_results(saved, { restore: true });
   return true;
@@ -1824,25 +1902,7 @@ const fetchData = async () => {
 
       // 父層續選：全答完 → 結果；未答完 → 停在該題（不模擬 click）
       if (!suppressPresetResume && useParentSelectionRestore && !resumeUiApplied) {
-        const allRoutesCompleted =
-          all_Route &&
-          all_Route.length > 0 &&
-          all_Route.every(function (route) {
-            return isTagAnswered(String(route).replaceAll(/[\s\.]/g, ""));
-          });
-        if (allRoutesCompleted) {
-          resumeUiApplied = true;
-          $("#intro-page").hide();
-          const hasRes =
-            document.querySelector("#container-recom .update_delete") !== null;
-          if (!hasRes && !isFetching) {
-            if (!tryShowPersistedResults()) {
-              get_recom_res();
-            }
-          }
-        } else if (applyResumeQuestionUi()) {
-          resumeUiApplied = true;
-        }
+        resumeUiApplied = tryResumeSelectionUi();
       } else if (
         match &&
         !skipShowResult &&
@@ -2510,7 +2570,21 @@ window.addEventListener("message", async (event) => {
       event.data.selection_restore &&
       typeof event.data.selection_restore === "object"
     ) {
-      parentSelectionRestore = event.data.selection_restore;
+      var adoptedV1 =
+        typeof SelectionProgress !== "undefined" &&
+        SelectionProgress.adoptRestore
+          ? SelectionProgress.adoptRestore(event.data.selection_restore)
+          : event.data.selection_restore;
+      if (!adoptedV1) {
+        parentSelectionRestore = null;
+        useParentSelectionRestore = false;
+        resumeUiApplied = false;
+        persistedResultPayload = null;
+        if (typeof SelectionProgress !== "undefined") {
+          SelectionProgress.unlock();
+        }
+      } else {
+      parentSelectionRestore = adoptedV1;
       useParentSelectionRestore = true;
       resumeUiApplied = false;
       if (parentSelectionRestore.Result) {
@@ -2528,6 +2602,7 @@ window.addEventListener("message", async (event) => {
       } else if (typeof SelectionProgress !== "undefined") {
         SelectionProgress.unlock();
       }
+      }
     } else {
       parentSelectionRestore = null;
       useParentSelectionRestore = false;
@@ -2544,33 +2619,18 @@ window.addEventListener("message", async (event) => {
     await fetchCoupon();
     if (previewSeq !== fromPreviewSeq) return;
 
-    // 父層續選：有 Record／Result／completed 都勿回專屬資訊開頭
+    // 父層續選：有可用 Result／真正作答才續選；失敗則退回 intro，避免白畫面
     applyParentRestoreRecord();
-    if (shouldResumeFromParent()) {
-      $("#intro-page").hide();
+    try {
       if (!resumeUiApplied) {
-        const hasResult = hasPersistedResultItems(
-          (parentSelectionRestore && parentSelectionRestore.Result) ||
-            persistedResultPayload
-        );
-        const allDone =
-          hasResult ||
-          (all_Route &&
-            all_Route.length > 0 &&
-            all_Route.every(function (route) {
-              return isTagAnswered(String(route).replaceAll(/[\s\.]/g, ""));
-            }));
-        if (allDone) {
-          resumeUiApplied = true;
-          if (!tryShowPersistedResults() && !isFetching) {
-            get_recom_res();
-          }
-        } else if (applyResumeQuestionUi()) {
-          resumeUiApplied = true;
-        }
+        resumeUiApplied = tryResumeSelectionUi();
       }
-    } else {
-      $("#intro-page").fadeIn(800);
+      if (!resumeUiApplied) {
+        $("#intro-page").fadeIn(800);
+      }
+      scheduleResumeFallback();
+    } catch (e) {
+      showIntroFallback();
     }
   }
 

@@ -23,14 +23,22 @@
 
   var version = resolveVersion();
   global.__NO_MEDIA_VERSION = version;
+  // 避免舊 iframe.js 被瀏覽器快取後繼續畫白畫面
+  var ASSET_REV = "20260930blank";
+  global.__NO_MEDIA_ASSET_REV = ASSET_REV;
+
+  function withRev(src) {
+    if (!src || /^https?:/i.test(src)) return src;
+    return src + (src.indexOf("?") >= 0 ? "&" : "?") + "r=" + ASSET_REV;
+  }
 
   function writeScript(src) {
-    document.write('<script src="' + src + '"><\/script>');
+    document.write('<script src="' + withRev(src) + '"><\/script>');
   }
 
   function writeStylesheet(href) {
     document.write(
-      '<link rel="stylesheet" type="text/css" href="' + href + '">'
+      '<link rel="stylesheet" type="text/css" href="' + withRev(href) + '">'
     );
   }
 

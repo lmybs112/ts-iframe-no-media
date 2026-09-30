@@ -655,16 +655,19 @@
     <script src="https://code.jquery.com/pep/0.4.1/pep.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
     <script src="https://unpkg.com/typewriter-effect@latest/dist/core.js"></script>
-    <script src="js/shared/version.js"></script>
-    <script src="js/bootstrap.js"></script>
+    <script src="js/shared/version.js?r=20260930blank"></script>
+    <script src="js/bootstrap.js?r=20260930blank"></script>
 
     <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
     <script>
-      document.write(
-        '<script src="' +
-          (window.__NO_MEDIA_EMBEDDED_SRC || "js/v1/embedded.js") +
-          '"><\/script>'
-      );
+      (function () {
+        var src = window.__NO_MEDIA_EMBEDDED_SRC || "js/v1/embedded.js";
+        var rev = window.__NO_MEDIA_ASSET_REV;
+        if (rev && src.indexOf("r=") < 0) {
+          src += (src.indexOf("?") >= 0 ? "&" : "?") + "r=" + rev;
+        }
+        document.write('<script src="' + src + '"><\/script>');
+      })();
     </script>
     <!-- 載入 Google OAuth 登入組件 -->
     <script src="https://inf-g-login.vercel.app/infFITS-oauth.js"></script>
